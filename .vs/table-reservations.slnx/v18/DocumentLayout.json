@@ -3,6 +3,10 @@
   "WorkspaceRootPath": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\",
   "Documents": [
     {
+      "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
       "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\controllers\\reservationscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\controllers\\reservationscontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
@@ -25,10 +29,6 @@
     {
       "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\models\\tableinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
       "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\models\\tableinfo.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
-      "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\services\\googlesheetsservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -70,21 +70,8 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 3,
+          "SelectedChildIndex": 4,
           "Children": [
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "WhatsAppNotificationService.cs",
-              "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Services\\WhatsAppNotificationService.cs",
-              "RelativeDocumentMoniker": "table-reservations\\Services\\WhatsAppNotificationService.cs",
-              "ToolTip": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Services\\WhatsAppNotificationService.cs",
-              "RelativeToolTip": "table-reservations\\Services\\WhatsAppNotificationService.cs",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAI0AAAAJAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-09T11:10:43.835Z",
-              "EditorCaption": ""
-            },
             {
               "$type": "Document",
               "DocumentIndex": 7,
@@ -95,12 +82,11 @@
               "RelativeToolTip": "table-reservations\\Services\\GoogleSheetsService.cs",
               "ViewState": "AgIAAA8AAAAAAAAAAAAWwCEAAAA5AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-04T08:57:03.963Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-04T08:57:03.963Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 4,
+              "DocumentIndex": 5,
               "Title": "Program.cs",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Program.cs",
               "RelativeDocumentMoniker": "table-reservations\\Program.cs",
@@ -108,12 +94,11 @@
               "RelativeToolTip": "table-reservations\\Program.cs",
               "ViewState": "AgIAAAoAAAAAAAAAAAAQwCEAAAAPAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-25T11:42:53.938Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-05-25T11:42:53.938Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 1,
               "Title": "ReservationsController.cs",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Controllers\\ReservationsController.cs",
               "RelativeDocumentMoniker": "table-reservations\\Controllers\\ReservationsController.cs",
@@ -126,7 +111,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 3,
               "Title": "IWhatsAppNotificationService.cs",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Services\\IWhatsAppNotificationService.cs",
               "RelativeDocumentMoniker": "table-reservations\\Services\\IWhatsAppNotificationService.cs",
@@ -134,25 +119,36 @@
               "RelativeToolTip": "table-reservations\\Services\\IWhatsAppNotificationService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAAsAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-09T11:11:07.591Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-09T11:11:07.591Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 6,
+              "DocumentIndex": 0,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.json",
               "RelativeDocumentMoniker": "table-reservations\\appsettings.json",
               "ToolTip": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.json",
               "RelativeToolTip": "table-reservations\\appsettings.json",
-              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAUAAAAOAAAAAAAAAA==",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
               "WhenOpened": "2026-05-25T11:51:44.622Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 3,
+              "DocumentIndex": 2,
+              "Title": "WhatsAppNotificationService.cs",
+              "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Services\\WhatsAppNotificationService.cs",
+              "RelativeDocumentMoniker": "table-reservations\\Services\\WhatsAppNotificationService.cs",
+              "ToolTip": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Services\\WhatsAppNotificationService.cs",
+              "RelativeToolTip": "table-reservations\\Services\\WhatsAppNotificationService.cs",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAI0AAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-06-09T11:10:43.835Z"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 4,
               "Title": "IGoogleSheetsService.cs",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Services\\IGoogleSheetsService.cs",
               "RelativeDocumentMoniker": "table-reservations\\Services\\IGoogleSheetsService.cs",
@@ -160,8 +156,7 @@
               "RelativeToolTip": "table-reservations\\Services\\IGoogleSheetsService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAACKAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-04T08:56:40.665Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-04T08:56:40.665Z"
             },
             {
               "$type": "Document",
@@ -173,8 +168,7 @@
               "RelativeToolTip": "table-reservations\\Models\\ReservationInfo.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAsAAAAAAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-28T08:15:21.687Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-05-28T08:15:21.687Z"
             },
             {
               "$type": "Document",
@@ -186,8 +180,7 @@
               "RelativeToolTip": "table-reservations\\Constants\\TableStatuses.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAYAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-04T09:09:07.067Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-04T09:09:07.067Z"
             },
             {
               "$type": "Document",
@@ -199,8 +192,7 @@
               "RelativeToolTip": "table-reservations\\Constants\\TableType.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAIAAAAZAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-04T07:52:19.413Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-04T07:52:19.413Z"
             },
             {
               "$type": "Document",
@@ -212,8 +204,7 @@
               "RelativeToolTip": "table-reservations\\Constants\\ReservationDuration.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAcAAAAFAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-04T10:38:59.261Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-04T10:38:59.261Z"
             },
             {
               "$type": "Document",
@@ -225,12 +216,11 @@
               "RelativeToolTip": "table-reservations\\Controllers\\TablesController.cs",
               "ViewState": "AgIAAAQAAAAAAAAAAAAAABUAAAANAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-25T11:57:02.737Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-05-25T11:57:02.737Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 5,
+              "DocumentIndex": 6,
               "Title": "TableInfo.cs",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\Models\\TableInfo.cs",
               "RelativeDocumentMoniker": "table-reservations\\Models\\TableInfo.cs",
@@ -238,8 +228,7 @@
               "RelativeToolTip": "table-reservations\\Models\\TableInfo.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAAkAAAA/AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-05-28T07:40:49.996Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-05-28T07:40:49.996Z"
             },
             {
               "$type": "Document",

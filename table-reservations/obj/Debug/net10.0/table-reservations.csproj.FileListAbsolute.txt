@@ -42,3 +42,4 @@ C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\ne
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\net10.0\ref\table-reservations.dll
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\Scalar.AspNetCore.dll
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt
+C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\net10.0\table-reservations.sourcelink.json
