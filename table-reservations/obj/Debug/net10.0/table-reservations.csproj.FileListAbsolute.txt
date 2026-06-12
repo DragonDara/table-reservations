@@ -1,6 +1,5 @@
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\appsettings.Development.json
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\appsettings.json
-C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\table-reservations-497408-78a5068c9f48.json
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\table-reservations.staticwebassets.endpoints.json
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\table-reservations.exe
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\table-reservations.deps.json
@@ -41,5 +40,5 @@ C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\ne
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\net10.0\table-reservations.genruntimeconfig.cache
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\net10.0\ref\table-reservations.dll
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\Scalar.AspNetCore.dll
-C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt
 C:\Users\Darkhan\source\repos\table-reservations\table-reservations\obj\Debug\net10.0\table-reservations.sourcelink.json
+c:\Users\Darkhan\source\repos\table-reservations\table-reservations\bin\Debug\net10.0\table-reservations-497408-6085442ac496.json

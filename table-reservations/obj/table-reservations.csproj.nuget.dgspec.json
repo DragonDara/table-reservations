@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj": {}
+    "c:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj": {}
   },
   "projects": {
-    "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj": {
+    "c:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
+        "projectUniqueName": "c:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
         "projectName": "table-reservations",
-        "projectPath": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
+        "projectPath": "c:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
         "packagesPath": "C:\\Users\\Darkhan\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\obj\\",
+        "outputPath": "c:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\obj\\",
         "projectStyle": "PackageReference",
         "fallbackFolders": [
           "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"

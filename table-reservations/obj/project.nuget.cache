@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "X3uKSFjsV0k=",
+  "dgSpecHash": "P8496aI9V40=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
+  "projectFilePath": "c:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Darkhan\\.nuget\\packages\\google.apis\\1.74.0\\google.apis.1.74.0.nupkg.sha512",
     "C:\\Users\\Darkhan\\.nuget\\packages\\google.apis.auth\\1.74.0\\google.apis.auth.1.74.0.nupkg.sha512",

@@ -1,4 +1,5 @@
-﻿using Google.Apis.Auth.OAuth2;
+﻿using System.Text;
+using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
@@ -194,22 +195,31 @@ namespace table_reservations.Services
             return await appendReq.ExecuteAsync(ct);
         }
 
-        private SheetsService CreateService()
-        {
-            var jsonPath = _config["GoogleSheets:CredentialsJsonPath"]
-                ?? throw new InvalidOperationException("GoogleSheets:CredentialsJsonPath is not configured.");
-
-            GoogleCredential credential;
-            using (var stream = new FileStream(jsonPath, FileMode.Open, FileAccess.Read))
+        private SheetsService CreateService() =>
+            new SheetsService(new BaseClientService.Initializer
             {
-                credential = GoogleCredential.FromStream(stream).CreateScoped(Scopes);
-            }
-
-            return new SheetsService(new BaseClientService.Initializer
-            {
-                HttpClientInitializer = credential,
+                HttpClientInitializer = CreateCredential(),
                 ApplicationName = ApplicationName
             });
+
+        private GoogleCredential CreateCredential()
+        {
+            var credentialsJson = _config["GoogleSheets:CredentialsJson"];
+            if (!string.IsNullOrWhiteSpace(credentialsJson))
+            {
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
+                return GoogleCredential.FromStream(stream).CreateScoped(Scopes);
+            }
+
+            var jsonPath = _config["GoogleSheets:CredentialsJsonPath"];
+            if (!string.IsNullOrWhiteSpace(jsonPath))
+            {
+                using var stream = new FileStream(jsonPath, FileMode.Open, FileAccess.Read);
+                return GoogleCredential.FromStream(stream).CreateScoped(Scopes);
+            }
+
+            throw new InvalidOperationException(
+                "GoogleSheets:CredentialsJson or GoogleSheets:CredentialsJsonPath must be configured.");
         }
 
         private string GetSpreadsheetId() =>
