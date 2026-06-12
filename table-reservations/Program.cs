@@ -36,15 +36,16 @@ namespace table_reservations
 
             var app = builder.Build();
 
+            app.UseCors("AllowWebFlow");
+
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())
             {
                 app.MapOpenApi();
                 app.MapScalarApiReference();
+                app.UseHttpsRedirection();
             }
 
-            app.UseHttpsRedirection();
-            app.UseCors("AllowWebFlow");
             app.UseAuthorization();
             app.MapControllers();
 

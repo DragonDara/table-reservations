@@ -3,16 +3,16 @@
   "WorkspaceRootPath": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
-      "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\table-reservations.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
-    },
-    {
       "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
       "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\appsettings.development.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
       "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|",
+      "RelativeMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|solutionrelative:table-reservations\\table-reservations.csproj||{FA3CD31E-987B-443A-9B81-186104E8DAC1}|"
     },
     {
       "AbsoluteMoniker": "D:0:0:{A0F0EAED-C3C1-323B-384C-A1A0A862EF85}|table-reservations\\table-reservations.csproj|c:\\users\\darkhan\\source\\repos\\table-reservations\\table-reservations\\services\\whatsappnotificationservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
@@ -74,7 +74,7 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 4,
+          "SelectedChildIndex": 2,
           "Children": [
             {
               "$type": "Document",
@@ -98,12 +98,11 @@
               "RelativeToolTip": "table-reservations\\Services\\WhatsAppNotificationService.cs",
               "ViewState": "AgIAAAAAAAAAAAAAAAAAAI0AAAAJAAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2026-06-09T11:10:43.835Z",
-              "EditorCaption": ""
+              "WhenOpened": "2026-06-09T11:10:43.835Z"
             },
             {
               "$type": "Document",
-              "DocumentIndex": 1,
+              "DocumentIndex": 0,
               "Title": "appsettings.Development.json",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.Development.json",
               "RelativeDocumentMoniker": "table-reservations\\appsettings.Development.json",
@@ -116,7 +115,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
+              "DocumentIndex": 1,
               "Title": "appsettings.json",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\appsettings.json",
               "RelativeDocumentMoniker": "table-reservations\\appsettings.json",
@@ -129,7 +128,7 @@
             },
             {
               "$type": "Document",
-              "DocumentIndex": 0,
+              "DocumentIndex": 2,
               "Title": "table-reservations.csproj",
               "DocumentMoniker": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
               "RelativeDocumentMoniker": "table-reservations\\table-reservations.csproj",
