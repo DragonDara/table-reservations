@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("table-reservations")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e6698e1993e2c19bbef99b5e983fe83e88112d63")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+44f4d305a02933a68d9baf93f24a813ec89bd1ae")]
 [assembly: System.Reflection.AssemblyProductAttribute("table-reservations")]
 [assembly: System.Reflection.AssemblyTitleAttribute("table-reservations")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
