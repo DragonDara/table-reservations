@@ -24,9 +24,15 @@ namespace table_reservations.Controllers
                 request.TableId <= 0 ||
                 string.IsNullOrWhiteSpace(request.CustomerName) ||
                 string.IsNullOrWhiteSpace(request.CustomerPhone) ||
-                string.IsNullOrWhiteSpace(request.DateTime))
+                string.IsNullOrWhiteSpace(request.DateTime) ||
+                string.IsNullOrWhiteSpace(request.Section))
             {
                 return BadRequest("Некорректные данные бронирования.");
+            }
+
+            if (!Enum.IsDefined(request.Type))
+            {
+                return BadRequest("Некорректный тип столика. Допустимые значения: Обычный, VIP.");
             }
 
             if (!ReservationDateTime.TryParse(request.DateTime, out var dateTime))

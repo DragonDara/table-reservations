@@ -1,19 +1,19 @@
 {
   "version": 2,
-  "dgSpecHash": "X3uKSFjsV0k=",
+  "dgSpecHash": "QRCLay5HUTk=",
   "success": true,
-  "projectFilePath": "C:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
+  "projectFilePath": "c:\\Users\\Darkhan\\source\\repos\\table-reservations\\table-reservations\\table-reservations.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\Darkhan\\.nuget\\packages\\google.apis\\1.74.0\\google.apis.1.74.0.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\google.apis.auth\\1.74.0\\google.apis.auth.1.74.0.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\google.apis.core\\1.74.0\\google.apis.core.1.74.0.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\google.apis.sheets.v4\\1.74.0.4061\\google.apis.sheets.v4.1.74.0.4061.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\microsoft.aspnetcore.openapi\\10.0.8\\microsoft.aspnetcore.openapi.10.0.8.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\scalar.aspnetcore\\2.14.14\\scalar.aspnetcore.2.14.14.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\system.codedom\\7.0.0\\system.codedom.7.0.0.nupkg.sha512",
-    "C:\\Users\\Darkhan\\.nuget\\packages\\system.management\\7.0.2\\system.management.7.0.2.nupkg.sha512"
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\google.apis\\1.74.0\\google.apis.1.74.0.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\google.apis.auth\\1.74.0\\google.apis.auth.1.74.0.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\google.apis.core\\1.74.0\\google.apis.core.1.74.0.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\google.apis.sheets.v4\\1.74.0.4061\\google.apis.sheets.v4.1.74.0.4061.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\microsoft.aspnetcore.openapi\\10.0.8\\microsoft.aspnetcore.openapi.10.0.8.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\microsoft.openapi\\2.0.0\\microsoft.openapi.2.0.0.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\newtonsoft.json\\13.0.4\\newtonsoft.json.13.0.4.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\scalar.aspnetcore\\2.14.14\\scalar.aspnetcore.2.14.14.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\system.codedom\\7.0.0\\system.codedom.7.0.0.nupkg.sha512",
+    "C:\\Users\\Darkhan\\AppData\\Local\\Temp\\cursor-sandbox-cache\\8339ca8bfabca219d9b5b0bac61124bb\\nuget\\system.management\\7.0.2\\system.management.7.0.2.nupkg.sha512"
   ],
   "logs": []
 }

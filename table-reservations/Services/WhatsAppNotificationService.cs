@@ -92,6 +92,8 @@ namespace table_reservations.Services
 
                 Ваша бронь подтверждена:
                 Стол №{reservation.TableId}
+                Секция: {reservation.Section}
+                Тип столика: {FormatTableType(reservation.Type)}
                 Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
                 Длительность: {reservation.Duration} ч.
 
@@ -107,10 +109,15 @@ namespace table_reservations.Services
                 Клиент: {reservation.CustomerName}
                 Телефон: {reservation.CustomerPhone}
                 Стол №{reservation.TableId}
+                Секция: {reservation.Section}
+                Тип столика: {FormatTableType(reservation.Type)}
                 Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
                 Длительность: {reservation.Duration} ч.
                 """;
         }
+
+        private static string FormatTableType(TableType type) =>
+            type == TableType.VIP ? "VIP" : "Обычный";
 
         /// <summary>
         /// "8 (700) 123-45-67" → "77001234567@c.us"
