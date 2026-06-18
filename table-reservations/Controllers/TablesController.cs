@@ -26,9 +26,9 @@ namespace table_reservations.Controllers
                 return BadRequest("Укажите date и time");
             }
 
-            if (duration < 1 || duration > 3)
+            if (duration < 1 || duration > 5)
             {
-                return BadRequest("duration должна быть от 1 до 3");
+                return BadRequest("duration должна быть от 1 до 5");
             }
 
             var tables = await _sheets.GetTablesAsync(date, time, duration, ct);

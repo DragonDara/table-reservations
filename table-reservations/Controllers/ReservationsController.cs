@@ -45,9 +45,9 @@ namespace table_reservations.Controllers
                 return BadRequest("Некорректные данные бронирования.");
             }
 
-            if (request.Duration < 1 || request.Duration > 3)
+            if (request.Duration < 1 || request.Duration > 5)
             {
-                return BadRequest("duration должна быть от 1 до 3.");
+                return BadRequest("duration должна быть от 1 до 5.");
             }
 
             if (await _sheets.IsReservationTakenAsync(
