@@ -27,7 +27,7 @@ namespace table_reservations
             {
                 options.AddPolicy("AllowWebFlow", policy =>
                 {
-                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe")
+                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe", "https://theveil.bron.cafe")
                            .AllowAnyHeader()
                            .AllowAnyMethod();
                 });
