@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>bron-web</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montagu+Slab:opsz,wght@16..144,100..700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap"
+    rel="stylesheet"
+    />
+  </head>
+
+
+  <body> 
+
+    <svg style="display:none">
+  <symbol id="chair-icon" viewBox="0 0 33 26">
+    <path d="M28.3379 20.1035C29.2941 20.0029 30.1112 18.9569 30.6096 17.1955C31.1079 15.4342 31.2467 13.1017 30.9953 10.7113C30.7439 8.32091 30.123 6.06835 29.2692 4.44918C28.4153 2.83 27.3984 1.97685 26.4423 2.0774L23.1648 2.42206C22.3825 2.50432 21.7321 3.53281 21.3566 5.28126C20.9812 7.0297 20.9115 9.35489 21.1629 11.7453C21.4143 14.1357 21.9661 16.3955 22.6971 18.0276C23.428 19.6597 24.2781 20.5304 25.0604 20.4481L28.3379 20.1035Z" fill="currentColor"/>
+    <path d="M22.3109 2.18052L24.2755 20.8621C24.3516 21.5861 23.8264 22.2348 23.1023 22.311L4.42075 24.2755C3.69672 24.3516 3.04804 23.8264 2.9719 23.1024L1.00736 4.4208C0.931216 3.69676 1.45644 3.04809 2.18048 2.97195L20.8621 1.0074C21.5861 0.931258 22.2348 1.45648 22.3109 2.18052Z" stroke="currentColor" stroke-width="2" fill="none"/>
+  </symbol>
+</svg>
+
+
+    <header class="site-header">
+      <div class="logo">BRON </div>
+      <nav class="nav">
+        <a href="#" class="nav-link active">Главная</a>
+        <a href="#booking" class="nav-link">Забронировать</a>
+        <a href="#foter" class="nav-link">Контакты</a>
+        <button class="navtoggle" id=""></button>
+      </nav>
+
+      <button class="nav-toggle" id="navtoggle" aria-label="Меню">☰</button>
+
+    </header>
+
+  <section class="hero">
+    <div class="hero-content">
+      <p class="rating">
+        <span id="star">★ 4.9 </span>  · 265 отзывов · бар-ресторан
+      </p>
+
+      <h1 class="hero-title">
+        Забронируйте столик <br/> в <span class="accent">The Tochka</span>
+      </h1>
+
+      <p class="hero-text">
+        Легкое и удобное бронирование столиков на комфортное для вас время.
+        Быстро и наглядно.
+
+      </p>
+
+
+      <div class="cta-group">
+        <button class="btn btn-primary" id="bookBtn">Забронировать</button>
+        <button class="btn btn-secondary" id="bookBtn2">Как это работает</button>
+
+      </div>
+      <ul class="features"> 
+        <li><span class="dot"></span>Бронь за 30 секунд</li>
+        <li><span class="dot"></span>Без предоплаты</li>
+      </ul>
+    </div>
+
+        <div class="hero-gallery" style="background-image: url('/src/assets/right.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
+  </section>
+  </section>
+
+  <section class="how-it-works">
+  <h2 class="section-title">Как забронировать столик?</h2>
+
+  <div class="steps">
+    <div class="step">
+      <div class="step-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v5l3 3" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <h3 class="step-title">Выберите время</h3>
+      <p class="step-text">Свободные слоты на сегодня и вперёд</p>
+    </div>
+
+    <div class="step">
+      <div class="step-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+          <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" stroke-linejoin="round" />
+          <path d="M9 4v14M15 6v14" />
+        </svg>
+      </div>
+      <h3 class="step-title">Выберите стол на карте</h3>
+      <p class="step-text">Нажмите на свободный стол на интерактивной карте ресторана</p>
+    </div>
+
+    <div class="step">
+      <div class="step-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="m5 13 4 4L19 7" stroke-linecap="round" stroke-linejoin="round" />
+        </svg>
+      </div>
+      <h3 class="step-title">Получите подтверждение</h3>
+      <p class="step-text">Ожидаем вас в назначенное время</p>
+    </div>
+  </div>
+</section>
+    
+
+<section class="booking" id="booking">
+  <h2 class="section-title booking-title">Забронируйте столик</h2>
+
+  <form class="booking-form" id="bookingForm">
+    <div class="field">
+      <label for="name">Имя</label>
+      <input type="text" id="name" name="name" placeholder="Мансур..." />
+    </div>
+
+    <div class="field">
+      <label for="phone">Номер телефона</label>
+      <input type="tel" id="phone" name="phone" placeholder="+7 700 (000) 00 00" />
+      <span class="field-hint">На этот номер придёт подтверждение брони</span>
+    </div>
+
+    <div class="field">
+  <label for="datetime">Дата и время</label>
+  <input type="datetime-local" id="datetime" name="datetime" />
+</div>
+
+    <div class="field">
+      <label>Столик</label>
+      <button type="button" class="table-picker" id="openTablePicker">
+        <span class="table-picker-placeholder">Выбрать столик на карте</span>
+        <span class="table-picker-selected" id="selectedTableBadge" hidden></span>
+      </button>
+    </div>
+
+    <label class="checkbox-row">
+      <input type="checkbox" name="remind" />
+      Напомнить мне за час до брони
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
+  </form>
+</section>
+
+<div class="modal-overlay" id="tableModalOverlay" hidden>
+  <div class="table-modal">
+    <div class="floor-plan-viewport" id="floorPlanViewport">
+          <div class="table-popup" id="tablePopup" hidden>
+      <div class="table-popup-icon" id="tablePopupIcon"></div>
+      <h4 class="table-popup-title" id="tablePopupTitle"></h4>
+    <p class="table-popup-text" id="tablePopupText"></p>
+    <div class="table-popup-actions" id="tablePopupActions"></div>
+</div>
+      <div class="zoom-controls">
+  <button type="button" class="zoom-btn" id="zoomInBtn">+</button>
+  <button type="button" class="zoom-btn" id="zoomOutBtn">−</button>
+</div>
+
+<div class="floor-tabs">
+  <button type="button" class="floor-tab active" data-floor="hall">Общий зал</button>
+  <button type="button" class="floor-tab" data-floor="vip1">VIP 1</button>
+  <button type="button" class="floor-tab" data-floor="vip2">VIP 2</button>
+</div>
+
+<div class="floor-plan-canvas" id="floorPlanCanvas">
+
+  <!-- СЦЕНА 1: общий зал -->
+  <div class="floor-plan-scene active" data-scene="hall">
+    <!-- стены -->
+    <div class="hall-wall"></div>
+    <div class="tv-panel tv-top">tv</div>
+    <div class="tv-panel tv-bottom">tv</div>
+    <div class="tv-panel tv-left">tv</div>
+
+    <!-- Столик 5 -->
+    <button type="button" class="table-marker hall-table" data-id="5" data-seats="4" data-status="free" style="left:243px; top:125px; width:64px; height:60px;">5</button>
+    <svg class="chair-icon" style="left:246px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:282px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:246px; top:191px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:282px; top:191px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+
+    <!-- Столик 6 -->
+    <button type="button" class="table-marker hall-table" data-id="6" data-seats="4" data-status="free" style="left:426px; top:125px; width:64px; height:60px;">6</button>
+    <svg class="chair-icon" style="left:429px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:465px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:429px; top:191px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:465px; top:191px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+
+    <!-- Столик 7 -->
+    <button type="button" class="table-marker hall-table" data-id="7" data-seats="4" data-status="free" style="left:608px; top:125px; width:64px; height:60px;">7</button>
+    <svg class="chair-icon" style="left:611px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:647px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:611px; top:191px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:647px; top:191px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+
+    <!-- Столик 4 -->
+    <button type="button" class="table-marker hall-table" data-id="4" data-seats="4" data-status="free" style="left:243px; top:316px; width:64px; height:60px;">4</button>
+    <svg class="chair-icon" style="left:246px; top:293px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:282px; top:293px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:246px; top:382px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:282px; top:382px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+
+    <!-- Столик 8 -->
+    <button type="button" class="table-marker hall-table" data-id="8" data-seats="4" data-status="free" style="left:608px; top:317px; width:64px; height:60px;">8</button>
+    <svg class="chair-icon" style="left:611px; top:294px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:647px; top:294px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:611px; top:383px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:647px; top:383px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+
+    <!-- Столик 3 -->
+    <button type="button" class="table-marker hall-table" data-id="3" data-seats="2" data-status="free" style="left:243px; top:587px; width:64px; height:60px;">3</button>
+    
+    <svg class="chair-icon" style="left:262px; top:555px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    
+    <svg class="chair-icon" style="left:262px; top:662px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+
+    <!-- Столик 2 -->
+    <button type="button" class="table-marker hall-table" data-id="2" data-seats="4" data-status="free" style="left:442px; top:589px; width:64px; height:60px;">2</button>
+    <svg class="chair-icon" style="left:445px; top:566px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:481px; top:566px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:445px; top:655px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:481px; top:655px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+
+    <!-- Столик 1 -->
+    <button type="button" class="table-marker hall-table" data-id="1" data-seats="4" data-status="occupied" data-next-booking-hours="1.5" style="left:599px; top:589px; width:64px; height:60px;">1</button>
+    <svg class="chair-icon" style="left:602px; top:566px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:638px; top:566px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:602px; top:655px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:638px; top:655px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+  </div>
+
+  <!-- СЦЕНА 2: VIP 1 -->
+  <div class="floor-plan-scene" data-scene="vip1">
+    <div class="vip-room vip1-room"></div>
+    <div class="tv-panel vip1-tv">tv</div>
+
+    <button type="button" class="table-marker vip-table" data-id="VIP1" data-seats="8" data-status="free" style="left:100px; top:150px; width:140px; height:140px; border-radius:20px;">VIP 1</button>
+    <svg class="chair-icon" style="left:118px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:200px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:160px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+
+    <svg class="chair-icon" style="left:118px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:200px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:160px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+   
+    <svg class="chair-icon" style="left:70px; top:209px; transform:rotate(180deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:248px; top:209px; transform:rotate(deg);"><use href="#chair-icon"/></svg>
+    
+  </div>
+
+  <!-- СЦЕНА 3: VIP 2 -->
+  <div class="floor-plan-scene" data-scene="vip2">
+    <div class="vip-room vip2-room"></div>
+    <div class="tv-panel vip2-tv">tv</div>
+    <svg class="chair-icon" style="left:118px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:200px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:160px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+
+    <svg class="chair-icon" style="left:118px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:200px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:160px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+   
+    <svg class="chair-icon" style="left:70px; top:209px; transform:rotate(180deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:248px; top:209px; transform:rotate(deg);"><use href="#chair-icon"/></svg>
+
+    <button type="button" class="table-marker vip-table" data-id="VIP2" data-seats="9" data-status="free" style="left:180px; top:140px; width:140px; height:160px; border-radius:20px;">VIP 2</button>
+   
+  </div>
+
+</div>
+    </div>
+
+    <aside class="table-sidebar">
+      <div class="sidebar-header">
+        <h3>Выберите столик</h3>
+        <button type="button" class="modal-close" id="closeTableModal" aria-label="Закрыть">✕</button>
+      </div>
+
+      <div class="selected-summary" id="selectedSummary" hidden>
+  <div class="selected-tables-list" id="selectedTablesList"></div>
+  <div class="selected-total-row">
+    <span class="selected-total" id="selectedTotal"></span>
+    <button type="button" class="clear-selection" id="clearSelectionBtn">Очистить всё</button>
+  </div>
+</div>
+
+      <div class="legend">
+        <span class="legend-item"><span class="legend-dot legend-free"></span> Свободно</span>
+        <span class="legend-item"><span class="legend-dot legend-selected"></span> Выбрано</span>
+        <span class="legend-item"><span class="legend-dot legend-occupied"></span> Занято</span>
+        <span class="legend-item"><span class="legend-dot legend-vip"></span> VIP</span>
+      </div>
+
+      <div class="sidebar-footer">
+        <button type="button" class="btn btn-primary btn-block" id="confirmTableBtn" disabled>Подтвердить</button>
+      </div>
+    </aside>
+  </div>
+</div>
+    
+
+<footer class="site-footer">
+  <div class="footer-top">
+    <div class="footer-brand">
+      <div class="logo">BRON</div>
+      <p class="footer-tagline">Бронирование столиков за 30 секунд</p>
+    </div>
+
+    <div class="footer-col">
+      <h4 class="footer-heading">Навигация</h4>
+      <a href="#" class="footer-link">Главная</a>
+      <a href="#booking" class="footer-link">Забронировать</a>
+      <a href="#foter" class="footer-link">Контакты</a>
+    </div>
+
+    <div class="footer-col" id="foter">
+      <h4 class="footer-heading">Связаться</h4>
+      <a href="tel:+77000000000" class="footer-link">+7 700 000 00 00</a>
+      <a href="mailto:info@bron.kz" class="footer-link">info@bron.kz</a>
+    </div>
+
+    <div class="footer-col">
+      <h4 class="footer-heading">Соцсети</h4>
+      <div class="footer-socials">
+        <a href="#" class="social-icon" aria-label="Instagram">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <rect x="3" y="3" width="18" height="18" rx="5" />
+            <circle cx="12" cy="12" r="4" />
+            <circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none" />
+          </svg>
+        </a>
+        <a href="#" class="social-icon" aria-label="WhatsApp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M12 4a8 8 0 0 0-6.9 12l-1.1 4 4.1-1.1A8 8 0 1 0 12 4Z" />
+            <path d="M8.7 8.7c.2 2 2.6 4.4 4.6 4.6.6.1 1.1-.5 1.4-1" stroke-linecap="round" />
+          </svg>
+        </a>
+        <a href="#" class="social-icon" aria-label="Telegram">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <path d="M21 4 3 11.5l6 2M21 4l-3 16-6-6.5M21 4 9 13.5" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-bottom">
+    © 2026 BRON. Все права защищены.
+  </div>
+</footer>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
