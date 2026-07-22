@@ -8,58 +8,59 @@
     ".NETCoreApp,Version=v10.0": {
       "table-reservations/1.0.0": {
         "dependencies": {
-          "Google.Apis.Sheets.v4": "1.74.0.4061",
+          "Google.Apis.Sheets.v4": "1.75.0.4178",
           "Microsoft.AspNetCore.OpenApi": "10.0.8",
+          "Microsoft.AspNetCore.SpaProxy": "10.0.10",
           "Scalar.AspNetCore": "2.14.14"
         },
         "runtime": {
           "table-reservations.dll": {}
         }
       },
-      "Google.Apis/1.74.0": {
+      "Google.Apis/1.75.0": {
         "dependencies": {
-          "Google.Apis.Core": "1.74.0"
+          "Google.Apis.Core": "1.75.0"
         },
         "runtime": {
           "lib/net6.0/Google.Apis.dll": {
-            "assemblyVersion": "1.74.0.0",
-            "fileVersion": "1.74.0.0"
+            "assemblyVersion": "1.75.0.0",
+            "fileVersion": "1.75.0.0"
           }
         }
       },
-      "Google.Apis.Auth/1.74.0": {
+      "Google.Apis.Auth/1.75.0": {
         "dependencies": {
-          "Google.Apis": "1.74.0",
-          "Google.Apis.Core": "1.74.0",
+          "Google.Apis": "1.75.0",
+          "Google.Apis.Core": "1.75.0",
           "System.Management": "7.0.2"
         },
         "runtime": {
           "lib/net6.0/Google.Apis.Auth.dll": {
-            "assemblyVersion": "1.74.0.0",
-            "fileVersion": "1.74.0.0"
+            "assemblyVersion": "1.75.0.0",
+            "fileVersion": "1.75.0.0"
           }
         }
       },
-      "Google.Apis.Core/1.74.0": {
+      "Google.Apis.Core/1.75.0": {
         "dependencies": {
           "Newtonsoft.Json": "13.0.4"
         },
         "runtime": {
           "lib/net6.0/Google.Apis.Core.dll": {
-            "assemblyVersion": "1.74.0.0",
-            "fileVersion": "1.74.0.0"
+            "assemblyVersion": "1.75.0.0",
+            "fileVersion": "1.75.0.0"
           }
         }
       },
-      "Google.Apis.Sheets.v4/1.74.0.4061": {
+      "Google.Apis.Sheets.v4/1.75.0.4178": {
         "dependencies": {
-          "Google.Apis": "1.74.0",
-          "Google.Apis.Auth": "1.74.0"
+          "Google.Apis": "1.75.0",
+          "Google.Apis.Auth": "1.75.0"
         },
         "runtime": {
           "lib/net6.0/Google.Apis.Sheets.v4.dll": {
-            "assemblyVersion": "1.74.0.4061",
-            "fileVersion": "1.74.0.4061"
+            "assemblyVersion": "1.75.0.4178",
+            "fileVersion": "1.75.0.4178"
           }
         }
       },
@@ -71,6 +72,14 @@
           "lib/net10.0/Microsoft.AspNetCore.OpenApi.dll": {
             "assemblyVersion": "10.0.8.0",
             "fileVersion": "10.0.826.23019"
+          }
+        }
+      },
+      "Microsoft.AspNetCore.SpaProxy/10.0.10": {
+        "runtime": {
+          "lib/net10.0/Microsoft.AspNetCore.SpaProxy.dll": {
+            "assemblyVersion": "10.0.10.0",
+            "fileVersion": "10.0.1026.32716"
           }
         }
       },
@@ -133,33 +142,33 @@
       "serviceable": false,
       "sha512": ""
     },
-    "Google.Apis/1.74.0": {
+    "Google.Apis/1.75.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-Z6hSkmRD6V8/raSBqn/EsPpNop6suaLaGE9DbSY3yRE5G47l4zYqrJgapcLARk2Z3TsQUDmWz+w/tob3wuVt3g==",
-      "path": "google.apis/1.74.0",
-      "hashPath": "google.apis.1.74.0.nupkg.sha512"
+      "sha512": "sha512-ZqODi2IvyTBezeGztemXv6U/+VinyqxxPiyoW2CZbzIrUp+a35Rt5tzUjXHPXK9nA1YQi/w8ABpYQpBm31ditw==",
+      "path": "google.apis/1.75.0",
+      "hashPath": "google.apis.1.75.0.nupkg.sha512"
     },
-    "Google.Apis.Auth/1.74.0": {
+    "Google.Apis.Auth/1.75.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-43H4foh3zfWgboK8QnJjIfPQuBiS794TxqQLDfeE3erQSluKmEN0qeDuwxLTpSr9Mtwj76S4LWxPneuSbC6fNg==",
-      "path": "google.apis.auth/1.74.0",
-      "hashPath": "google.apis.auth.1.74.0.nupkg.sha512"
+      "sha512": "sha512-hzuGwUBIQYdFkChXm62E5Suxe+q5PHt2uE5EunGBco2j01uQJGlUgzNujZvGHMlAIEHaytzhdn3v3v52ZPgv2Q==",
+      "path": "google.apis.auth/1.75.0",
+      "hashPath": "google.apis.auth.1.75.0.nupkg.sha512"
     },
-    "Google.Apis.Core/1.74.0": {
+    "Google.Apis.Core/1.75.0": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-gWOIiks6yo2TRliIyy10V18BJOO2BfUSPJFiTW6Tfap4tm3hFj7nvYU3XIfwzAxwoIy6nsBoqVDt9iBDSXrvYQ==",
-      "path": "google.apis.core/1.74.0",
-      "hashPath": "google.apis.core.1.74.0.nupkg.sha512"
+      "sha512": "sha512-7AuI44XP4LzMFiOjdk4GCtCxJTIWZcjrXLeGjLYYSpTHHbiPkvm76XNym7zPOnD90sIg+zdTulg+I6D5W5spTQ==",
+      "path": "google.apis.core/1.75.0",
+      "hashPath": "google.apis.core.1.75.0.nupkg.sha512"
     },
-    "Google.Apis.Sheets.v4/1.74.0.4061": {
+    "Google.Apis.Sheets.v4/1.75.0.4178": {
       "type": "package",
       "serviceable": true,
-      "sha512": "sha512-da3bBvCtel/a1YB6XpTXrGnbxky5qcebycCZ7RcmO2m5uBNNxv3Bw3nRmOidZFRktfkm46Nx42BMpPqgQ5DaMQ==",
-      "path": "google.apis.sheets.v4/1.74.0.4061",
-      "hashPath": "google.apis.sheets.v4.1.74.0.4061.nupkg.sha512"
+      "sha512": "sha512-HR+C9tXM5a2hnAkZQr0Xef9UuxztJ8FkhWR7WzuWnAGN2glOaZkjF0wBtBVJpQ2iLdawKP+UMlwKr1AYoEs5SQ==",
+      "path": "google.apis.sheets.v4/1.75.0.4178",
+      "hashPath": "google.apis.sheets.v4.1.75.0.4178.nupkg.sha512"
     },
     "Microsoft.AspNetCore.OpenApi/10.0.8": {
       "type": "package",
@@ -167,6 +176,13 @@
       "sha512": "sha512-cw24xHE2QaWwyEG9GQwFbjboyabub6Vd80DIItUGENzcQOa/BEnTrXsg2GADqWTmY/3ycqk9ToLGjgvF/VRlGA==",
       "path": "microsoft.aspnetcore.openapi/10.0.8",
       "hashPath": "microsoft.aspnetcore.openapi.10.0.8.nupkg.sha512"
+    },
+    "Microsoft.AspNetCore.SpaProxy/10.0.10": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-DF37xk7zgPbUBcsQ27+df+Iqmy4wQRz0THf3nsDBI8kbYwvkmgv2lvmxGdMCwTS9N89UtSbXMCkl0rRgHHsnHw==",
+      "path": "microsoft.aspnetcore.spaproxy/10.0.10",
+      "hashPath": "microsoft.aspnetcore.spaproxy.10.0.10.nupkg.sha512"
     },
     "Microsoft.OpenApi/2.0.0": {
       "type": "package",

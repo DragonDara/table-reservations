@@ -84,3 +84,9 @@ D:\tablereservatio\table-reservations\table-reservations\obj\Debug\net10.0\refin
 D:\tablereservatio\table-reservations\table-reservations\obj\Debug\net10.0\table-reservations.pdb
 D:\tablereservatio\table-reservations\table-reservations\obj\Debug\net10.0\table-reservations.genruntimeconfig.cache
 D:\tablereservatio\table-reservations\table-reservations\obj\Debug\net10.0\ref\table-reservations.dll
+D:\tablereservatio\table-reservations\table-reservations\obj\Debug\net10.0\staticwebassets.upToDateCheck.txt
+D:\tablereservatio\table-reservations\table-reservations\bin\Debug\net10.0\appsettings.Development.json
+D:\tablereservatio\table-reservations\table-reservations\bin\Debug\net10.0\table-reservations-497408-6085442ac496.json
+D:\tablereservatio\table-reservations\table-reservations\bin\Debug\net10.0\spa.proxy.json
+D:\tablereservatio\table-reservations\table-reservations\bin\Debug\net10.0\Microsoft.AspNetCore.SpaProxy.dll
+D:\tablereservatio\table-reservations\table-reservations\obj\Debug\net10.0\spa.proxy.json
