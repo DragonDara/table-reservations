@@ -399,6 +399,21 @@ body {
   gap: 24px;
 }
 
+.booking-status {
+  min-height: 1.2em;
+  margin-top: -8px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.booking-status.success {
+  color: var(--accent);
+}
+
+.booking-status.error {
+  color: #ff8f8f;
+}
+
 .field {
   display: flex;
   flex-direction: column;

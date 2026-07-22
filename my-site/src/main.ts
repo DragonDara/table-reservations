@@ -1,4 +1,8 @@
-import './style.css'
+import './style.css';
+import {
+  createBooking,
+  type BookingPayload,
+} from './api';
 
 const bookBtn = document.getElementById('bookBtn') as HTMLButtonElement | null;
 const bookBtn2 = document.getElementById('bookBtn2') as HTMLButtonElement | null;
@@ -364,11 +368,73 @@ confirmTableBtn?.addEventListener('click', () => {
 });
 
 const bookingForm = document.getElementById('bookingForm') as HTMLFormElement | null;
+const submitButton = bookingForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? null;
+const bookingStatus = document.getElementById('bookingStatus') as HTMLParagraphElement | null;
 
-bookingForm?.addEventListener('submit', (e) => {
+function setFormBusy(isBusy: boolean) {
+  if (!submitButton) return;
+
+  submitButton.disabled = isBusy;
+  submitButton.textContent = isBusy ? 'Отправляем…' : 'Забронировать';
+}
+
+function setBookingStatus(message: string, type: 'info' | 'success' | 'error' = 'info') {
+  if (!bookingStatus) return;
+
+  bookingStatus.textContent = message;
+  bookingStatus.className = `booking-status ${type}`;
+}
+
+bookingForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
-  console.log('Отправка формы бронирования (пока без бэкенда)');
-  // сюда позже подключим fetch() к бэкенду
+
+  if (!bookingForm) return;
+
+  const formData = new FormData(bookingForm);
+  const selectedIds = Array.from(selectedTables).map((marker) => marker.dataset.id ?? '');
+  const payload: BookingPayload = {
+    customerName: String(formData.get('name') ?? '').trim(),
+    phone: String(formData.get('phone') ?? '').trim(),
+    scheduledAt: String(formData.get('datetime') ?? '').trim(),
+    tableIds: selectedIds.filter(Boolean),
+    remindBeforeHour: formData.get('remind') === 'on' ? 1 : 0,
+  };
+
+  if (!payload.customerName || !payload.phone || !payload.scheduledAt || payload.tableIds.length === 0) {
+    setBookingStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
+    return;
+  }
+
+  setFormBusy(true);
+  setBookingStatus('Отправляем бронь…', 'info');
+
+  try {
+    const response = await createBooking(payload);
+    const successMessage = response.message || response.bookingId
+      ? `Бронирование отправлено${response.bookingId ? ` (ID: ${response.bookingId})` : ''}.`
+      : 'Бронирование успешно отправлено.';
+
+    setBookingStatus(successMessage, 'success');
+    bookingForm.reset();
+    selectedTables.forEach((marker) => marker.classList.remove('selected'));
+    selectedTables.clear();
+    updateSummary();
+
+    if (selectedTableBadge && tablePlaceholder) {
+      selectedTableBadge.hidden = true;
+      selectedTableBadge.textContent = '';
+      tablePlaceholder.hidden = false;
+    }
+  } catch (error) {
+    console.error('Booking submission failed', error);
+    const message = error instanceof Error && error.message
+      ? error.message
+      : 'Не удалось отправить бронь. Проверьте подключение к API или попробуйте позже.';
+
+    setBookingStatus(message, 'error');
+  } finally {
+    setFormBusy(false);
+  }
 });
 
 const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
