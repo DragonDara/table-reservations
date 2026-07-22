@@ -3,3 +3,13 @@ appsettings.Development.json
 appsettings.Production.json
 table-reservations-*.json
 webflow 
+
+# Ignore local build artifacts
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
