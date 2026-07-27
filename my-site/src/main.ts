@@ -385,6 +385,16 @@ function setReservationStatus(message: string, type: 'info' | 'success' | 'error
   reservationStatus.className = `reservation-status ${type}`;
 }
 
+function getActiveFloorSection(): string {
+  const activeTab = document.querySelector<HTMLButtonElement>('.floor-tab.active');
+  const floor = activeTab?.dataset.floor;
+
+  if (floor === 'vip1') return 'VIP 1';
+  if (floor === 'vip2') return 'VIP 2';
+  return 'Общий зал';
+}
+
+
 reservationForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -392,15 +402,15 @@ reservationForm?.addEventListener('submit', async (e) => {
 
   const formData = new FormData(reservationForm);
   const selectedIds = Array.from(selectedTables).map((marker) => marker.dataset.id ?? '');
-  const payload: ReservationPayload = {
-    customerName: String(formData.get('name') ?? '').trim(),
-    phone: String(formData.get('phone') ?? '').trim(),
-    scheduledAt: String(formData.get('datetime') ?? '').trim(),
-    tableIds: selectedIds.filter(Boolean),
-    remindBeforeHour: formData.get('remind') === 'on' ? 1 : 0,
-  };
-
-  if (!payload.customerName || !payload.phone || !payload.scheduledAt || payload.tableIds.length === 0) {
+const payload: ReservationPayload = {
+  customerName: String(formData.get('name') ?? '').trim(),
+  customerPhone: String(formData.get('phone') ?? '').trim(),
+  scheduledAt: String(formData.get('datetime') ?? '').trim(),
+  tableIds: selectedIds.filter(Boolean),
+  remindBeforeHour: formData.get('remind') === 'on' ? 1 : 0,
+  section: getActiveFloorSection(),
+};
+  if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || payload.tableIds.length === 0) {
     setReservationStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
     return;
   }

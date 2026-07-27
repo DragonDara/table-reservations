@@ -12,7 +12,7 @@ export interface ReservationPayload {
   customerName: string;
   customerPhone: string;
   scheduledAt: string;
-  tableIds: number[];
+  tableIds: string[];
   section: string;
   remindBeforeHour: number;
 }
@@ -81,21 +81,21 @@ export async function healthCheck(): Promise<{ status: string }> {
 }
 
 export async function getTables(): Promise<TableAvailability[]> {
-  return request<TableAvailability[]>('/tables');
+  return request<TableAvailability[]>('/Tables');
 }
 
 export async function getTableAvailability(tableId: string, scheduledAt?: string): Promise<TableAvailability> {
   const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
-  return request<TableAvailability>(`/tables/${encodeURIComponent(tableId)}/availability${query}`);
+  return request<TableAvailability>(`/Tables/${encodeURIComponent(tableId)}/availability${query}`);
 }
 
 export async function createReservation(payload: ReservationPayload): Promise<ReservationResponse> {
-  return request<ReservationResponse>('/reservations', {
+  return request<ReservationResponse>('/Reservations', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
 export async function getReservationStatus(reservationId: string): Promise<ReservationResponse> {
-  return request<ReservationResponse>(`/reservations/${encodeURIComponent(reservationId)}`);
+  return request<ReservationResponse>(`/Reservations/${encodeURIComponent(reservationId)}`);
 }
