@@ -7,6 +7,7 @@ namespace table_reservations.Services
         Task<(bool CustomerSent, bool AdminSent)> SendReservationNotificationsAsync(
             ReservationInfo reservation,
             DateTime dateTime,
+            string tableTypeLabel,
             CancellationToken ct = default);
     }
 }

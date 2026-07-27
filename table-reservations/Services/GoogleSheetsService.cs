@@ -12,8 +12,8 @@ namespace table_reservations.Services
     {
         private const string ApplicationName = "TableReservationsAPI";
         private const string TablesRange = "Столики!A2:C100";
-        private const string ReservationsRange = "Брони!A2:G10000";
-        private const string ReservationsAppendRange = "Брони!A:G";
+        private const string ReservationsRange = "Брони!A2:E10000";
+        private const string ReservationsAppendRange = "Брони!A:E";
 
         private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
 
@@ -24,13 +24,11 @@ namespace table_reservations.Services
             _config = config;
         }
 
-        public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(string date, string time, int duration, CancellationToken ct = default)
+        public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(CancellationToken ct = default)
         {
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
-
-            var slotStart = ParseSlotStart(date, time);
-            var slotEnd = slotStart.AddHours(duration);
+            var now = DateTime.Now;
 
             var tablesResponse = await service.Spreadsheets.Values
                 .Get(spreadsheetId, TablesRange)
@@ -71,7 +69,7 @@ namespace table_reservations.Services
                 {
                     Id = id,
                     Type = ParseTableType(typeText),
-                    Capacity = capacity,
+                    Seats = capacity,
                     Status = TableStatuses.Free
                 });
             }
@@ -84,49 +82,76 @@ namespace table_reservations.Services
 
             foreach (var table in tables)
             {
-                var isOccupied = reservationRows.Any(row =>
+                DateTime? nextStart = null;
+                var isOccupied = false;
+
+                foreach (var row in reservationRows)
                 {
                     string GetCell(int idx) =>
                         row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
                     // B = TableId, E = Start, F = Status, G = Duration
-                    if (!int.TryParse(GetCell(1), out var reservationTableId) || reservationTableId != table.Id)
+                    if (!TryParseTableIds(GetCell(1), out var reservationTableIds) || !reservationTableIds.Contains(table.Id))
                     {
-                        return false;
-                    }
-
-                    var reservationStatus = GetCell(5);
-                    if (reservationStatus.Equals("Отменено", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return false;
+                        continue;
                     }
 
                     if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
                     {
-                        return false;
+                        continue;
                     }
 
-                    var reservationHours = 1;
-                    if (int.TryParse(GetCell(6), out var parsedHours) && parsedHours > 0)
-                    {
-                        reservationHours = parsedHours;
-                    }
+                    var reservationHours = ReservationDuration.Hours;
+
                     var reservationEnd = reservationStart.AddHours(reservationHours);
-                    // пересечение интервалов
-                    return reservationStart < slotEnd && reservationEnd > slotStart;
-                });
-                table.Status = isOccupied ? TableStatuses.Occupied : TableStatuses.Free;
+
+                    // если время пересекается с "сейчас", то столик занят
+                    if (reservationStart <= now && reservationEnd > now)
+                    {
+                        isOccupied = true;
+                        break;
+                    }
+
+                    // ближайшая будущая бронь
+                    if (reservationStart > now && (nextStart is null || reservationStart < nextStart.Value))
+                    {
+                        nextStart = reservationStart;
+                    }
+                }
+
+                if (isOccupied)
+                {
+                    table.Status = TableStatuses.Occupied;
+                    table.NextReservationHours = null;
+                }
+                else if (nextStart is not null)
+                {
+                    var hours = (nextStart.Value - now).TotalHours;
+                    table.NextReservationHours = Math.Round(hours, 2);
+                    table.Status = TableStatuses.Limited;
+                }
+                else
+                {
+                    table.Status = TableStatuses.Free;
+                    table.NextReservationHours = null;
+                }
             }
             return tables;
 
         }
 
-        public async Task<bool> IsReservationTakenAsync(int tableId, DateTime dateTime, int durationHours, CancellationToken ct = default)
+        public async Task<bool> IsReservationTakenAsync(string tablesId, DateTime scheduledAt, CancellationToken ct = default)
         {
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
 
-            var slotStart = dateTime;
-            var slotEnd = slotStart.AddHours(durationHours);
+            var slotStart = scheduledAt;
+            var slotEnd = slotStart.AddHours(ReservationDuration.Hours);
+
+            // Нужно один раз сделать, в цикле не нужен
+            if (!TryParseTableIds(tablesId, out var requestedIds))
+            {
+                return false;
+            }
 
             var response = await service.Spreadsheets.Values
                 .Get(spreadsheetId, ReservationsRange)
@@ -134,51 +159,58 @@ namespace table_reservations.Services
 
             var rows = response.Values ?? new List<IList<object>>();
 
-            return rows.Any(row =>
+            foreach ( var row in rows)
             {
                 string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
                 // B = TableId
-                if (!int.TryParse(GetCell(1), out var reservationTableId) || reservationTableId != tableId)
+                if (!TryParseTableIds(GetCell(1), out var reservationTableIds))
                 {
-                    return false;
+                    continue;
                 }
-                // F = Status
-                var reservationStatus = GetCell(5);
-                if (reservationStatus.Equals("Отменено", StringComparison.OrdinalIgnoreCase))
+
+                if (!reservationTableIds.Intersect(requestedIds).Any())
                 {
-                    return false;
+                    continue;
                 }
+
                 // E = Start
                 if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
                 {
-                    return false;
+                    continue;
                 }
-                // G = Duration (если пусто — 1 час)
-                var reservationHours = 1;
-                if (int.TryParse(GetCell(6), out var parsedHours) && parsedHours > 0)
-                {
-                    reservationHours = parsedHours;
-                }
+                // Duration (3 часа)
+                var reservationHours = ReservationDuration.Hours;
+
                 var reservationEnd = reservationStart.AddHours(reservationHours);
                 // пересечение интервалов — как в GetTablesAsync
-                return reservationStart < slotEnd && reservationEnd > slotStart;
-            });
+                if (reservationStart < slotEnd && reservationEnd > slotStart)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+
         }
 
-        public async Task<AppendValuesResponse> AppendReservationAsync(ReservationInfo reservation, DateTime dateTime, CancellationToken ct = default)
+        public async Task<AppendValuesResponse> AppendReservationAsync(ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default)
         {
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
 
+            // Валидация, что формат массива ID правильный
+            if (!TryParseTableIds(reservation.TablesId, out var ids))
+                throw new ArgumentException("Некорректные TablesId.");
+            var tablesIdCell = string.Join(",", ids);
+
             var newRow = new List<object>
             {
                 Guid.NewGuid().ToString(),
-                reservation.TableId,
+                tablesIdCell,
                 reservation.CustomerName,
                 reservation.CustomerPhone,
-                dateTime.ToString(ReservationDateTime.Format),
-                "Ожидает",
-                reservation.Duration
+                scheduledAt.ToString(ReservationDateTime.Format)
             };
 
             var valueRange = new ValueRange
@@ -238,17 +270,28 @@ namespace table_reservations.Services
                 : TableType.Обычный;
         }
 
-        private static DateTime ParseSlotStart(string date, string time)
-        {
-            if (!ReservationDateTime.TryParse($"{date} {time}", out var slotStart))
-            {
-                throw new ArgumentException("Некорректные date или time.");
-            }
-
-            return slotStart;
-        }
-
         private static bool TryParseSheetDateTime(string value, out DateTime result) =>
             ReservationDateTime.TryParse(value, out result);
+
+        public bool TryParseTableIds(string value, out int[] ids)
+        {
+            ids = Array.Empty<int>();
+            if (string.IsNullOrWhiteSpace(value))
+                return false;
+
+            var parts = value.Split(new[] { ',', ';', ' ' },
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            var list = new List<int>(parts.Length);
+            foreach (var part in parts)
+            {
+                if (!int.TryParse(part, out var id) || id <= 0)
+                    return false;
+                list.Add(id);
+            }
+
+            ids = list.ToArray();
+            return ids.Length > 0;
+        }
     }
 }
