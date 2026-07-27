@@ -361,21 +361,21 @@ body {
 
 /* третья секция */
 
-.booking {
+.reservation {
   position: relative;
   padding: 100px 24px;
   text-align: center;
   background-image: url('\src\assets\backgroundlist.png');
 }
 
-.booking-title {
+.reservation-title {
   position: relative;
   display: inline-block;
   margin-bottom: 56px;
   padding-bottom: 16px;
 }
 
-.booking-title::after {
+.reservation-title::after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -387,7 +387,7 @@ body {
   opacity: 0.5;
 }
 
-.booking-form {
+.reservation-form {
   max-width: 420px;
   margin: 0 auto;
   background: var(--panel);
@@ -399,18 +399,18 @@ body {
   gap: 24px;
 }
 
-.booking-status {
+.reservation-status {
   min-height: 1.2em;
   margin-top: -8px;
   font-size: 0.95rem;
   color: var(--muted);
 }
 
-.booking-status.success {
+.reservation-status.success {
   color: var(--accent);
 }
 
-.booking-status.error {
+.reservation-status.error {
   color: #ff8f8f;
 }
 
@@ -1113,7 +1113,7 @@ body {
 }
 
 @media (max-width: 500px) {
-  .booking-form { padding: 28px; }
+  .reservation-form { padding: 28px; }
 }
 
 /* RESPONSIVE */

@@ -1,7 +1,7 @@
 import './style.css';
 import {
-  createBooking,
-  type BookingPayload,
+  createReservation,
+  type ReservationPayload,
 } from './api';
 
 const bookBtn = document.getElementById('bookBtn') as HTMLButtonElement | null;
@@ -11,8 +11,8 @@ const nav = document.querySelector<HTMLElement>('.nav');
 const navLinks = document.querySelectorAll<HTMLElement>('.nav-link');
 
 bookBtn?.addEventListener('click', () => {
-  const bookingSection = document.querySelector<HTMLElement>('.booking');
-  bookingSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const reservationSection = document.querySelector<HTMLElement>('.reservation');
+  reservationSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 });
 
 bookBtn2?.addEventListener('click', () => {
@@ -328,15 +328,15 @@ const tableMarkers = document.querySelectorAll<HTMLButtonElement>('.table-marker
 
 tableMarkers.forEach((marker) => {
   marker.addEventListener('click', () => {
-    const nextBookingHours = marker.dataset.nextBookingHours
-      ? parseFloat(marker.dataset.nextBookingHours)
+    const nextReservationHours = marker.dataset.nextReservationHours
+      ? parseFloat(marker.dataset.nextReservationHours)
       : null;
 
-    if (nextBookingHours !== null) {
-      if (nextBookingHours < THRESHOLD_HOURS) {
+    if (nextReservationHours !== null) {
+      if (nextReservationHours < THRESHOLD_HOURS) {
         showBlockedPopup();
       } else {
-        showLimitedTimePopup(marker, nextBookingHours);
+        showLimitedTimePopup(marker, nextReservationHours);
       }
       return;
     }
@@ -367,9 +367,9 @@ confirmTableBtn?.addEventListener('click', () => {
   if (overlay) overlay.hidden = true;
 });
 
-const bookingForm = document.getElementById('bookingForm') as HTMLFormElement | null;
-const submitButton = bookingForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? null;
-const bookingStatus = document.getElementById('bookingStatus') as HTMLParagraphElement | null;
+const reservationForm = document.getElementById('reservationForm') as HTMLFormElement | null;
+const submitButton = reservationForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? null;
+const reservationStatus = document.getElementById('reservationStatus') as HTMLParagraphElement | null;
 
 function setFormBusy(isBusy: boolean) {
   if (!submitButton) return;
@@ -378,21 +378,21 @@ function setFormBusy(isBusy: boolean) {
   submitButton.textContent = isBusy ? 'Отправляем…' : 'Забронировать';
 }
 
-function setBookingStatus(message: string, type: 'info' | 'success' | 'error' = 'info') {
-  if (!bookingStatus) return;
+function setReservationStatus(message: string, type: 'info' | 'success' | 'error' = 'info') {
+  if (!reservationStatus) return;
 
-  bookingStatus.textContent = message;
-  bookingStatus.className = `booking-status ${type}`;
+  reservationStatus.textContent = message;
+  reservationStatus.className = `reservation-status ${type}`;
 }
 
-bookingForm?.addEventListener('submit', async (e) => {
+reservationForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  if (!bookingForm) return;
+  if (!reservationForm) return;
 
-  const formData = new FormData(bookingForm);
+  const formData = new FormData(reservationForm);
   const selectedIds = Array.from(selectedTables).map((marker) => marker.dataset.id ?? '');
-  const payload: BookingPayload = {
+  const payload: ReservationPayload = {
     customerName: String(formData.get('name') ?? '').trim(),
     phone: String(formData.get('phone') ?? '').trim(),
     scheduledAt: String(formData.get('datetime') ?? '').trim(),
@@ -401,21 +401,21 @@ bookingForm?.addEventListener('submit', async (e) => {
   };
 
   if (!payload.customerName || !payload.phone || !payload.scheduledAt || payload.tableIds.length === 0) {
-    setBookingStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
+    setReservationStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
     return;
   }
 
   setFormBusy(true);
-  setBookingStatus('Отправляем бронь…', 'info');
+  setReservationStatus('Отправляем бронь…', 'info');
 
   try {
-    const response = await createBooking(payload);
-    const successMessage = response.message || response.bookingId
-      ? `Бронирование отправлено${response.bookingId ? ` (ID: ${response.bookingId})` : ''}.`
+    const response = await createReservation(payload);
+    const successMessage = response.message || response.reservationId
+      ? `Бронирование отправлено${response.reservationId ? ` (ID: ${response.reservationId})` : ''}.`
       : 'Бронирование успешно отправлено.';
 
-    setBookingStatus(successMessage, 'success');
-    bookingForm.reset();
+    setReservationStatus(successMessage, 'success');
+    reservationForm.reset();
     selectedTables.forEach((marker) => marker.classList.remove('selected'));
     selectedTables.clear();
     updateSummary();
@@ -426,12 +426,12 @@ bookingForm?.addEventListener('submit', async (e) => {
       tablePlaceholder.hidden = false;
     }
   } catch (error) {
-    console.error('Booking submission failed', error);
+    console.error('Reservation submission failed', error);
     const message = error instanceof Error && error.message
       ? error.message
       : 'Не удалось отправить бронь. Проверьте подключение к API или попробуйте позже.';
 
-    setBookingStatus(message, 'error');
+    setReservationStatus(message, 'error');
   } finally {
     setFormBusy(false);
   }
