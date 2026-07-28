@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using System.ComponentModel.DataAnnotations;
 using table_reservations.Constants;
 using table_reservations.Models;
 using table_reservations.Services;
@@ -21,48 +22,49 @@ namespace table_reservations.Controllers
         public async Task<IActionResult> CreateReservation([FromBody] ReservationInfo request, CancellationToken ct)
         {
             if (request == null ||
-                request.TableId <= 0 ||
+                string.IsNullOrWhiteSpace(request.TablesId) ||
                 string.IsNullOrWhiteSpace(request.CustomerName) ||
                 string.IsNullOrWhiteSpace(request.CustomerPhone) ||
-                string.IsNullOrWhiteSpace(request.DateTime) ||
+                string.IsNullOrWhiteSpace(request.ScheduledAt) ||
                 string.IsNullOrWhiteSpace(request.Section))
             {
                 return BadRequest("Некорректные данные бронирования.");
             }
 
-            if (!Enum.IsDefined(request.Type))
-            {
-                return BadRequest("Некорректный тип столика. Допустимые значения: Обычный, VIP.");
-            }
-
-            if (!ReservationDateTime.TryParse(request.DateTime, out var dateTime))
+            if (!ReservationDateTime.TryParse(request.ScheduledAt, out var scheduledAt))
             {
                 return BadRequest($"Некорректный формат dateTime. Ожидается {ReservationDateTime.Format}.");
             }
 
-            if (dateTime < DateTime.Now.AddMinutes(-5))
+            if (scheduledAt < DateTime.Now.AddMinutes(-5))
             {
                 return BadRequest("Некорректные данные бронирования.");
             }
 
-            if (request.Duration < 1 || request.Duration > 5)
+            if (!_sheets.TryParseTableIds(request.TablesId, out var tableIds) || tableIds.Length == 0)
             {
-                return BadRequest("duration должна быть от 1 до 5.");
+                return BadRequest("Нет номера столика.");
             }
 
             if (await _sheets.IsReservationTakenAsync(
-                    request.TableId,
-                    dateTime,
-                    request.Duration,
+                    request.TablesId,
+                    scheduledAt,
                     ct))
             {
                 return Conflict("Этот стол уже занят на указанное время.");
             }
 
-            var appendResp = await _sheets.AppendReservationAsync(request, dateTime, ct);
+            var appendResp = await _sheets.AppendReservationAsync(request, scheduledAt, ct);
+
+            var tables = await _sheets.GetTablesAsync(ct);
+            var typeLabel = string.Join(", ",
+                tables
+                    .Where(t => tableIds.Contains(t.Id))
+                    .Select(t => t.Type == TableType.VIP ? "VIP" : "Обычный")
+                    .Distinct());
 
             var (customerSent, adminSent) = await _whatsApp.SendReservationNotificationsAsync(
-                request, dateTime, ct);
+                request, scheduledAt, typeLabel, ct);
 
             return Ok(new
             {

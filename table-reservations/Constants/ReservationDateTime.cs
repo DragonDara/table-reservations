@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 
 namespace table_reservations.Constants
 {
@@ -6,12 +7,27 @@ namespace table_reservations.Constants
     {
         public const string Format = "dd/MM/yyyy HH:mm";
 
-        public static bool TryParse(string value, out DateTime result) =>
-            DateTime.TryParseExact(
-                value,
-                Format,
+        private static readonly string[] InputFormats =
+        {
+            "dd/MM/yyyy HH:mm",      // Sheets / старые данные
+            "yyyy-MM-ddTHH:mm",      // datetime-local
+            "yyyy-MM-ddTHH:mm:ss",   // на всякий
+            "yyyy-MM-dd HH:mm",
+        };
+
+        public static bool TryParse(string value, out DateTime result)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                result = default;
+                return false;
+            }
+            return DateTime.TryParseExact(
+                value.Trim(),
+                InputFormats,
                 CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
+                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal,
                 out result);
+        }
     }
 }

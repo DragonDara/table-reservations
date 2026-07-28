@@ -24,6 +24,7 @@ namespace table_reservations.Services
         public async Task<(bool CustomerSent, bool AdminSent)> SendReservationNotificationsAsync(
             ReservationInfo reservation,
             DateTime dateTime,
+            string tableTypeLabel,
             CancellationToken ct = default)
         {
             var customerChatId = ToChatId(reservation.CustomerPhone);
@@ -36,11 +37,11 @@ namespace table_reservations.Services
                 _logger.LogWarning("Некорректный AdminPhone: {Phone}", adminPhone);
 
             var customerTask = customerChatId != null
-                ? SendMessageAsync(customerChatId, BuildCustomerMessage(reservation, dateTime), ct)
+                ? SendMessageAsync(customerChatId, BuildCustomerMessage(reservation, dateTime, tableTypeLabel), ct)
                 : Task.FromResult(false);
 
             var adminTask = adminChatId != null
-                ? SendMessageAsync(adminChatId, BuildAdminMessage(reservation, dateTime), ct)
+                ? SendMessageAsync(adminChatId, BuildAdminMessage(reservation, dateTime, tableTypeLabel), ct)
                 : Task.FromResult(false);
 
             await Task.WhenAll(customerTask, adminTask);
@@ -85,39 +86,34 @@ namespace table_reservations.Services
             return $"{apiUrl.TrimEnd('/')}/waInstance{idInstance}/sendMessage/{apiToken}";
         }
 
-        private static string BuildCustomerMessage(ReservationInfo reservation, DateTime dateTime)
+        private static string BuildCustomerMessage(ReservationInfo reservation, DateTime dateTime, string tableTypeLabel)
         {
             return $"""
                 Здравствуйте, {reservation.CustomerName}!
 
                 Ваша бронь подтверждена:
-                Стол №{reservation.TableId}
+                Стол №{reservation.TablesId}
                 Секция: {reservation.Section}
-                Тип столика: {FormatTableType(reservation.Type)}
+                Тип столика: {tableTypeLabel}
                 Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
-                Длительность: {reservation.Duration} ч.
 
                 Ждём вас!
                 """;
         }
 
-        private static string BuildAdminMessage(ReservationInfo reservation, DateTime dateTime)
+        private static string BuildAdminMessage(ReservationInfo reservation, DateTime dateTime, string tableTypeLabel)
         {
             return $"""
                 Новая бронь!
 
                 Клиент: {reservation.CustomerName}
                 Телефон: {reservation.CustomerPhone}
-                Стол №{reservation.TableId}
+                Стол №{reservation.TablesId}
                 Секция: {reservation.Section}
-                Тип столика: {FormatTableType(reservation.Type)}
+                Тип столика: {tableTypeLabel}
                 Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
-                Длительность: {reservation.Duration} ч.
                 """;
         }
-
-        private static string FormatTableType(TableType type) =>
-            type == TableType.VIP ? "VIP" : "Обычный";
 
         /// <summary>
         /// "8 (700) 123-45-67" → "77001234567@c.us"
