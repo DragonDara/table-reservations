@@ -1,23 +1,27 @@
 const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '');
 
 export interface TableAvailability {
-  id: string;
+  id: number;
+  type: 'Обычный' | 'VIP';
   seats: number;
   status: 'free' | 'occupied' | 'limited';
-  nextBookingHours?: number;
+  nextReservationHours?: number;
 }
 
-export interface BookingPayload {
+export interface ReservationPayload {
   customerName: string;
-  phone: string;
+  customerPhone: string;
   scheduledAt: string;
   tableIds: string[];
+  section: string;
   remindBeforeHour: number;
 }
 
-export interface BookingResponse {
+
+
+export interface ReservationResponse {
   success?: boolean;
-  bookingId?: string;
+  reservationId?: string;
   id?: string;
   message?: string;
   status?: string;
@@ -77,21 +81,21 @@ export async function healthCheck(): Promise<{ status: string }> {
 }
 
 export async function getTables(): Promise<TableAvailability[]> {
-  return request<TableAvailability[]>('/tables');
+  return request<TableAvailability[]>('/Tables');
 }
 
 export async function getTableAvailability(tableId: string, scheduledAt?: string): Promise<TableAvailability> {
   const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
-  return request<TableAvailability>(`/tables/${encodeURIComponent(tableId)}/availability${query}`);
+  return request<TableAvailability>(`/Tables/${encodeURIComponent(tableId)}/availability${query}`);
 }
 
-export async function createBooking(payload: BookingPayload): Promise<BookingResponse> {
-  return request<BookingResponse>('/bookings', {
+export async function createReservation(payload: ReservationPayload): Promise<ReservationResponse> {
+  return request<ReservationResponse>('/Reservations', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
-export async function getBookingStatus(bookingId: string): Promise<BookingResponse> {
-  return request<BookingResponse>(`/bookings/${encodeURIComponent(bookingId)}`);
+export async function getReservationStatus(reservationId: string): Promise<ReservationResponse> {
+  return request<ReservationResponse>(`/Reservations/${encodeURIComponent(reservationId)}`);
 }

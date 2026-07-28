@@ -34,7 +34,7 @@
       <div class="logo">BRON </div>
       <nav class="nav">
         <a href="#" class="nav-link active">Главная</a>
-        <a href="#booking" class="nav-link">Забронировать</a>
+        <a href="#reservation" class="nav-link">Забронировать</a>
         <a href="#foter" class="nav-link">Контакты</a>
         <button class="navtoggle" id=""></button>
       </nav>
@@ -114,10 +114,10 @@
 </section>
     
 
-<section class="booking" id="booking">
-  <h2 class="section-title booking-title">Забронируйте столик</h2>
+<section class="reservation" id="reservation">
+  <h2 class="section-title reservation-title">Забронируйте столик</h2>
 
-  <form class="booking-form" id="bookingForm">
+  <form class="reservation-form" id="reservationForm">
     <div class="field">
       <label for="name">Имя</label>
       <input type="text" id="name" name="name" placeholder="Мансур..." />
@@ -148,7 +148,7 @@
     </label>
 
     <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
-    <p class="booking-status" id="bookingStatus" role="status" aria-live="polite"></p>
+    <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
   </form>
 </section>
 
@@ -232,7 +232,7 @@
     <svg class="chair-icon" style="left:481px; top:655px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
 
     <!-- Столик 1 -->
-    <button type="button" class="table-marker hall-table" data-id="1" data-seats="4" data-status="occupied" data-next-booking-hours="1.5" style="left:599px; top:589px; width:64px; height:60px;">1</button>
+    <button type="button" class="table-marker hall-table" data-id="1" data-seats="4" data-status="occupied" data-next-reservation-hours="1.5" style="left:599px; top:589px; width:64px; height:60px;">1</button>
     <svg class="chair-icon" style="left:602px; top:566px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
     <svg class="chair-icon" style="left:638px; top:566px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
     <svg class="chair-icon" style="left:602px; top:655px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
@@ -262,18 +262,18 @@
   <div class="floor-plan-scene" data-scene="vip2">
     <div class="vip-room vip2-room"></div>
     <div class="tv-panel vip2-tv">tv</div>
-    <svg class="chair-icon" style="left:118px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
-    <svg class="chair-icon" style="left:200px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
-    <svg class="chair-icon" style="left:160px; top:122px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:160px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:200px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:240px; top:102px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
 
-    <svg class="chair-icon" style="left:118px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
-    <svg class="chair-icon" style="left:200px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
-    <svg class="chair-icon" style="left:160px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:162px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:250px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:202px; top:300px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
    
-    <svg class="chair-icon" style="left:70px; top:209px; transform:rotate(180deg);"><use href="#chair-icon"/></svg>
-    <svg class="chair-icon" style="left:248px; top:209px; transform:rotate(deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:100px; top:200px; transform:rotate(180deg);"><use href="#chair-icon"/></svg>
+    <svg class="chair-icon" style="left:300px; top:200px; transform:rotate(deg);"><use href="#chair-icon"/></svg>
 
-    <button type="button" class="table-marker vip-table" data-id="VIP2" data-seats="9" data-status="free" style="left:180px; top:140px; width:140px; height:160px; border-radius:20px;">VIP 2</button>
+    <button type="button" class="table-marker vip-table" data-id="VIP2" data-seats="9" data-status="free" style="position:absolute; left:140px; top:130px; width:140px; height:150px; border-radius:20px; z-index:4;">VIP 2</button>
    
   </div>
 
@@ -319,7 +319,7 @@
     <div class="footer-col">
       <h4 class="footer-heading">Навигация</h4>
       <a href="#" class="footer-link">Главная</a>
-      <a href="#booking" class="footer-link">Забронировать</a>
+      <a href="#reservation" class="footer-link">Забронировать</a>
       <a href="#foter" class="footer-link">Контакты</a>
     </div>
 

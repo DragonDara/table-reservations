@@ -10,6 +10,6 @@ obj/
 .vs/
 *.user
 *.suo
-*.userosscache
+table-reservations-*.json*.userosscache
 *.sln.docstates
 

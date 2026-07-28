@@ -21,5 +21,31 @@ namespace table_reservations.Controllers
 
             return Ok(tables);
         }
+
+        [HttpGet("{tableId}/availability")]
+        public async Task<IActionResult> GetTableAvailability(
+            int tableId,
+            [FromQuery] string scheduledAt,
+            CancellationToken ct)
+        {
+            if (tableId <= 0 || string.IsNullOrWhiteSpace(scheduledAt))
+            {
+                return BadRequest("Укажите tableId и scheduledAt.");
+            }
+
+            if (!ReservationDateTime.TryParse(scheduledAt, out var dateTime))
+            {
+                return BadRequest($"Некорректный формат scheduledAt. Ожидается {ReservationDateTime.Format}.");
+            }
+
+            var isTaken = await _sheets.IsReservationTakenAsync(tableId, dateTime, 1, ct);
+
+            return Ok(new
+            {
+                id = tableId.ToString(),
+                seats = 0,
+                status = isTaken ? "occupied" : "free",
+            });
+        }
     }
 }
