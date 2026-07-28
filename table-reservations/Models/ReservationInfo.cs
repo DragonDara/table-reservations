@@ -4,12 +4,11 @@ namespace table_reservations.Models
 {
     public class ReservationInfo
     {
-        public int TableId { get; set; }
+        public string TablesId { get; set; }
         public string CustomerName { get; set; } = string.Empty;
         public string CustomerPhone { get; set; } = string.Empty;
-        public string DateTime { get; set; } = string.Empty;
-        public int Duration { get; set; } = 1;
+        public string ScheduledAt { get; set; } = string.Empty;
         public string Section { get; set; } = string.Empty;
-        public TableType Type { get; set; } = TableType.Обычный;
+        public int RemindBeforeHour { get; set; }
     }
 }

@@ -14,31 +14,38 @@ namespace table_reservations.Controllers
         public TablesController(IGoogleSheetsService sheets) => _sheets = sheets;
 
         [HttpGet]
-        public async Task<IActionResult> GetTables(
-            [FromQuery] string date,
-            [FromQuery] string time,            
-            CancellationToken ct,
-            [FromQuery] int duration = 1
-            )
+        public async Task<IActionResult> GetTables(CancellationToken ct)
         {
-            if (string.IsNullOrWhiteSpace(date) || string.IsNullOrWhiteSpace(time))
-            {
-                return BadRequest("Укажите date и time");
-            }
 
-            if (duration < 1 || duration > 5)
-            {
-                return BadRequest("duration должна быть от 1 до 5");
-            }
-
-            var tables = await _sheets.GetTablesAsync(date, time, duration, ct);
-
-            if (tables.Count == 0)
-            {
-                return NotFound("Данные о столах не найдены.");
-            }
+            var tables = await _sheets.GetTablesAsync(ct);
 
             return Ok(tables);
+        }
+
+        [HttpGet("{tableId}/availability")]
+        public async Task<IActionResult> GetTableAvailability(
+            int tableId,
+            [FromQuery] string scheduledAt,
+            CancellationToken ct)
+        {
+            if (tableId <= 0 || string.IsNullOrWhiteSpace(scheduledAt))
+            {
+                return BadRequest("Укажите tableId и scheduledAt.");
+            }
+
+            if (!ReservationDateTime.TryParse(scheduledAt, out var dateTime))
+            {
+                return BadRequest($"Некорректный формат scheduledAt. Ожидается {ReservationDateTime.Format}.");
+            }
+
+            var isTaken = await _sheets.IsReservationTakenAsync(tableId.ToString(), dateTime, ct);
+
+            return Ok(new
+            {
+                id = tableId.ToString(),
+                seats = 0,
+                status = isTaken ? "occupied" : "free",
+            });
         }
     }
 }
