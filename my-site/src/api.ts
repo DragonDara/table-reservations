@@ -12,7 +12,7 @@ export interface ReservationPayload {
   customerName: string;
   customerPhone: string;
   scheduledAt: string;
-  tableIds: string[];
+  tablesId: string;
   section: string;
   remindBeforeHour: number;
 }
@@ -84,9 +84,9 @@ export async function getTables(): Promise<TableAvailability[]> {
   return request<TableAvailability[]>('/Tables');
 }
 
-export async function getTableAvailability(tableId: string, scheduledAt?: string): Promise<TableAvailability> {
+export async function getTableAvailability(tablesId: string, scheduledAt?: string): Promise<TableAvailability> {
   const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
-  return request<TableAvailability>(`/Tables/${encodeURIComponent(tableId)}/availability${query}`);
+  return request<TableAvailability>(`/Tables/${encodeURIComponent(tablesId)}/availability${query}`);
 }
 
 export async function createReservation(payload: ReservationPayload): Promise<ReservationResponse> {

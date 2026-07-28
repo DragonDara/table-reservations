@@ -406,11 +406,11 @@ const payload: ReservationPayload = {
   customerName: String(formData.get('name') ?? '').trim(),
   customerPhone: String(formData.get('phone') ?? '').trim(),
   scheduledAt: String(formData.get('datetime') ?? '').trim(),
-  tableIds: selectedIds.filter(Boolean),
+  tablesId: selectedIds.filter(Boolean).join(','),
   remindBeforeHour: formData.get('remind') === 'on' ? 1 : 0,
   section: getActiveFloorSection(),
 };
-  if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || payload.tableIds.length === 0) {
+  if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || payload.tablesId.length === 0) {
     setReservationStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
     return;
   }

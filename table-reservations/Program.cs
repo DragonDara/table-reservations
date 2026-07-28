@@ -27,15 +27,16 @@ namespace table_reservations
             {
                 options.AddPolicy("AllowWebFlow", policy =>
                 {
-                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe", "https://theveil.bron.cafe" , "https://the-tochka-bot-clzgj.ondigitalocean.app")
+                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe", "https://theveil.bron.cafe" , "https://the-tochka-bot-clzgj.ondigitalocean.app" , "http://localhost:5173")
                            .AllowAnyHeader()
-                           .AllowAnyMethod();
+                           .AllowAnyMethod()
+                           .AllowCredentials();
                 });
             });
 
             var app = builder.Build();
-
-            app.UseCors("AllowWebFlow");
+ 
+           app.UseCors("AllowWebFlow");
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())

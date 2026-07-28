@@ -11,5 +11,5 @@ obj/
 *.user
 *.suo
 table-reservations-*.json*.userosscache
-*.sln.docstates
-
+*.sln.docstate
+s
