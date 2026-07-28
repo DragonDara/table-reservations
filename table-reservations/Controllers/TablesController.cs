@@ -8,7 +8,7 @@ namespace table_reservations.Controllers
     [ApiController]
     [Route("api/[controller]")]
     public class TablesController : ControllerBase
-    {
+    {   
         private readonly IGoogleSheetsService _sheets;
         
         public TablesController(IGoogleSheetsService sheets) => _sheets = sheets;
