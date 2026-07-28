@@ -27,12 +27,11 @@ namespace table_reservations
             {
                 options.AddPolicy("AllowWebFlow", policy =>
                 {
-                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe", "https://theveil.bron.cafe")
+                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe", "https://theveil.bron.cafe" , "https://the-tochka-bot-clzgj.ondigitalocean.app")
                            .AllowAnyHeader()
                            .AllowAnyMethod();
                 });
             });
-
 
             var app = builder.Build();
 
@@ -46,8 +45,13 @@ namespace table_reservations
                 app.UseHttpsRedirection();
             }
 
+            app.UseDefaultFiles();   // ищет index.html как дефолтный документ
+            app.UseStaticFiles();    // раздаёт файлы из wwwroot
+
             app.UseAuthorization();
             app.MapControllers();
+
+            app.MapFallbackToFile("index.html"); // SPA-роутинг: всё, что не API — на index.html
 
             app.Run();
         }
