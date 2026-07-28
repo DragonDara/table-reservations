@@ -38,7 +38,7 @@ namespace table_reservations.Controllers
                 return BadRequest($"Некорректный формат scheduledAt. Ожидается {ReservationDateTime.Format}.");
             }
 
-            var isTaken = await _sheets.IsReservationTakenAsync(tableId, dateTime, 1, ct);
+            var isTaken = await _sheets.IsReservationTakenAsync(tableId.ToString(), dateTime, ct);
 
             return Ok(new
             {
