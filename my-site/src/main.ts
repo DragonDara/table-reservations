@@ -1,7 +1,9 @@
 import './style.css';
 import {
   createReservation,
+  getTables,
   type ReservationPayload,
+  type TableAvailability,
 } from './api';
 
 const bookBtn = document.getElementById('bookBtn') as HTMLButtonElement | null;
@@ -326,8 +328,41 @@ function showLimitedTimePopup(marker: HTMLButtonElement, gapHours: number) {
 
 const tableMarkers = document.querySelectorAll<HTMLButtonElement>('.table-marker');
 
+async function refreshTableStatuses() {
+  let tables: TableAvailability[];
+  try {
+    tables = await getTables();
+  } catch (err) {
+    console.error('Не удалось загрузить статусы столиков', err);
+    return;
+  }
+
+  const byId = new Map(tables.map((t) => [String(t.id), t]));
+
+  tableMarkers.forEach((marker) => {
+    const id = marker.dataset.id;
+    const info = id ? byId.get(id) : undefined;
+    if (!info) return;
+
+    marker.dataset.status = info.status;
+
+    if (info.status === 'occupied') {
+      delete marker.dataset.nextReservationHours;
+    } else if (info.nextReservationHours != null) {
+      marker.dataset.nextReservationHours = String(info.nextReservationHours);
+    } else {
+      delete marker.dataset.nextReservationHours;
+    }
+  });
+}
+
 tableMarkers.forEach((marker) => {
   marker.addEventListener('click', () => {
+    if (marker.dataset.status === 'occupied') {
+      showBlockedPopup();
+      return;
+    }
+
     const nextReservationHours = marker.dataset.nextReservationHours
       ? parseFloat(marker.dataset.nextReservationHours)
       : null;
@@ -344,6 +379,8 @@ tableMarkers.forEach((marker) => {
     toggleTable(marker);
   });
 });
+
+refreshTableStatuses();
 
 clearSelectionBtn?.addEventListener('click', () => {
   selectedTables.forEach((marker) => marker.classList.remove('selected'));
@@ -410,7 +447,7 @@ const payload: ReservationPayload = {
   remindBeforeHour: formData.get('remind') === 'on' ? 1 : 0,
   section: getActiveFloorSection(),
 };
-  if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || payload.tablesId.length === 0) {
+  if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || !payload.tablesId) {
     setReservationStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
     return;
   }
@@ -425,6 +462,7 @@ const payload: ReservationPayload = {
       : 'Бронирование успешно отправлено.';
 
     setReservationStatus(successMessage, 'success');
+    refreshTableStatuses();
     reservationForm.reset();
     selectedTables.forEach((marker) => marker.classList.remove('selected'));
     selectedTables.clear();
@@ -451,7 +489,7 @@ const datetimeInput = document.getElementById('datetime') as HTMLInputElement | 
 
 if (datetimeInput) {
   const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset()); // компенсация часового пояса
+  now.setMinutes(now.getMinutes() + 5 - now.getTimezoneOffset()); // +5 мин минимальный лид-тайм, компенсация часового пояса
   datetimeInput.min = now.toISOString().slice(0, 16); // формат YYYY-MM-DDTHH:mm
 }
 
