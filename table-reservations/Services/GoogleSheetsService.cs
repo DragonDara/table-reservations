@@ -9,7 +9,8 @@ using table_reservations.Models;
 namespace table_reservations.Services
 {
     public class GoogleSheetsService : IGoogleSheetsService
-    {
+    {   
+        private static DateTime KazakhstanNow() => DateTime.UtcNow.AddHours(5);
         private const string ApplicationName = "TableReservationsAPI";
         private const string TablesRange = "Столики!A2:C100";
         private const string ReservationsRange = "Брони!A2:E10000";
@@ -28,7 +29,7 @@ namespace table_reservations.Services
         {
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
-            var now = DateTime.Now;
+            var now = KazakhstanNow();
 
             var tablesResponse = await service.Spreadsheets.Values
                 .Get(spreadsheetId, TablesRange)
