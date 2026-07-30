@@ -36,7 +36,7 @@ namespace table_reservations.Controllers
                 return BadRequest($"Некорректный формат dateTime. Ожидается {ReservationDateTime.Format}.");
             }
 
-            var minAllowedTime = DateTime.Now.AddMinutes(5);
+            var minAllowedTime = DateTime.UtcNow.AddHours(5).AddMinutes(5);
                 if (scheduledAt < minAllowedTime)
                 {
                     return BadRequest($"Минимальное время брони — {minAllowedTime:HH:mm}. Выберите время позже.");
