@@ -613,6 +613,11 @@ body {
 
 }
 
+.table-marker[data-status="limited"] {
+  background: #4a3a12;
+  border-color: var(--gold);
+}
+
 .table-marker[data-status="vip"] {
   border-color: var(--gold);
 }
@@ -1192,4 +1197,3 @@ body {
   }
   .hero-title { font-size: 38px; }
 }
-

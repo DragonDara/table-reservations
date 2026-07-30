@@ -36,10 +36,11 @@ namespace table_reservations.Controllers
                 return BadRequest($"Некорректный формат dateTime. Ожидается {ReservationDateTime.Format}.");
             }
 
-            if (scheduledAt < DateTime.Now.AddMinutes(-5))
-            {
-                return BadRequest("Некорректные данные бронирования.");
-            }
+            var minAllowedTime = DateTime.Now.AddMinutes(5);
+                if (scheduledAt < minAllowedTime)
+                {
+                    return BadRequest($"Минимальное время брони — {minAllowedTime:HH:mm}. Выберите время позже.");
+                }
 
             if (!_sheets.TryParseTableIds(request.TablesId, out var tableIds) || tableIds.Length == 0)
             {
