@@ -365,7 +365,7 @@ body {
   position: relative;
   padding: 100px 24px;
   text-align: center;
-  background-image: url('\src\assets\backgroundlist.png');
+  background-image: url('assets/backgroundlist.png');
 }
 
 .reservation-title {
@@ -1123,6 +1123,10 @@ body {
 
 /* RESPONSIVE */
 @media (max-width: 900px) {
+
+  .section-title {
+    font-size: 32px;
+  }
   .site-header {
     grid-template-columns: 1fr auto;
     padding: 12px 20px;
