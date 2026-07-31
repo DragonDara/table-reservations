@@ -573,9 +573,10 @@ body {
 
 .zoom-controls {
   position: absolute;
-  top: 240px;
+  top: 50%;
+  right: 16px;
+  transform: translateY(-50%);
   flex-direction: column;
-  left: 730px;
   display: flex;
   gap: 8px;
   z-index: 5;
