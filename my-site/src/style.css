@@ -10,6 +10,7 @@
 
 
 :root {
+
   --bg: #0c0c0c;
   --panel: #141414;
   --text: #FAFAFA;
@@ -17,6 +18,7 @@
   --muted: #a8a8a3;
   --accent: #6fd68a;
   --gold: #e8b84b;
+  --warning: #d97f2b;
   --whiteborder: #FAFAFA;
     --manrope: 'Manrope', sans-serif;
     --inter: 'Inter', sans-serif;
@@ -30,7 +32,9 @@ body {
     color: var(--text);
 }
 
-
+#floorPlanViewport {
+  touch-action: none;
+}
 
 .site-header {
     display: grid;
@@ -615,7 +619,7 @@ body {
 
 .table-marker[data-status="limited"] {
   background: #4a3a12;
-  border-color: var(--gold);
+  border-color: var(--warning);
 }
 
 .table-marker[data-status="vip"] {
@@ -1126,6 +1130,8 @@ body {
 
   .section-title {
     font-size: 32px;
+    padding-top: 5px;
+    padding-bottom: 5px;
   }
   .site-header {
     grid-template-columns: 1fr auto;

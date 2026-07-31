@@ -170,7 +170,44 @@ window.addEventListener('mouseup', () => {
   viewport?.classList.remove('dragging');
 });
 
+// перетаскивание и зум пальцем (touch)
+function getTouchDistance(touches: TouchList): number {
+  const dx = touches[0].clientX - touches[1].clientX;
+  const dy = touches[0].clientY - touches[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
 
+let pinchStartDist = 0;
+let pinchStartScale = 1;
+
+viewport?.addEventListener('touchstart', (e) => {
+  if (e.touches.length === 1) {
+    isDragging = true;
+    dragStartX = e.touches[0].clientX - panX;
+    dragStartY = e.touches[0].clientY - panY;
+  } else if (e.touches.length === 2) {
+    isDragging = false;
+    pinchStartDist = getTouchDistance(e.touches);
+    pinchStartScale = scale;
+  }
+}, { passive: true });
+
+viewport?.addEventListener('touchmove', (e) => {
+  if (e.touches.length === 1 && isDragging) {
+    e.preventDefault();
+    panX = e.touches[0].clientX - dragStartX;
+    panY = e.touches[0].clientY - dragStartY;
+    applyTransform();
+  } else if (e.touches.length === 2) {
+    e.preventDefault();
+    const dist = getTouchDistance(e.touches);
+    setScale(pinchStartScale * (dist / pinchStartDist));
+  }
+}, { passive: false });
+
+viewport?.addEventListener('touchend', () => {
+  isDragging = false;
+});
 
 // открытие / закрытие модалки
 openTablePickerBtn?.addEventListener('click', () => {
@@ -210,6 +247,40 @@ function formatHoursFromNow(hours: number): string {
   return target.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 }
 
+function formatPhoneNumber(rawValue: string): string {
+  let digits = rawValue.replace(/\D/g, '');
+
+  // человек часто сам вбивает код страны (7 или 8) — убираем, он и так будет "+7"
+  if (digits.startsWith('7') || digits.startsWith('8')) {
+    digits = digits.slice(1);
+  }
+
+  digits = digits.slice(0, 10); // максимум 10 цифр после кода страны
+
+  const code = digits.slice(0, 3);
+  const part1 = digits.slice(3, 6);
+  const part2 = digits.slice(6, 8);
+  const part3 = digits.slice(8, 10);
+
+  let result = '+7';
+  if (code) result += ` ${code}`;
+  if (part1) result += ` (${part1})`;
+  if (part2) result += ` ${part2}`;
+  if (part3) result += ` ${part3}`;
+
+  return result;
+}
+
+const phoneInput = document.getElementById('phone') as HTMLInputElement | null;
+
+phoneInput?.addEventListener('input', () => {
+  const cursorWasAtEnd = phoneInput.selectionEnd === phoneInput.value.length;
+  phoneInput.value = formatPhoneNumber(phoneInput.value);
+  if (cursorWasAtEnd) {
+    phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
+  }
+});
+
 const selectedTables = new Set<HTMLButtonElement>();
 
 function updateSummary() {
@@ -236,7 +307,10 @@ function updateSummary() {
     chip.className = 'selected-chip';
 
     const label = document.createElement('span');
-    label.textContent = `${id} столик · ${seats} мест`;
+    const isVip = marker.classList.contains('vip-table');
+    label.textContent = isVip
+    ? `VIP ${id} · ${seats} мест`
+      : `${id} столик · ${seats} мест`;
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
@@ -340,20 +414,27 @@ async function refreshTableStatuses() {
   const byId = new Map(tables.map((t) => [String(t.id), t]));
 
   tableMarkers.forEach((marker) => {
-    const id = marker.dataset.id;
-    const info = id ? byId.get(id) : undefined;
-    if (!info) return;
+  const id = marker.dataset.id;
+  const info = id ? byId.get(id) : undefined;
+  if (!info) return;
 
-    marker.dataset.status = info.status;
+  let status = info.status;
 
-    if (info.status === 'occupied') {
-      delete marker.dataset.nextReservationHours;
-    } else if (info.nextReservationHours != null) {
-      marker.dataset.nextReservationHours = String(info.nextReservationHours);
-    } else {
-      delete marker.dataset.nextReservationHours;
-    }
-  });
+  // если до брони меньше порога — бронировать всё равно нельзя, значит визуально это "занято", а не "с предупреждением"
+  if (status === 'limited' && info.nextReservationHours != null && info.nextReservationHours < THRESHOLD_HOURS) {
+    status = 'occupied';
+  }
+
+  marker.dataset.status = status;
+
+  if (status === 'occupied') {
+    delete marker.dataset.nextReservationHours;
+  } else if (info.nextReservationHours != null) {
+    marker.dataset.nextReservationHours = String(info.nextReservationHours);
+  } else {
+    delete marker.dataset.nextReservationHours;
+  }
+});
 }
 
 tableMarkers.forEach((marker) => {
@@ -368,11 +449,7 @@ tableMarkers.forEach((marker) => {
       : null;
 
     if (nextReservationHours !== null) {
-      if (nextReservationHours < THRESHOLD_HOURS) {
-        showBlockedPopup();
-      } else {
-        showLimitedTimePopup(marker, nextReservationHours);
-      }
+      showLimitedTimePopup(marker, nextReservationHours);
       return;
     }
 
@@ -391,12 +468,15 @@ clearSelectionBtn?.addEventListener('click', () => {
 confirmTableBtn?.addEventListener('click', () => {
   if (selectedTables.size === 0) return;
 
-  const ids = Array.from(selectedTables).map((m) => m.dataset.id);
+  const markers = Array.from(selectedTables);
+  const labels = markers.map((m) =>
+    m.classList.contains('vip-table') ? `VIP №${m.dataset.id}` : `№${m.dataset.id}`
+  );
 
   if (selectedTableBadge && tablePlaceholder) {
-    selectedTableBadge.textContent = ids.length === 1
-      ? `Столик №${ids[0]}`
-      : `Столики №${ids.join(', ')}`;
+    selectedTableBadge.textContent = labels.length === 1
+      ? `Столик ${labels[0]}`
+      : `Столики ${labels.join(', ')}`;
     selectedTableBadge.hidden = false;
     tablePlaceholder.hidden = true;
   }
@@ -441,7 +521,7 @@ reservationForm?.addEventListener('submit', async (e) => {
   const selectedIds = Array.from(selectedTables).map((marker) => marker.dataset.id ?? '');
 const payload: ReservationPayload = {
   customerName: String(formData.get('name') ?? '').trim(),
-  customerPhone: String(formData.get('phone') ?? '').trim(),
+  customerPhone: `+${String(formData.get('phone') ?? '').replace(/\D/g, '')}`,
   scheduledAt: String(formData.get('datetime') ?? '').trim(),
   tablesId: selectedIds.filter(Boolean).join(','),
   remindBeforeHour: formData.get('remind') === 'on' ? 1 : 0,
