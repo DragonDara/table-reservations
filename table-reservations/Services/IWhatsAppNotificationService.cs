@@ -9,5 +9,10 @@ namespace table_reservations.Services
             DateTime dateTime,
             string tableTypeLabel,
             CancellationToken ct = default);
+        Task<bool> SendReminderBeforeHourAsync(
+            ReservationInfo reservation,
+            DateTime dateTime,
+            CancellationToken ct = default
+            );
     }
 }

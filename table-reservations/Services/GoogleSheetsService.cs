@@ -13,8 +13,8 @@ namespace table_reservations.Services
         private static DateTime KazakhstanNow() => DateTime.UtcNow.AddHours(5);
         private const string ApplicationName = "TableReservationsAPI";
         private const string TablesRange = "Столики!A2:C100";
-        private const string ReservationsRange = "Брони!A2:E10000";
-        private const string ReservationsAppendRange = "Брони!A:E";
+        private const string ReservationsRange = "Брони!A2:H10000";
+        private const string ReservationsAppendRange = "Брони!A:H";
 
         private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
 
@@ -211,7 +211,9 @@ namespace table_reservations.Services
                 tablesIdCell,
                 reservation.CustomerName,
                 reservation.CustomerPhone,
-                scheduledAt.ToString(ReservationDateTime.Format)
+                scheduledAt.ToString(ReservationDateTime.Format),
+                "",
+                reservation.RemindBeforeHour ? "Да" : "Нет"
             };
 
             var valueRange = new ValueRange
@@ -226,6 +228,69 @@ namespace table_reservations.Services
                 SpreadsheetsResource.ValuesResource.AppendRequest.InsertDataOptionEnum.INSERTROWS;
 
             return await appendReq.ExecuteAsync(ct);
+        }
+
+        public async Task MarkReminderSentAsync(int sheetRowNumber, CancellationToken ct)
+        {
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var range = $"Брони!H{sheetRowNumber}";
+
+            var update = service.Spreadsheets.Values.Update(
+                new ValueRange { Values = new List<IList<object>> { new List<object> { "Да" } } },
+                spreadsheetId,
+                range);
+            update.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+            await update.ExecuteAsync(ct);
+        }
+
+        public async Task<IReadOnlyList<ReminderCandidate>> GetReminderCandidatesAsync(CancellationToken ct = default)
+        {
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+
+            var response = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            var rows = response.Values ?? new List<IList<object>>();
+            var result = new List<ReminderCandidate>(rows.Count);
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+
+                string GetCell(int idx) =>
+                    row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+                var tablesId = GetCell(1);
+                var customerName = GetCell(2);
+                var customerPhone = GetCell(3);
+                var scheduledAt = GetCell(4);
+                var remindCell = GetCell(6); // G
+                var sentCell = GetCell(7);   // H
+
+                // пустая/битая строка
+                if (string.IsNullOrWhiteSpace(tablesId) &&
+                    string.IsNullOrWhiteSpace(scheduledAt) &&
+                    string.IsNullOrWhiteSpace(remindCell))
+                {
+                    continue;
+                }
+
+                result.Add(new ReminderCandidate
+                {
+                    SheetRowNumber = i + 2, // A2 = первая строка данных
+                    TablesId = tablesId,
+                    CustomerName = customerName,
+                    CustomerPhone = customerPhone,
+                    ScheduledAt = scheduledAt,
+                    RemindBeforeHourCell = remindCell,
+                    ReminderSentCell = sentCell
+                });
+            }
+
+            return result;
         }
 
         private SheetsService CreateService() =>

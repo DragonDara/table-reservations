@@ -22,12 +22,13 @@ namespace table_reservations
 
             builder.Services.AddScoped<IGoogleSheetsService, GoogleSheetsService>();
             builder.Services.AddHttpClient<IWhatsAppNotificationService, WhatsAppNotificationService>();
+            builder.Services.AddHostedService<ReservationReminderService>();
 
             builder.Services.AddCors(options =>
             {
                 options.AddPolicy("AllowWebFlow", policy =>
                 {
-                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe", "https://theveil.bron.cafe" , "https://the-tochka-bot-clzgj.ondigitalocean.app" , "http://localhost:5173")
+                    policy.WithOrigins("https://tablereserve-829889.webflow.io", "https://www.bron.cafe", "https://bron.cafe", "https://theveil.bron.cafe" , "https://the-tochka-bot-clzgj.ondigitalocean.app" , "http://localhost:5173" , "https://thetochka.bron.cafe")
                            .AllowAnyHeader()
                            .AllowAnyMethod()
                            .AllowCredentials();

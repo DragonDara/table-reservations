@@ -9,6 +9,6 @@ namespace table_reservations.Models
         public string CustomerPhone { get; set; } = string.Empty;
         public string ScheduledAt { get; set; } = string.Empty;
         public string Section { get; set; } = string.Empty;
-        public int RemindBeforeHour { get; set; }
+        public bool RemindBeforeHour { get; set; } = false;
     }
 }

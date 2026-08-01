@@ -115,6 +115,29 @@ namespace table_reservations.Services
                 """;
         }
 
+
+        public async Task<bool> SendReminderBeforeHourAsync(
+            ReservationInfo reservation,
+            DateTime dateTime,
+            CancellationToken ct = default
+            )
+        {
+            var chatId = ToChatId(reservation.CustomerPhone);
+            if (chatId == null) return false;
+
+            var text =
+             $"""
+                Здравствуйте, {reservation.CustomerName}!
+
+                Напоминаем, что у вас есть бронь в нашем заведении TheTochka в {dateTime.ToString(ReservationDateTime.Format)}
+                Ваш столик №{reservation.TablesId}                
+
+                Ждём вас!
+                """;
+
+            return await SendMessageAsync(chatId, text, ct);
+        }
+
         /// <summary>
         /// "8 (700) 123-45-67" → "77001234567@c.us"
         /// </summary>
