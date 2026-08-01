@@ -156,6 +156,7 @@
 <div class="modal-overlay" id="tableModalOverlay" hidden>
   <div class="table-modal">
     <div class="floor-plan-viewport" id="floorPlanViewport">
+      <button type="button" class="mobile-modal-close" id="mobileCloseTableModal" aria-label="Закрыть карту">✕</button>
           <div class="table-popup" id="tablePopup" hidden>
       <div class="table-popup-icon" id="tablePopupIcon"></div>
       <h4 class="table-popup-title" id="tablePopupTitle"></h4>
@@ -205,14 +206,14 @@
     <svg class="chair-icon" style="left:647px; top:191px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
 
     <!-- Столик 4 -->
-    <button type="button" class="table-marker hall-table" data-id="4" data-seats="4" data-status="free" style="left:243px; top:316px; width:64px; height:60px;">4</button>
+    <button type="button" class="table-marker hall-table" data-id="4" data-seats="4" data-status="free" data-extra-seat="1" style="left:243px; top:316px; width:64px; height:60px;">4</button>
     <svg class="chair-icon" style="left:246px; top:293px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
     <svg class="chair-icon" style="left:282px; top:293px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
     <svg class="chair-icon" style="left:246px; top:382px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
     <svg class="chair-icon" style="left:282px; top:382px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
 
     <!-- Столик 8 -->
-    <button type="button" class="table-marker hall-table" data-id="8" data-seats="4" data-status="free" style="left:608px; top:317px; width:64px; height:60px;">8</button>
+    <button type="button" class="table-marker hall-table" data-id="8" data-seats="4" data-status="free" data-extra-seat="1" style="left:608px; top:317px; width:64px; height:60px;">8</button>
     <svg class="chair-icon" style="left:611px; top:294px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
     <svg class="chair-icon" style="left:647px; top:294px; transform:rotate(-90deg);"><use href="#chair-icon"/></svg>
     <svg class="chair-icon" style="left:611px; top:383px; transform:rotate(90deg);"><use href="#chair-icon"/></svg>
@@ -284,7 +285,10 @@
     <aside class="table-sidebar">
       <div class="sidebar-header">
         <h3>Выберите столик</h3>
-        <button type="button" class="modal-close" id="closeTableModal" aria-label="Закрыть">✕</button>
+        <div class="sidebar-header-actions">
+          <button type="button" class="sidebar-toggle" id="toggleSidebarBtn" aria-label="Свернуть панель" aria-expanded="true">▾</button>
+          <button type="button" class="modal-close" id="closeTableModal" aria-label="Закрыть">✕</button>
+        </div>
       </div>
 
       <div class="selected-summary" id="selectedSummary" hidden>
@@ -308,7 +312,16 @@
     </aside>
   </div>
 </div>
-    
+
+
+<div class="modal-overlay" id="successModalOverlay" hidden>
+  <div class="success-modal">
+    <div class="success-modal-icon">✓</div>
+    <h3 class="success-modal-title">Бронь подтверждена!</h3>
+    <p class="success-modal-text" id="successModalText"></p>
+    <button type="button" class="btn btn-primary btn-block" id="successModalCloseBtn">Отлично</button>
+  </div>
+</div>
 
 <footer class="site-footer">
   <div class="footer-top">

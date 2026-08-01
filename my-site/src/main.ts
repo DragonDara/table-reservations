@@ -52,8 +52,14 @@ const canvas = document.getElementById('floorPlanCanvas') as HTMLElement | null;
 const zoomInBtn = document.getElementById('zoomInBtn') as HTMLButtonElement | null;
 const zoomOutBtn = document.getElementById('zoomOutBtn') as HTMLButtonElement | null;
 const closeModalBtn = document.getElementById('closeTableModal') as HTMLButtonElement | null;
+const mobileCloseModalBtn = document.getElementById('mobileCloseTableModal') as HTMLButtonElement | null;
+const toggleSidebarBtn = document.getElementById('toggleSidebarBtn') as HTMLButtonElement | null;
+const tableSidebar = document.querySelector<HTMLElement>('.table-sidebar');
 const confirmTableBtn = document.getElementById('confirmTableBtn') as HTMLButtonElement | null;
 const clearSelectionBtn = document.getElementById('clearSelectionBtn') as HTMLButtonElement | null;
+const successModalOverlay = document.getElementById('successModalOverlay') as HTMLElement | null;
+const successModalText = document.getElementById('successModalText') as HTMLElement | null;
+const successModalCloseBtn = document.getElementById('successModalCloseBtn') as HTMLButtonElement | null;
 const selectedSummary = document.getElementById('selectedSummary') as HTMLElement | null;
 const selectedTablesList = document.getElementById('selectedTablesList') as HTMLElement | null;
 const selectedTotal = document.getElementById('selectedTotal') as HTMLElement | null;
@@ -219,12 +225,36 @@ openTablePickerBtn?.addEventListener('click', () => {
   centerCanvas();
 });
 
-closeModalBtn?.addEventListener('click', () => {
-  if (overlay) overlay.hidden = true;
-});
+function closeTableModal() {
+  if (!overlay) return;
+
+  selectedTables.forEach((marker) => marker.classList.remove('selected'));
+  selectedTables.clear();
+  updateSummary();
+
+  if (selectedTableBadge && tablePlaceholder) {
+    selectedTableBadge.hidden = true;
+    selectedTableBadge.textContent = '';
+    tablePlaceholder.hidden = false;
+  }
+
+  overlay.hidden = true;
+}
+
+closeModalBtn?.addEventListener('click', closeTableModal);
+mobileCloseModalBtn?.addEventListener('click', closeTableModal);
 
 overlay?.addEventListener('click', (e) => {
-  if (e.target === overlay) overlay.hidden = true;
+  if (e.target === overlay) closeTableModal();
+});
+
+toggleSidebarBtn?.addEventListener('click', () => {
+  if (!tableSidebar) return;
+
+  const isCollapsed = tableSidebar.classList.toggle('collapsed');
+  toggleSidebarBtn.textContent = isCollapsed ? '▴' : '▾';
+  toggleSidebarBtn.setAttribute('aria-expanded', String(!isCollapsed));
+  toggleSidebarBtn.setAttribute('aria-label', isCollapsed ? 'Развернуть панель' : 'Свернуть панель');
 });
 
 // выбор столика
@@ -301,6 +331,7 @@ function updateSummary() {
   selectedTables.forEach((marker) => {
     const id = marker.dataset.id;
     const seats = Number(marker.dataset.seats ?? 0);
+    const extraSeat = marker.dataset.extraSeat === '1' ? '+1' : '';
     totalSeats += seats;
 
     const chip = document.createElement('div');
@@ -309,8 +340,8 @@ function updateSummary() {
     const label = document.createElement('span');
     const isVip = marker.classList.contains('vip-table');
     label.textContent = isVip
-    ? `VIP ${id} · ${seats} мест`
-      : `${id} столик · ${seats} мест`;
+    ? `VIP ${id} · ${seats}${extraSeat} мест`
+      : `${id} столик · ${seats}${extraSeat} мест`;
 
     const removeBtn = document.createElement('button');
     removeBtn.type = 'button';
@@ -324,7 +355,7 @@ function updateSummary() {
     selectedTablesList.appendChild(chip);
   });
 
-  selectedTotal.textContent = `Итого: ${selectedTables.size} стол. · ${totalSeats} мест`;
+  selectedTotal.textContent = `Итого: ${selectedTables.size} столов. · ${totalSeats} мест`;
 }
 
 function selectTable(marker: HTMLButtonElement) {
@@ -347,13 +378,23 @@ function toggleTable(marker: HTMLButtonElement) {
   }
 }
 
-function showBlockedPopup() {
+function showBlockedPopup(marker?: HTMLButtonElement) {
   if (!tablePopup || !tablePopupIcon || !tablePopupTitle || !tablePopupText || !tablePopupActions) return;
+
+  const nextReservationHours = marker?.dataset.nextReservationHours
+    ? parseFloat(marker.dataset.nextReservationHours)
+    : null;
 
   tablePopupIcon.textContent = '✕';
   tablePopupIcon.className = 'table-popup-icon icon-blocked';
   tablePopupTitle.textContent = 'Столик уже занят';
-  tablePopupText.textContent = 'Извините, это время уже забронировали. Выберите другой столик или время.';
+
+  if (nextReservationHours !== null) {
+    const bookedAt = formatHoursFromNow(nextReservationHours);
+    tablePopupText.textContent = `Этот столик уже забронирован другими гостями. Бронь уже занята на ${bookedAt}. Выберите другой столик или другое время.`;
+  } else {
+    tablePopupText.textContent = 'Этот столик уже забронирован другими гостями. Выберите другой столик или другое время.';
+  }
 
   tablePopupActions.innerHTML = '';
   const okBtn = document.createElement('button');
@@ -427,9 +468,7 @@ async function refreshTableStatuses() {
 
   marker.dataset.status = status;
 
-  if (status === 'occupied') {
-    delete marker.dataset.nextReservationHours;
-  } else if (info.nextReservationHours != null) {
+  if (info.nextReservationHours != null) {
     marker.dataset.nextReservationHours = String(info.nextReservationHours);
   } else {
     delete marker.dataset.nextReservationHours;
@@ -440,7 +479,7 @@ async function refreshTableStatuses() {
 tableMarkers.forEach((marker) => {
   marker.addEventListener('click', () => {
     if (marker.dataset.status === 'occupied') {
-      showBlockedPopup();
+      showBlockedPopup(marker);
       return;
     }
 
@@ -542,6 +581,12 @@ const payload: ReservationPayload = {
       : 'Бронирование успешно отправлено.';
 
     setReservationStatus(successMessage, 'success');
+
+    if (successModalOverlay && successModalText) {
+      successModalText.textContent = successMessage;
+      successModalOverlay.hidden = false;
+    }
+
     refreshTableStatuses();
     reservationForm.reset();
     selectedTables.forEach((marker) => marker.classList.remove('selected'));
@@ -598,4 +643,12 @@ floorTabs.forEach((tab) => {
     selectedTables.clear();
     updateSummary();
   });
+});
+
+successModalCloseBtn?.addEventListener('click', () => {
+  if (successModalOverlay) successModalOverlay.hidden = true;
+});
+
+successModalOverlay?.addEventListener('click', (e) => {
+  if (e.target === successModalOverlay) successModalOverlay.hidden = true;
 });
