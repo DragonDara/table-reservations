@@ -311,6 +311,26 @@ phoneInput?.addEventListener('input', () => {
   }
 });
 
+phoneInput?.addEventListener('beforeinput', (e) => {
+  if (e.inputType !== 'deleteContentBackward') return;
+  if (phoneInput.selectionStart !== phoneInput.selectionEnd) return; // если уже что-то выделено вручную — не мешаем
+
+  const pos = phoneInput.selectionStart ?? 0;
+  if (pos === 0) return;
+
+  let start = pos - 1;
+  // идём назад, пропуская скобки/пробелы, пока не найдём цифру, которую реально надо стереть
+  while (start > 0 && !/\d/.test(phoneInput.value[start])) {
+    start--;
+  }
+
+  e.preventDefault(); // сами решаем, что удалить, не даём браузеру стереть только скобку
+
+  const newRaw = phoneInput.value.slice(0, start) + phoneInput.value.slice(pos);
+  phoneInput.value = formatPhoneNumber(newRaw);
+  phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
+});
+
 const selectedTables = new Set<HTMLButtonElement>();
 
 function updateSummary() {
