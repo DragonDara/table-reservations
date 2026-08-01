@@ -14,7 +14,7 @@ export interface ReservationPayload {
   scheduledAt: string;
   tablesId: string;
   section: string;
-  remindBeforeHour: number;
+  remindBeforeHour: boolean;
 }
 
 
