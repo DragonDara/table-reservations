@@ -583,7 +583,7 @@ const payload: ReservationPayload = {
   customerPhone: `+${String(formData.get('phone') ?? '').replace(/\D/g, '')}`,
   scheduledAt: String(formData.get('datetime') ?? '').trim(),
   tablesId: selectedIds.filter(Boolean).join(','),
-  remindBeforeHour: formData.get('remind') === 'on' ? 1 : 0,
+  remindBeforeHour: formData.get('remind') === 'on',
   section: getActiveFloorSection(),
 };
   if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || !payload.tablesId) {
