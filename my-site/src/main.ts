@@ -185,6 +185,20 @@ function getTouchDistance(touches: TouchList): number {
 
 let pinchStartDist = 0;
 let pinchStartScale = 1;
+let pinchStartPanX = 0;
+let pinchStartPanY = 0;
+let pinchStartMidX = 0;
+let pinchStartMidY = 0;
+
+function getTouchMidpoint(touches: TouchList): { x: number; y: number } {
+  const rect = viewport?.getBoundingClientRect();
+  const offsetX = rect?.left ?? 0;
+  const offsetY = rect?.top ?? 0;
+  return {
+    x: (touches[0].clientX + touches[1].clientX) / 2 - offsetX,
+    y: (touches[0].clientY + touches[1].clientY) / 2 - offsetY,
+  };
+}
 
 viewport?.addEventListener('touchstart', (e) => {
   if (e.touches.length === 1) {
@@ -195,6 +209,11 @@ viewport?.addEventListener('touchstart', (e) => {
     isDragging = false;
     pinchStartDist = getTouchDistance(e.touches);
     pinchStartScale = scale;
+    pinchStartPanX = panX;
+    pinchStartPanY = panY;
+    const mid = getTouchMidpoint(e.touches);
+    pinchStartMidX = mid.x;
+    pinchStartMidY = mid.y;
   }
 }, { passive: true });
 
@@ -206,10 +225,23 @@ viewport?.addEventListener('touchmove', (e) => {
     applyTransform();
   } else if (e.touches.length === 2) {
     e.preventDefault();
+
     const dist = getTouchDistance(e.touches);
-    setScale(pinchStartScale * (dist / pinchStartDist));
+    const nextScale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, pinchStartScale * (dist / pinchStartDist)));
+
+    // точка канваса, которая была между пальцами в начале жеста —
+    // должна остаться под пальцами и после изменения масштаба
+    const canvasPointX = (pinchStartMidX - pinchStartPanX) / pinchStartScale;
+    const canvasPointY = (pinchStartMidY - pinchStartPanY) / pinchStartScale;
+
+    const mid = getTouchMidpoint(e.touches);
+    scale = nextScale;
+    panX = mid.x - canvasPointX * nextScale;
+    panY = mid.y - canvasPointY * nextScale;
+    applyTransform();
   }
 }, { passive: false });
+
 
 viewport?.addEventListener('touchend', () => {
   isDragging = false;
