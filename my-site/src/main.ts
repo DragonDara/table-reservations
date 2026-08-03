@@ -605,6 +605,39 @@ function setReservationStatus(message: string, type: 'info' | 'success' | 'error
   reservationStatus.className = `reservation-status ${type}`;
 }
 
+function isRestaurantOpenAt(value: string): boolean {
+  if (!value) return false;
+
+  const [, timePart] = value.split('T');
+  if (!timePart) return false;
+
+  const [hours, minutes] = timePart.split(':').map(Number);
+
+  const selectedHour = Number.isFinite(hours) ? hours : 0;
+  const selectedMinute = Number.isFinite(minutes) ? minutes : 0;
+
+  const normalizedHour = selectedHour + selectedMinute / 60;
+  return normalizedHour >= 12 || normalizedHour < 4;
+}
+
+function validateSelectedTime(showMessage = false): boolean {
+  if (!datetimeInput) return true;
+
+  const selectedValue = datetimeInput.value.trim();
+  if (!selectedValue) return true;
+
+  const isOpen = isRestaurantOpenAt(selectedValue);
+  if (!isOpen) {
+    if (showMessage) {
+      setReservationStatus('Ресторан работает с 12:00 до 04:00. Выберите время в рабочем окне.', 'error');
+      datetimeInput.focus();
+    }
+    return false;
+  }
+
+  return true;
+}
+
 function getActiveFloorSection(): string {
   const activeTab = document.querySelector<HTMLButtonElement>('.floor-tab.active');
   const floor = activeTab?.dataset.floor;
@@ -632,6 +665,10 @@ const payload: ReservationPayload = {
 };
   if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || !payload.tablesId) {
     setReservationStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
+    return;
+  }
+
+  if (!validateSelectedTime(true)) {
     return;
   }
 
@@ -726,10 +763,12 @@ if (datetimeInput) {
 
   datetimeInput.addEventListener('input', () => {
     refreshTableStatuses();
+    validateSelectedTime(false);
   });
 
   datetimeInput.addEventListener('change', () => {
     refreshTableStatuses();
+    validateSelectedTime(true);
   });
 }
 
