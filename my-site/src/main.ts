@@ -603,6 +603,12 @@ const payload: ReservationPayload = {
     return;
   }
 
+  if (!/^\+7\d{10}$/.test(payload.customerPhone)) {
+    setReservationStatus('Пожалуйста, укажите номер телефона полностью: +7 700 (000) 00 00.', 'error');
+    phoneInput?.focus();
+    return;
+  }
+
   setFormBusy(true);
   setReservationStatus('Отправляем бронь…', 'info');
 

@@ -42,6 +42,17 @@ namespace table_reservations.Controllers
                 return BadRequest($"Минимальное время брони — {minAllowedTime:HH:mm}. Выберите время позже.");
             }
 
+            // Бар работает каждый день с 12:00 до 04:00 следующего дня.
+            // Значит "рабочее" время суток — это [12:00, 24:00) или [00:00, 04:00).
+            var time = scheduledAt.TimeOfDay;
+            var opensAt = new TimeSpan(12, 0, 0);
+            var closesAt = new TimeSpan(4, 0, 0);
+            var isWithinWorkingHours = time >= opensAt || time < closesAt;
+            if (!isWithinWorkingHours)
+            {
+                return BadRequest("Бронь доступна только на время работы бара: с 12:00 до 04:00.");
+            }
+
             if (!_sheets.TryParseTableIds(request.TablesId, out var tableIds) || tableIds.Length == 0)
             {
                 return BadRequest("Нет номера столика.");
