@@ -36,11 +36,11 @@ namespace table_reservations.Controllers
                 return BadRequest($"Некорректный формат dateTime. Ожидается {ReservationDateTime.Format}.");
             }
 
-            var minAllowedTime = DateTime.UtcNow.AddHours(5).AddMinutes(5);
-                if (scheduledAt < minAllowedTime)
-                {
-                    return BadRequest($"Минимальное время брони — {minAllowedTime:HH:mm}. Выберите время позже.");
-                }
+            var minAllowedTime = ReservationDateTime.KazakhstanNow().AddMinutes(5);
+            if (scheduledAt < minAllowedTime)
+            {
+                return BadRequest($"Минимальное время брони — {minAllowedTime:HH:mm}. Выберите время позже.");
+            }
 
             if (!_sheets.TryParseTableIds(request.TablesId, out var tableIds) || tableIds.Length == 0)
             {
@@ -57,7 +57,7 @@ namespace table_reservations.Controllers
 
             var appendResp = await _sheets.AppendReservationAsync(request, scheduledAt, ct);
 
-            var tables = await _sheets.GetTablesAsync(ct);
+            var tables = await _sheets.GetTablesAsync(scheduledAt: scheduledAt, ct: ct);
             var typeLabel = string.Join(", ",
                 tables
                     .Where(t => tableIds.Contains(t.Id))

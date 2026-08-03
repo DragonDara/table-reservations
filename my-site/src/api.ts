@@ -80,8 +80,9 @@ export async function healthCheck(): Promise<{ status: string }> {
   return request<{ status: string }>('/health');
 }
 
-export async function getTables(): Promise<TableAvailability[]> {
-  return request<TableAvailability[]>('/Tables');
+export async function getTables(scheduledAt?: string): Promise<TableAvailability[]> {
+  const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
+  return request<TableAvailability[]>(`/Tables${query}`);
 }
 
 export async function getTableAvailability(tablesId: string, scheduledAt?: string): Promise<TableAvailability> {

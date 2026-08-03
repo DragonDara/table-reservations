@@ -9,8 +9,7 @@ using table_reservations.Models;
 namespace table_reservations.Services
 {
     public class GoogleSheetsService : IGoogleSheetsService
-    {   
-        private static DateTime KazakhstanNow() => DateTime.UtcNow.AddHours(5);
+    {
         private const string ApplicationName = "TableReservationsAPI";
         private const string TablesRange = "Столики!A2:C100";
         private const string ReservationsRange = "Брони!A2:H10000";
@@ -25,11 +24,12 @@ namespace table_reservations.Services
             _config = config;
         }
 
-        public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(CancellationToken ct = default)
-        {
-            var service = CreateService();
-            var spreadsheetId = GetSpreadsheetId();
-            var now = KazakhstanNow();
+        public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default)
+            {
+                var service = CreateService();
+                var spreadsheetId = GetSpreadsheetId();
+                var slotStart = scheduledAt ?? ReservationDateTime.KazakhstanNow();
+                var slotEnd = slotStart.AddHours(ReservationDuration.Hours);
 
             var tablesResponse = await service.Spreadsheets.Values
                 .Get(spreadsheetId, TablesRange)
@@ -102,18 +102,17 @@ namespace table_reservations.Services
                     }
 
                     var reservationHours = ReservationDuration.Hours;
-
                     var reservationEnd = reservationStart.AddHours(reservationHours);
 
-                    // если время пересекается с "сейчас", то столик занят
-                    if (reservationStart <= now && reservationEnd > now)
+                    // если выбранный слот пересекается с существующей бронью — столик занят
+                    if (reservationStart < slotEnd && reservationEnd > slotStart)
                     {
                         isOccupied = true;
                         break;
                     }
 
-                    // ближайшая будущая бронь
-                    if (reservationStart > now && (nextStart is null || reservationStart < nextStart.Value))
+                    // ближайшая будущая бронь после выбранного слота
+                    if (reservationStart >= slotEnd && (nextStart is null || reservationStart < nextStart.Value))
                     {
                         nextStart = reservationStart;
                     }
@@ -126,7 +125,7 @@ namespace table_reservations.Services
                 }
                 else if (nextStart is not null)
                 {
-                    var hours = (nextStart.Value - now).TotalHours;
+                    var hours = (nextStart.Value - slotStart).TotalHours;
                     table.NextReservationHours = Math.Round(hours, 2);
                     table.Status = TableStatuses.Limited;
                 }
