@@ -218,6 +218,7 @@ viewport?.addEventListener('touchend', () => {
 // открытие / закрытие модалки
 openTablePickerBtn?.addEventListener('click', () => {
   if (overlay) overlay.hidden = false;
+  refreshTableStatuses();
   scale = 1;
   panX = 0;
   panY = 0;
@@ -465,12 +466,13 @@ const tableMarkers = document.querySelectorAll<HTMLButtonElement>('.table-marker
 
 async function refreshTableStatuses() {
   let tables: TableAvailability[];
-  try {
-    tables = await getTables();
-  } catch (err) {
-    console.error('Не удалось загрузить статусы столиков', err);
-    return;
-  }
+    try {
+      const datetimeValue = (document.getElementById('datetime') as HTMLInputElement | null)?.value;
+      tables = await getTables(datetimeValue || undefined);
+    } catch (err) {
+      console.error('Не удалось загрузить статусы столиков', err);
+      return;
+    }
 
   const byId = new Map(tables.map((t) => [String(t.id), t]));
 
@@ -634,8 +636,18 @@ const datetimeInput = document.getElementById('datetime') as HTMLInputElement | 
 
 if (datetimeInput) {
   const now = new Date();
-  now.setMinutes(now.getMinutes() + 5 - now.getTimezoneOffset()); // +5 мин минимальный лид-тайм, компенсация часового пояса
-  datetimeInput.min = now.toISOString().slice(0, 16); // формат YYYY-MM-DDTHH:mm
+  now.setMinutes(now.getMinutes() + 5);
+
+  const pad = (value: number) => String(value).padStart(2, '0');
+  datetimeInput.min = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  datetimeInput.addEventListener('input', () => {
+    refreshTableStatuses();
+  });
+
+  datetimeInput.addEventListener('change', () => {
+    refreshTableStatuses();
+  });
 }
 
 // переключение вкладок между залами 

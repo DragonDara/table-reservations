@@ -14,13 +14,22 @@ namespace table_reservations.Controllers
         public TablesController(IGoogleSheetsService sheets) => _sheets = sheets;
 
         [HttpGet]
-        public async Task<IActionResult> GetTables(CancellationToken ct)
+public async Task<IActionResult> GetTables([FromQuery] string? scheduledAt, CancellationToken ct)
+{
+    DateTime? targetTime = null;
+
+    if (!string.IsNullOrWhiteSpace(scheduledAt))
+    {
+        if (!ReservationDateTime.TryParse(scheduledAt, out var parsed))
         {
-
-            var tables = await _sheets.GetTablesAsync(ct);
-
-            return Ok(tables);
+            return BadRequest($"Некорректный формат scheduledAt. Ожидается {ReservationDateTime.Format}.");
         }
+        targetTime = parsed;
+    }
+
+    var tables = await _sheets.GetTablesAsync(scheduledAt: targetTime, ct: ct);
+    return Ok(tables);
+}
 
         [HttpGet("{tableId}/availability")]
         public async Task<IActionResult> GetTableAvailability(
