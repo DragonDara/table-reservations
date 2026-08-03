@@ -275,7 +275,17 @@ function closeTablePopup() {
 
 function formatHoursFromNow(hours: number): string {
   const target = new Date(Date.now() + hours * 60 * 60 * 1000);
-  return target.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  // Ресторан всегда работает по времени Алматы/Казахстана, поэтому время нужно
+  // форматировать именно в этой таймзоне, а не в таймзоне устройства посетителя.
+  // Раньше здесь не было `timeZone`, и toLocaleTimeString подставлял локальную
+  // зону браузера — если у гостя/сотрудника устройство настроено, например, на
+  // UTC, время "свободен до" уезжало на 5 часов относительно реального времени
+  // Казахстана.
+  return target.toLocaleTimeString('ru-RU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Asia/Almaty',
+  });
 }
 
 function formatPhoneNumber(rawValue: string): string {
@@ -634,12 +644,47 @@ const payload: ReservationPayload = {
 
 const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
 
+// Значение datetime-local уходит на бэкенд как "голая" строка без таймзоны и
+// сравнивается там с ReservationDateTime.KazakhstanNow() (Asia/Almaty). Поэтому
+// и минимально допустимое время в самом инпуте нужно считать в таймзоне
+// Алматы, а не в таймзоне устройства пользователя — иначе для гостей/сотрудников
+// из других часовых поясов min либо разрешал бы прошедшее по Казахстану время,
+// либо наоборот блокировал ближайшие реально свободные слоты.
+function getAlmatyNowParts(): { year: number; month: number; day: number; hour: number; minute: number } {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Almaty',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(new Date());
+
+  const map: Record<string, string> = {};
+  parts.forEach((p) => {
+    if (p.type !== 'literal') map[p.type] = p.value;
+  });
+
+  return {
+    year: Number(map.year),
+    month: Number(map.month),
+    day: Number(map.day),
+    hour: Number(map.hour),
+    minute: Number(map.minute),
+  };
+}
+
 if (datetimeInput) {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() + 5);
+  const almaty = getAlmatyNowParts();
+  // используем UTC-конструктор просто как календарный калькулятор (без реального
+  // применения UTC-таймзоны), чтобы корректно прибавить 5 минут с переносом через
+  // границы часа/дня/месяца
+  const now = new Date(Date.UTC(almaty.year, almaty.month - 1, almaty.day, almaty.hour, almaty.minute));
+  now.setUTCMinutes(now.getUTCMinutes() + 5);
 
   const pad = (value: number) => String(value).padStart(2, '0');
-  datetimeInput.min = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  datetimeInput.min = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
 
   datetimeInput.addEventListener('input', () => {
     refreshTableStatuses();
