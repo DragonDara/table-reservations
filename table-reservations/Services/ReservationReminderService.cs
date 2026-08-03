@@ -53,7 +53,12 @@ namespace table_reservations.Services
             // Нужен метод, который читает Брони!A2:H и возвращает строки + номер строки в Sheet
             var rows = await sheets.GetReminderCandidatesAsync(ct);
 
-            var now = DateTime.UtcNow.AddHours(5); // Казахстан, как в GoogleSheetsService
+            // Раньше здесь было "DateTime.UtcNow.AddHours(5)" — жёстко зашитый оффсет,
+            // который расходился с остальным приложением (GoogleSheetsService.KazakhstanNow()
+            // использует TimeZoneInfo "Asia/Almaty"). Любое несовпадение источника "текущего
+            // времени Казахстана" — это и есть почва для сдвигов на несколько часов.
+            // Используем единственный канонический источник времени во всём проекте.
+            var now = ReservationDateTime.KazakhstanNow();
 
             foreach (var item in rows)
             {
