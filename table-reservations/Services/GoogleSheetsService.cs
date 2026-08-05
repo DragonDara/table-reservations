@@ -347,14 +347,20 @@ namespace table_reservations.Services
             if (!string.IsNullOrWhiteSpace(credentialsJson))
             {
                 using var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
-                return GoogleCredential.FromStream(stream).CreateScoped(Scopes);
+                return CredentialFactory
+                    .FromStream<ServiceAccountCredential>(stream)
+                    .ToGoogleCredential()
+                    .CreateScoped(Scopes);
             }
 
             var jsonPath = _config["GoogleSheets:CredentialsJsonPath"];
             if (!string.IsNullOrWhiteSpace(jsonPath))
             {
                 using var stream = new FileStream(jsonPath, FileMode.Open, FileAccess.Read);
-                return GoogleCredential.FromStream(stream).CreateScoped(Scopes);
+                return CredentialFactory
+                    .FromStream<ServiceAccountCredential>(stream)
+                    .ToGoogleCredential()
+                    .CreateScoped(Scopes);
             }
 
             throw new InvalidOperationException(
