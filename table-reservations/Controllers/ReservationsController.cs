@@ -76,6 +76,14 @@ namespace table_reservations.Controllers
                 return Conflict("Один из выбранных столов уже занят на указанное время.");
             }
 
+            if (await _sheets.HasReservationForPhoneAsync(
+                    request.CustomerPhone,
+                    scheduledAt,
+                    ct))
+            {
+                return Conflict("На данный номер уже есть бронь.");
+            }
+
             var appendResp = await _sheets.AppendReservationAsync(request, scheduledAt, ct);
 
             var tables = await _sheets.GetTablesAsync(scheduledAt: scheduledAt, ct: ct);
