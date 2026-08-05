@@ -194,6 +194,48 @@ namespace table_reservations.Services
 
         }
 
+        public async Task<bool> HasReservationForPhoneAsync(string customerPhone, DateTime scheduledAt, CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(customerPhone))
+            {
+                return false;
+            }
+
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var normalizedPhone = customerPhone.Trim();
+
+            var response = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            var rows = response.Values ?? new List<IList<object>>();
+
+            foreach (var row in rows)
+            {
+                string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+                var existingPhone = GetCell(3);
+                if (!string.Equals(existingPhone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
+                {
+                    continue;
+                }
+
+                var reservationEnd = reservationStart.AddHours(ReservationDuration.Hours);
+                if (reservationStart < scheduledAt.AddHours(ReservationDuration.Hours) && reservationEnd > scheduledAt)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public async Task<AppendValuesResponse> AppendReservationAsync(ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default)
         {
             var service = CreateService();
