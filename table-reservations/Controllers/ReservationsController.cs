@@ -55,7 +55,17 @@ namespace table_reservations.Controllers
 
             if (!_sheets.TryParseTableIds(request.TablesId, out var tableIds) || tableIds.Length == 0)
             {
-                return BadRequest("Нет номера столика.");
+                return BadRequest("Некорректный номер столика.");
+            }
+
+            if (tableIds.Length != tableIds.Distinct().Count())
+            {
+                return BadRequest("В одной броне нельзя указывать один и тот же номер столика несколько раз.");
+            }
+
+            if (await _sheets.IsPhoneAlreadyReservedAsync(request.CustomerPhone, ct))
+            {
+                return Conflict("На этот номер телефона уже есть бронь. Один номер телефона = один заказ.");
             }
 
             if (await _sheets.IsReservationTakenAsync(
@@ -63,7 +73,7 @@ namespace table_reservations.Controllers
                     scheduledAt,
                     ct))
             {
-                return Conflict("Этот стол уже занят на указанное время.");
+                return Conflict("Один из выбранных столов уже занят на указанное время.");
             }
 
             if (await _sheets.HasReservationForPhoneAsync(
