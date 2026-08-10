@@ -1,5 +1,6 @@
 import './style.css';
 import {
+  API_BASE_URL,
   createReservation,
   getTables,
   type ReservationPayload,
@@ -37,6 +38,29 @@ navLinks.forEach((link) => {
     }
   });
 });
+
+async function loadRating() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/rating`);
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const rating = Number(data?.rating ?? 0);
+    const reviewCount = Number(data?.reviewCount ?? 0);
+
+    const ratingEl = document.getElementById('dgisRating');
+    const reviewsEl = document.getElementById('dgisReviews');
+
+    if (ratingEl) ratingEl.textContent = Number.isFinite(rating) ? rating.toFixed(1) : '0.0';
+    if (reviewsEl) reviewsEl.textContent = Number.isFinite(reviewCount) ? String(reviewCount) : '0';
+  } catch (err) {
+    console.error('Не удалось загрузить рейтинг:', err);
+  }
+}
+
+loadRating();
 
 // бронирование: заготовка под будущую карту столиков
 const openTablePickerBtn = document.getElementById('openTablePicker') as HTMLButtonElement | null;
