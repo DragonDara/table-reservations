@@ -2,6 +2,7 @@ using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 using table_reservations.Services;
 
+
 namespace table_reservations
 {
     public class Program
@@ -23,6 +24,7 @@ namespace table_reservations
             builder.Services.AddScoped<IGoogleSheetsService, GoogleSheetsService>();
             builder.Services.AddHttpClient<IWhatsAppNotificationService, WhatsAppNotificationService>();
             builder.Services.AddHostedService<ReservationReminderService>();
+            builder.Services.AddHttpClient<DgisRatingService>();
 
             builder.Services.AddCors(options =>
             {
@@ -90,3 +92,4 @@ namespace table_reservations
         }
     }
 }
+
