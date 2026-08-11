@@ -35,6 +35,37 @@ namespace table_reservations
                 });
             });
 
+            #region POS-интеграция(iiko)
+
+            builder.Services.AddHttpClient(nameof(table_reservations.Pos.IikoAdapter), client =>
+            {
+                client.BaseAddress = new Uri(builder.Configuration["Iiko:BaseUrl"]!);
+                client.Timeout = TimeSpan.FromSeconds(15);
+            });
+
+            // Регистрируем IPosAdapter как AuthenticatingPosAdapter(IikoAdapter) —
+            // декоратор сам следит, что токен не протух, и реавторизуется при необходимости.
+            // Scoped — как и остальные сервисы в проекте, живёт в пределах одного HTTP-запроса.
+            builder.Services.AddScoped<table_reservations.Pos.IPosAdapter>(sp =>
+            {
+                var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+                var http = httpClientFactory.CreateClient(nameof(table_reservations.Pos.IikoAdapter));
+
+                var iiko = new table_reservations.Pos.IikoAdapter(
+                    http,
+                    builder.Configuration["Iiko:ApiLogin"]!,
+                    builder.Configuration["Iiko:OrganizationId"]!);
+
+                return new table_reservations.Pos.AuthenticatingPosAdapter(iiko);
+            });
+
+            // Фабрика — пригодится, если позже подключишь второй POS (Paloma, r_keeper и т.д.)
+            builder.Services.AddScoped<table_reservations.Pos.PosAdapterFactory>();
+            
+            // Фасад над фабрикой — именно его внедряют контроллеры
+            builder.Services.AddScoped<table_reservations.Pos.PosBookingService>(); // ← добавить эту строку
+            #endregion
+
             var app = builder.Build();
  
            app.UseCors("AllowWebFlow");

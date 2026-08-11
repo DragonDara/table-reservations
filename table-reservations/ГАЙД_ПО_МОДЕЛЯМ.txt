@@ -1,0 +1,941 @@
+================================================================================
+		   TABLE-RESERVATIONS: ПОЛНЫЙ ГАЙД ПО МОДЕЛЯМ И ДАННЫМ
+			  Архитектура моделей, DTO и их использование
+================================================================================
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+ 1. ОБЩАЯ АРХИТЕКТУРА ДАННЫХ
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+УРОВНИ ДАННЫХ В СИСТЕМЕ:
+
+┌──────────────────────────────────────────────────────────────────────┐
+│  1. HTTP API СЛОЙ (то что приходит с клиента)                       │
+│                                                                      │
+│  ReservationInfo (Models/) ◄────── JSON от клиента                  │
+│  {                                                                   │
+│    "TablesId": "1,2,3",         ← Номера столов                     │
+│    "CustomerName": "Иван",       ← Имя клиента                      │
+│    "CustomerPhone": "+77770000", ← Контакт клиента                  │
+│    "ScheduledAt": "25/12/2024 19:30",  ← Время брони              │
+│    "Section": "VIP",            ← Раздел ресторана                  │
+│    "RemindBeforeHour": true     ← Отправлять напоминание?           │
+│  }                                                                   │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+									▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  2. ВНУТРЕННИЙ СЛОЙ (обработка внутри приложения)                    │
+│                                                                      │
+│  TableInfo (Models/)  ← Информация о столах                         │
+│  ReminderCandidate (Models/)  ← Данные для отправки напоминаний     │
+│  Constants/  ← Конфигурация, форматы, статусы                       │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+									▼
+┌──────────────────────────────────────────────────────────────────────┐
+│  3. ВНЕШНИЕ СИСТЕМЫ (POS, Google Sheets, WhatsApp)                   │
+│                                                                      │
+│  CreateReservationRequest ← Преобразованные данные для POS          │
+│  CreateOrderRequest       ← Преобразованные данные для заказов       │
+│  ReservationResult        ← Результат операции из POS               │
+│  OrderResult              ← Результат операции из POS               │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+
+================================================================================
+ 2. ОСНОВНЫЕ МОДЕЛИ (Models/)
+================================================================================
+
+📦 МОДЕЛЬ 1: ReservationInfo
+────────────────────────────────────────────────────────────────────────
+
+namespace table_reservations.Models
+{
+	public class ReservationInfo
+	{
+		public string TablesId { get; set; }              // "1" или "1,2,3"
+		public string CustomerName { get; set; }          // "Иван Петров"
+		public string CustomerPhone { get; set; }         // "+77770000000"
+		public string ScheduledAt { get; set; }           // "25/12/2024 19:30"
+		public string Section { get; set; }               // "VIP" или "Обычный"
+		public bool RemindBeforeHour { get; set; }        // отправить напоминание?
+	}
+}
+
+📍 ГДЕ ИСПОЛЬЗУЕТСЯ:
+├─ Controllers/ReservationsController.cs
+│  └─ CreateReservation([FromBody] ReservationInfo request)
+│     Получает JSON от клиента, парсит и валидирует
+│
+├─ Services/IGoogleSheetsService.cs
+│  └─ AppendReservationAsync(ReservationInfo reservation, ...)
+│     Сохраняет в Google Sheets
+│
+├─ Services/IWhatsAppNotificationService.cs
+│  └─ SendReservationNotificationsAsync(ReservationInfo reservation, ...)
+│     Отправляет уведомление в WhatsApp
+│
+└─ Helpers/ReservationMapper.cs
+   └─ ToCreateReservationRequest(ReservationInfo info, ...)
+	  Преобразует для отправки в POS системы
+
+ПРИМЕЧАНИЯ:
+✓ Это DTO (Data Transfer Object) — получает данные с HTTP
+✓ Используется для валидации входящих данных
+✓ Преобразуется в другие форматы для разных систем
+✓ Всегда приходит как JSON от клиента
+
+
+📦 МОДЕЛЬ 2: TableInfo
+────────────────────────────────────────────────────────────────────────
+
+namespace table_reservations.Models
+{
+	public class TableInfo
+	{
+		public int Id { get; set; }                       // ID стола (1, 2, 3, ...)
+		public TableType Type { get; set; }               // Enum: Обычный, VIP
+		public int Seats { get; set; }                    // Вместимость (2, 4, 6, ...)
+		public string Status { get; set; }                // "free", "occupied", "limited"
+		public double? NextReservationHours { get; set; } // Часов до следующей брони
+	}
+}
+
+📍 ГДЕ ИСПОЛЬЗУЕТСЯ:
+├─ Controllers/TablesController.cs
+│  ├─ GetTables() → Task<IActionResult>
+│  │  Возвращает список всех столов
+│  └─ GetTableAvailability(int tableId) → проверяет занятость
+│
+├─ Services/IGoogleSheetsService.cs
+│  └─ GetTablesAsync() → возвращает List<TableInfo>
+│     Читает из Google Sheets диапазон "Столики!A2:C100"
+│
+├─ Controllers/ReservationsController.cs
+│  └─ CreateReservation() использует для проверки доступности
+│
+└─ Helpers/ReservationMapper.cs
+   ├─ ToTable(TableInfo info) → преобразует для API ответа
+   └─ ToTableList(IEnumerable<TableInfo> tables) → маппирует в формат POS
+
+ПРИМЕЧАНИЯ:
+✓ Источник данных: Google Sheets или POS система
+✓ Используется для проверки доступности при бронировании
+✓ Возвращается клиенту в GET запросах
+✓ Status всегда используется для определения занятости
+
+
+📦 МОДЕЛЬ 3: ReminderCandidate
+────────────────────────────────────────────────────────────────────────
+
+namespace table_reservations.Models
+{
+	public sealed class ReminderCandidate
+	{
+		public int SheetRowNumber { get; init; }         // № строки в Google Sheets (2, 3, 4...)
+		public string TablesId { get; init; }            // Номера столов "1, 2, 3"
+		public string CustomerName { get; init; }        // Имя клиента
+		public string CustomerPhone { get; init; }       // Номер для WhatsApp
+		public string ScheduledAt { get; init; }         // Дата и время брони
+		public string? Section { get; init; }            // Раздел ресторана
+		public string RemindBeforeHourCell { get; init; }// Ячейка "G{n}" в Sheets
+		public string ReminderSentCell { get; init; }    // Ячейка "H{n}" в Sheets
+	}
+}
+
+📍 ГДЕ ИСПОЛЬЗУЕТСЯ:
+├─ Services/ReservationReminderService.cs
+│  └─ ExecuteAsync() → каждые 5 минут
+│     1. Получает ReminderCandidate[] из Google Sheets
+│     2. Фильтрует: брони за ~60 минут
+│     3. Отправляет напоминание через WhatsApp
+│     4. Отмечает как отправленное (обновляет H колонку)
+│
+├─ Services/IGoogleSheetsService.cs
+│  └─ GetReminderCandidatesAsync() → возвращает ReminderCandidate[]
+│
+├─ Services/IWhatsAppNotificationService.cs
+│  └─ SendReminderBeforeHourAsync(ReminderCandidate, ...)
+│
+└─ Helpers/ReservationMapper.cs
+   ├─ ToReminderCandidate(ReservationInfoDto dto, ...) 
+   └─ ToReminderCandidates(List<ReservationInfoDto> reservations, ...)
+	  Преобразует из DTO в ReminderCandidate
+
+ПРИМЕЧАНИЯ:
+✓ Это SEALED класс (не может быть наследован)
+✓ Использует init-only свойства (неизменяемый после создания)
+✓ Содержит ссылки на ячейки Google Sheets для обновления
+✓ Используется ДО отправки напоминания
+
+================================================================================
+ 3. КОНСТАНТЫ И ENUM-ЫЕ (Constants/)
+================================================================================
+
+📊 ReservationDateTime — ФОРМАТИРОВАНИЕ ДАТ
+────────────────────────────────────────────────────────────────────────
+
+namespace table_reservations.Constants
+{
+	public static class ReservationDateTime
+	{
+		// Основной формат для Google Sheets и API
+		public const string Format = "dd/MM/yyyy HH:mm";
+
+		// Поддерживаемые форматы для парсинга:
+		// "dd/MM/yyyy HH:mm"      ← Google Sheets
+		// "dd.MM.yyyy HH:mm"      ← Альтернативный (русские точки)
+		// "yyyy-MM-ddTHH:mm"      ← datetime-local HTML5
+		// "yyyy-MM-ddTHH:mm:ss"   ← ISO full
+		// "yyyy-MM-dd HH:mm"      ← Запасной
+
+		// Получить текущее время в Казахстане (UTC+6)
+		public static DateTime KazakhstanNow()
+		{
+			var utcNow = DateTime.UtcNow;
+			return TimeZoneInfo.ConvertTime(
+				utcNow, 
+				TimeZoneInfo.FindSystemTimeZoneById("Asia/Almaty")
+			);
+		}
+
+		// Парсить дату в разных форматах
+		public static bool TryParse(string value, out DateTime result)
+		{
+			// Пробует все форматы, возвращает первый успешный
+		}
+	}
+}
+
+📍 ГДЕ ИСПОЛЬЗУЕТСЯ:
+├─ Controllers/ReservationsController.cs
+│  └─ CreateReservation()
+│     if (!ReservationDateTime.TryParse(request.ScheduledAt, ...))
+│        return BadRequest("Некорректный формат");
+│
+├─ Controllers/TablesController.cs
+│  └─ GetTables(string? scheduledAt)
+│     Парсит параметр запроса
+│
+├─ Services/GoogleSheetsService.cs
+│  └─ GetTablesAsync() использует Format для форматирования
+│
+├─ Services/WhatsAppNotificationService.cs
+│  └─ BuildCustomerMessage() форматирует дату для сообщения
+│
+└─ Helpers/ReservationMapper.cs
+   └─ TryParseReservationDateTime() использует все форматы
+
+ПРИМЕЧАНИЯ:
+✓ Используется везде, где работаем с датой/временем
+✓ Казахстанская временная зона! (Asia/Almaty = UTC+6)
+✓ Поддерживает несколько форматов для совместимости
+✓ ВСЕГДА используйте KazakhstanNow() вместо DateTime.Now
+
+
+📊 ReservationDuration — ДЛИТЕЛЬНОСТЬ БРОНИРОВАНИЯ
+────────────────────────────────────────────────────────────────────────
+
+namespace table_reservations.Constants
+{
+	public class ReservationDuration
+	{
+		public const int Hours = 3;  // Бронь на 3 часа
+	}
+}
+
+📍 ГДЕ ИСПОЛЬЗУЕТСЯ:
+├─ Services/GoogleSheetsService.cs
+│  └─ GetTablesAsync()
+│     var slotEnd = slotStart.AddHours(ReservationDuration.Hours);
+│     Определяет окончание слота бронирования
+│
+└─ Для расчёта доступности столов
+
+ПРИМЕЧАНИЯ:
+✓ Используется для расчёта, когда стол снова будет свободен
+✓ Зашито = 3 часа на одну бронь
+
+
+📊 TableStatuses — СТАТУСЫ СТОЛОВ
+────────────────────────────────────────────────────────────────────────
+
+namespace table_reservations.Constants
+{
+	public static class TableStatuses
+	{
+		public const string Free = "free";              // Стол свободен
+		public const string Limited = "limited";        // Ограниченная доступность
+		public const string Occupied = "occupied";      // Стол занят
+	}
+}
+
+📍 ГДЕ ИСПОЛЬЗУЕТСЯ:
+├─ Models/TableInfo.cs
+│  └─ public string Status { get; set; } = TableStatuses.Free;
+│
+├─ Services/GoogleSheetsService.cs
+│  └─ GetTablesAsync()
+│     tables.Add(new TableInfo { Status = TableStatuses.Free });
+│
+├─ Controllers/TablesController.cs
+│  └─ GetTableAvailability()
+│     status = isTaken ? "occupied" : "free"
+│
+└─ Helpers/ReservationMapper.cs
+   └─ IsTableAvailable(string status)
+	  Проверяет, что Free
+
+ПРИМЕЧАНИЯ:
+✓ Строковые константы для совместимости с Google Sheets
+✓ Limited — редко используется, зарезервировано на будущее
+✓ Проверяйте через константы, не жёсткий код!
+
+
+📊 TableType — ТИП СТОЛА (ENUM)
+────────────────────────────────────────────────────────────────────────
+
+namespace table_reservations.Constants
+{
+	public enum TableType
+	{
+		Обычный,  // Обычный стол (индекс 0)
+		VIP       // VIP стол (индекс 1)
+	}
+}
+
+📍 ГДЕ ИСПОЛЬЗУЕТСЯ:
+├─ Models/TableInfo.cs
+│  └─ public TableType Type { get; set; } = TableType.Обычный;
+│
+├─ Controllers/ReservationsController.cs
+│  └─ CreateReservation()
+│     typeLabel = t.Type == TableType.VIP ? "VIP" : "Обычный"
+│     Для построения сообщения клиенту
+│
+├─ Services/GoogleSheetsService.cs
+│  └─ GetTablesAsync()
+│     tables.Add(new TableInfo { Type = ParseTableType(typeText) });
+│
+└─ Helpers/ReservationMapper.cs
+   └─ ToTable(TableInfo info)
+	  SectionName: info.Type?.ToString() ?? "Standard"
+
+ПРИМЕЧАНИЯ:
+✓ Enum с русскими названиями (Обычный, VIP)
+✓ В Google Sheets хранится как текст, потом парсится
+✓ При сериализации в JSON автоматически преобразуется через JsonStringEnumConverter
+
+================================================================================
+ 4. ВНЕШНИЕ МОДЕЛИ - ДЛЯ ИНТЕГРАЦИИ С POS СИСТЕМАМИ
+================================================================================
+
+⚠️  ВАЖНО: Эти модели приходят из IntegrationPosSystems пакета!
+
+📦 CreateReservationRequest — ЗАПРОС НА БРОНЬ В POS
+────────────────────────────────────────────────────────────────────────
+
+Из пакета: IntegrationPosSystems.Models
+
+namespace IntegrationPosSystems.Models
+{
+	public record CreateReservationRequest(
+		string RestaurantId,           // ID ресторана в POS
+		CustomerInfo Customer,         // Данные клиента
+		DateTime ReservationTime,      // Время бронирования
+		int GuestsCount,               // Количество гостей
+		string? TableId = null,        // Конкретный стол (опционально)
+		int? DurationInMinutes = null, // Длительность брони
+		string? TerminalGroupId = null // Для IIKO
+	);
+}
+
+📍 КТО СОЗДАЁТ:
+└─ Helpers/ReservationMapper.cs
+   public static CreateReservationRequest ToCreateReservationRequest(
+	   Models.ReservationInfo info,           ← из HTTP запроса
+	   string restaurantId,
+	   int? guestsCount = null,
+	   int? durationInMinutes = null,
+	   string? terminalGroupId = null)
+
+📍 КТО ИСПОЛЬЗУЕТ:
+├─ Interfaces/IPosAdapter.cs
+│  └─ Task<ReservationResult> ReserveTableAsync(CreateReservationRequest request, ...)
+│
+├─ Adapters/Iiko/IikoAdapter.cs
+│  └─ ReserveTableAsync(CreateReservationRequest request, ...)
+│     Отправляет в IIKO POS
+│
+├─ Adapters/Paloma/PalomaAdapter.cs
+│  └─ ReserveTableAsync(CreateReservationRequest request, ...)
+│     Отправляет в Paloma 1C
+│
+└─ Adapters/Rkeeper/RkeeperAdapter.cs
+   └─ ReserveTableAsync(CreateReservationRequest request, ...)
+	  Отправляет в r_keeper
+
+ПРИМЕЧАНИЯ:
+✓ Record тип (неизменяемый, с автоматическим Equals/GetHashCode)
+✓ Создаётся из ReservationInfo + конфиг-параметры
+✓ Каждый адаптер знает, как отправить в свою систему
+
+
+📦 CreateOrderRequest — ЗАПРОС НА СОЗДАНИЕ ЗАКАЗА
+────────────────────────────────────────────────────────────────────────
+
+Из пакета: IntegrationPosSystems.Models
+
+Аналогично CreateReservationRequest, но для заказов.
+
+📍 КОГДА ИСПОЛЬЗУЕТСЯ:
+├─ Создание заказа при бронировании
+└─ Связь стола с конкретным заказом
+
+
+📦 ReservationResult — РЕЗУЛЬТАТ ОПЕРАЦИИ БРОНИРОВАНИЯ
+────────────────────────────────────────────────────────────────────────
+
+Из пакета: IntegrationPosSystems.Models
+
+namespace IntegrationPosSystems.Models
+{
+	public record ReservationResult(
+		bool Success,                      // Успешно ли?
+		string? ExternalReservationId,    // ID брони в POS
+		string? ErrorMessage               // Если ошибка
+	);
+}
+
+📍 КТО СОЗДАЁТ:
+├─ Adapters/Iiko/IikoAdapter.cs
+│  └─ return new ReservationResult(true, data.ReservationId, null);
+│
+├─ Adapters/Paloma/PalomaAdapter.cs
+│  └─ return new ReservationResult(true, data.Id, null);
+│
+└─ Adapters/Rkeeper/RkeeperAdapter.cs
+   └─ return new ReservationResult(true, resId, null);
+
+📍 КТО ИСПОЛЬЗУЕТ:
+├─ Helpers/ReservationMapper.cs
+│  └─ bool IsOperationSuccessful(ReservationResult result)
+│     Проверяет: Success && !string.IsNullOrEmpty(ExternalReservationId)
+│
+└─ Controllers/ReservationsController.cs (будущее)
+   └─ Проверяет результат перед ответом клиенту
+
+ПРИМЕЧАНИЯ:
+✓ Каждый адаптер возвращает свой ID (IIKO, Paloma, r_keeper)
+✓ ExternalReservationId сохраняется для отмены
+✓ ErrorMessage — если Success = false
+
+
+📦 ReservationInfoDto — DTO ИЗ POS СИСТЕМЫ
+────────────────────────────────────────────────────────────────────────
+
+Из пакета: IntegrationPosSystems.Models
+
+Используется когда ЧИТАЕМ брони из POS (для синхронизации, напоминаний).
+
+📍 КТО СОЗДАЁТ:
+├─ Adapters/Iiko/IikoAdapter.cs
+│  └─ GetReservationsAsync()
+│     result.Add(new ReservationInfoDto(...));
+│
+├─ Adapters/Paloma/PalomaAdapter.cs
+│  └─ GetReservationsAsync()
+│
+└─ Adapters/Rkeeper/RkeeperAdapter.cs
+   └─ GetReservationsAsync()
+
+📍 КТО ИСПОЛЬЗУЕТ:
+├─ Helpers/ReservationMapper.cs
+│  ├─ ToReminderCandidate(ReservationInfoDto dto, ...)
+│  │  Преобразует для напоминаний
+│  └─ ToReminderCandidates(List<ReservationInfoDto> reservations, ...)
+│     Массовое преобразование
+│
+└─ Services/ReservationReminderService.cs
+   └─ Получает ReservationInfoDto[] из POS
+	  Находит напоминания к отправке
+
+ПРИМЕЧАНИЯ:
+✓ Структура зависит от конкретной POS системы
+✓ Преобразуется в ReminderCandidate перед отправкой напоминания
+✓ Может отличаться по полям в зависимости от адаптера
+
+
+📦 Table, ActiveOrderDto, OrderResult и т.д.
+────────────────────────────────────────────────────────────────────────
+
+Все остальные DTO из IntegrationPosSystems используются для:
+├─ Table — представление стола в унифицированном формате
+├─ ActiveOrderDto — активный заказ (заказ, который готовится)
+├─ OrderResult — результат создания заказа
+└─ OrderStatusResult — статус заказа в системе
+
+Маппируются через ReservationMapper для удобства.
+
+================================================================================
+ 5. ПОТОК ДАННЫХ: ПРИМЕРЫ
+================================================================================
+
+📍 СЦЕНАРИЙ 1: КЛИЕНТ ДЕЛАЕТ БРОНЬ
+────────────────────────────────────────────────────────────────────────
+
+1️⃣  HTTP POST /api/reservations
+	└─ Body (JSON):
+	   {
+		 "TablesId": "1,2",
+		 "CustomerName": "Иван",
+		 "CustomerPhone": "+77770000000",
+		 "ScheduledAt": "25/12/2024 19:30",
+		 "Section": "VIP",
+		 "RemindBeforeHour": true
+	   }
+
+2️⃣  ReservationsController.CreateReservation()
+	└─ Получает [FromBody] ReservationInfo request
+	   └─ Валидирует:
+		  ├─ Не пусто? ✓
+		  ├─ Правильный формат даты? 
+		  │  └─ ReservationDateTime.TryParse() ✓
+		  ├─ Время >= текущее + 5 минут?
+		  │  └─ ReservationDateTime.KazakhstanNow() ✓
+		  ├─ В рабочее время? (12:00 - 04:00) ✓
+		  ├─ Стол существует? 
+		  │  └─ _sheets.TryParseTableIds() ✓
+		  └─ Стол не занят?
+			 └─ _sheets.IsReservationTakenAsync() ✓
+
+3️⃣  _sheets.AppendReservationAsync(request, scheduledAt)
+	└─ Сохраняет в Google Sheets таблицу "Брони!A:H"
+	└─ Возвращает: AppendValuesResponse
+
+4️⃣  Получаем TableInfo для информации о типе стола
+	└─ _sheets.GetTablesAsync(scheduledAt)
+	└─ Фильтруем по ID из request.TablesId
+	└─ Строим typeLabel = "VIP" или "Обычный"
+
+5️⃣  _whatsApp.SendReservationNotificationsAsync()
+	└─ Отправляет два сообщения:
+	   ├─ Клиенту: "Ваша бронь подтверждена..."
+	   └─ Админу: "Новая бронь: Иван, стол 1-2, 19:30..."
+
+6️⃣  Возвращаем OK ответ:
+	└─ {
+		 "message": "Бронь создана.",
+		 "whatsAppSent": true,
+		 "adminWhatsAppSent": true,
+		 "update": { "updates": 1 }
+	   }
+
+📊 ЦЕПОЧКА МОДЕЛЕЙ:
+   JSON (клиент)
+	  ↓
+   ReservationInfo (парсинг + валидация)
+	  ↓
+   DateTime (парсинг времени)
+	  ↓
+   TableInfo[] (проверка доступности)
+	  ↓
+   Google Sheets (сохранение)
+	  ↓
+   WhatsApp (отправка уведомлений)
+
+
+📍 СЦЕНАРИЙ 2: ФОНОВЫЙ СЕРВИС ОТПРАВЛЯЕТ НАПОМИНАНИЕ
+────────────────────────────────────────────────────────────────────────
+
+1️⃣  ReservationReminderService.ExecuteAsync()
+	└─ Каждые 5 минут:
+	   ├─ sheets.GetReminderCandidatesAsync()
+	   │  └─ Читает Google Sheets "Брони!A:H"
+	   │  └─ Фильтрует: брони через ~60 минут
+	   │  └─ Возвращает ReminderCandidate[]
+	   │
+	   ├─ ReminderCandidate[] содержит:
+	   │  ├─ SheetRowNumber = 5 (чтобы потом обновить)
+	   │  ├─ CustomerPhone = "+77770000000"
+	   │  ├─ CustomerName = "Иван"
+	   │  ├─ ScheduledAt = "25/12/2024 19:30"
+	   │  └─ ReminderSentCell = "H5" (ячейка для отметки)
+	   │
+	   └─ Для каждого ReminderCandidate:
+		  ├─ _whatsApp.SendReminderBeforeHourAsync(reminder, ...)
+		  │  └─ Отправляет: "Иван! Напоминаем, что в 19:30 у вас бронь на стол 1-2"
+		  │
+		  └─ sheets.MarkReminderSentAsync(sheetRowNumber)
+			 └─ Обновляет в Google Sheets H{n} = "sent"
+			 └─ Чтобы не отправить дважды
+
+📊 ЦЕПОЧКА МОДЕЛЕЙ:
+   Google Sheets (чтение брони)
+	  ↓
+   ReminderCandidate[] (парсинг + фильтрация)
+	  ↓
+   WhatsApp (отправка)
+	  ↓
+   Google Sheets (отметка как отправленное)
+
+
+📍 СЦЕНАРИЙ 3: ПОЛУЧИТЬ ДОСТУПНЫЕ СТОЛЫ
+────────────────────────────────────────────────────────────────────────
+
+1️⃣  HTTP GET /api/tables?scheduledAt=25/12/2024 19:30
+	└─ Query параметр: scheduledAt (опционально)
+
+2️⃣  TablesController.GetTables()
+	└─ if (scheduledAt != null)
+		  ReservationDateTime.TryParse(scheduledAt) → DateTime
+	   else
+		  targetTime = null
+
+3️⃣  _sheets.GetTablesAsync(scheduledAt: targetTime)
+	└─ Читает "Столики!A2:C100" из Google Sheets
+	└─ Для каждой строки создаёт TableInfo:
+	   {
+		 Id: 1,
+		 Type: TableType.Обычный,
+		 Seats: 4,
+		 Status: "free",
+		 NextReservationHours: 2.5
+	   }
+	└─ Если scheduledAt указано, проверяет брони на это время
+	└─ Обновляет Status = "occupied" если занято
+
+4️⃣  Возвращаем JSON ответ:
+	└─ [
+		 { "id": 1, "type": "Обычный", "seats": 4, "status": "free", ... },
+		 { "id": 2, "type": "VIP", "seats": 2, "status": "occupied", ... }
+	   ]
+
+📊 ЦЕПОЧКА МОДЕЛЕЙ:
+   HTTP параметры (scheduledAt строка)
+	  ↓
+   DateTime (парсинг)
+	  ↓
+   Google Sheets (чтение столов и брони)
+	  ↓
+   TableInfo[] (построение списка)
+	  ↓
+   JSON ответ клиенту
+
+
+📍 СЦЕНАРИЙ 4: ИНТЕГРАЦИЯ С POS (HORECO)
+────────────────────────────────────────────────────────────────────────
+
+1️⃣  ReservationInfo поступает как обычно
+	└─ HTTP запрос или из Google Sheets
+
+2️⃣  Mapper преобразует в CreateReservationRequest
+	└─ ReservationMapper.ToCreateReservationRequest(
+		  info,
+		  restaurantId: "iiko_restaurant_123",
+		  guestsCount: 2,
+		  durationInMinutes: 120,
+		  terminalGroupId: "group_1"
+	   )
+	└─ Результат:
+	   {
+		 RestaurantId: "iiko_restaurant_123",
+		 Customer: { Name: "Иван", Phone: "+77770000000" },
+		 ReservationTime: 2024-12-25 19:30,
+		 GuestsCount: 2,
+		 TableId: "1,2",
+		 DurationInMinutes: 120,
+		 TerminalGroupId: "group_1"
+	   }
+
+3️⃣  IPosAdapter выбирается по конфигу (IIKO, Paloma, r_keeper)
+	└─ PosAdapterFactory.CreateAdapter(providerName)
+	└─ Например, IikoAdapter
+
+4️⃣  adapter.ReserveTableAsync(createReservationRequest)
+	└─ Отправляет HTTP запрос в IIKO API
+	└─ IIKO создаёт бронь в своей системе
+	└─ IIKO возвращает ID брони: "res_12345"
+
+5️⃣  ReservationResult возвращается
+	└─ {
+		 Success: true,
+		 ExternalReservationId: "res_12345",
+		 ErrorMessage: null
+	   }
+
+6️⃣  Проверяем результат
+	└─ ReservationMapper.IsOperationSuccessful(result)
+	└─ Если успешно:
+	   ├─ Сохраняем ExternalReservationId в БД
+	   └─ Отправляем уведомление клиенту
+
+📊 ЦЕПОЧКА МОДЕЛЕЙ:
+   ReservationInfo (HTTP)
+	  ↓
+   CreateReservationRequest (маппирование)
+	  ↓
+   POS API (отправка)
+	  ↓
+   ReservationResult (результат)
+	  ↓
+   Проверка успеха + уведомление
+
+================================================================================
+ 6. ТАБЛИЦА ВСЕХ МОДЕЛЕЙ И ГДЕ ИСПОЛЬЗУЮТСЯ
+================================================================================
+
+┌────────────────────────┬────────────────────────┬──────────────────────────┐
+│ МОДЕЛЬ/КЛАСС           │ ФАЙЛ                   │ ОСНОВНОЕ ИСПОЛЬЗОВАНИЕ   │
+├────────────────────────┼────────────────────────┼──────────────────────────┤
+│ ReservationInfo        │ Models/                │ HTTP DTO (клиент → сервер)
+│ TableInfo              │ Models/                │ Информация о столах
+│ ReminderCandidate      │ Models/                │ Данные для напоминаний
+│                        │                        │                          │
+│ ReservationDateTime    │ Constants/             │ Парсинг/форматирование   │
+│ ReservationDuration    │ Constants/             │ Длительность брони (3ч)  │
+│ TableStatuses          │ Constants/             │ Статусы столов           │
+│ TableType              │ Constants/             │ Тип стола (VIP/Обычный)  │
+│                        │                        │                          │
+│ CreateReservationReq   │ IntegrationPosSystems  │ Запрос на бронь в POS    │
+│ ReservationResult      │ IntegrationPosSystems  │ Результат брони в POS    │
+│ ReservationInfoDto     │ IntegrationPosSystems  │ Брони из POS системы     │
+│ Table                  │ IntegrationPosSystems  │ Столы в унифицированном  │
+│ ActiveOrderDto         │ IntegrationPosSystems  │ Активные заказы          │
+│ OrderResult            │ IntegrationPosSystems  │ Результат заказа         │
+└────────────────────────┴────────────────────────┴──────────────────────────┘
+
+================================================================================
+ 7. МАППИРОВАНИЕ И ТРАНСФОРМАЦИИ
+================================================================================
+
+ReservationMapper — это сердце трансформаций:
+
+   ВХОДЯЩИЕ МОДЕЛИ             MAPPER               ИСХОДЯЩИЕ МОДЕЛИ
+   ─────────────────────────────────────────────────────────────────
+
+   ReservationInfo     ──────> ToCreateReservationRequest ──────> CreateReservationRequest
+					   ─────────────────────────────────────────  (для POS)
+
+   TableInfo[]         ──────> ToTable() / ToTableList() ──────> Table[] (для API)
+
+   ReservationInfoDto  ──────> ToReminderCandidate() ──────> ReminderCandidate
+					   ─────────────────────────────────  (для напоминаний)
+
+   ReservationResult   ──────> IsOperationSuccessful() ──────> bool (успех?)
+
+   List<ReservationInfoDto> ──> ToReminderCandidates() ──────> ReminderCandidate[]
+
+ПОЧЕМУ МАППИРОВАНИЕ?
+├─ Разные системы используют разные форматы
+├─ Google Sheets ≠ POS ≠ HTTP API
+├─ Маппер — адаптер между слоями
+└─ Изменения в одной системе не ломают другую
+
+
+================================================================================
+ 8. ВАЛИДАЦИЯ И ПРЕОБРАЗОВАНИЕ
+================================================================================
+
+ВСЕ ПРЕОБРАЗОВАНИЯ В ОДНОМ МЕСТЕ:
+
+ReservationInfo (JSON) 
+	↓ [Валидация в контроллере]
+	├─ NotNull проверки
+	├─ Формат даты
+	├─ Время в будущем?
+	├─ Рабочие часы?
+	└─ Стол существует?
+	↓
+DateTime (распарсенное время)
+	↓ [Проверка в сервисе]
+	├─ Стол не занят?
+	├─ Нет других брони на этот номер?
+	└─ Добавить в Google Sheets
+	↓
+CreateReservationRequest (для POS)
+	↓ [Преобразование в Mapper]
+	├─ Правильный формат для IIKO/Paloma/r_keeper
+	└─ Все поля заполнены?
+	↓
+ReservationResult (из POS)
+	↓ [Проверка в Mapper]
+	├─ Успешно?
+	└─ ID брони получен?
+
+================================================================================
+ 9. ПРАКТИЧЕСКИЕ ПРИМЕРЫ КОДА
+================================================================================
+
+ПРИМЕР 1: Добавить новое поле в ReservationInfo
+────────────────────────────────────────────────────────────────────────
+
+// 1. Добавьте свойство в Models/ReservationInfo.cs
+public class ReservationInfo
+{
+	// ... существующие поля ...
+	public string? Notes { get; set; }  // Новое поле
+}
+
+// 2. Обновите маппер в Helpers/ReservationMapper.cs
+public static CreateReservationRequest ToCreateReservationRequest(
+	Models.ReservationInfo info,
+	string restaurantId,
+	int? guestsCount = null,
+	int? durationInMinutes = null,
+	string? terminalGroupId = null)
+{
+	// ... валидация ...
+
+	return new CreateReservationRequest(
+		RestaurantId: restaurantId,
+		Customer: new CustomerInfo(
+			Name: info.CustomerName.Trim(),
+			Phone: info.CustomerPhone.Trim()
+			// Notes: info.Notes  // если POS это поддерживает
+		),
+		// ...
+	);
+}
+
+// 3. Используйте в контроллере
+var request = await _sheets.AppendReservationAsync(
+	requestInfo with { Notes = "Allergies: nuts" },  // C# record syntax
+	scheduledAt, 
+	ct
+);
+
+ПРИМЕР 2: Получить все TableInfo и отфильтровать
+────────────────────────────────────────────────────────────────────────
+
+// В контроллере
+var allTables = await _sheets.GetTablesAsync(scheduledAt: null, ct: ct);
+
+// Только VIP столы
+var vipOnly = allTables
+	.Where(t => t.Type == TableType.VIP)
+	.ToList();
+
+// Только свободные
+var freeOnly = allTables
+	.Where(t => t.Status == TableStatuses.Free)
+	.ToList();
+
+// Только большие столы (4+ мест)
+var largeOnly = allTables
+	.Where(t => t.Seats >= 4)
+	.ToList();
+
+// Комбинированный фильтр
+var availableVip = allTables
+	.Where(t => t.Type == TableType.VIP 
+			 && t.Status == TableStatuses.Free
+			 && t.Seats >= 4)
+	.ToList();
+
+ПРИМЕР 3: Работать с датой правильно
+────────────────────────────────────────────────────────────────────────
+
+// ❌ НЕПРАВИЛЬНО:
+var now = DateTime.Now;  // Это серверное время, не Казахстан!
+
+// ✅ ПРАВИЛЬНО:
+var now = ReservationDateTime.KazakhstanNow();
+
+// ❌ НЕПРАВИЛЬНО:
+var slot = DateTime.Parse("25/12/2024 19:30");  // Может не сработать
+
+// ✅ ПРАВИЛЬНО:
+if (!ReservationDateTime.TryParse("25/12/2024 19:30", out var slot))
+{
+	return BadRequest("Invalid date format");
+}
+
+// ✅ ПРАВИЛЬНО: Форматирование
+var formatted = slot.ToString(ReservationDateTime.Format);
+// Результат: "25/12/2024 19:30"
+
+ПРИМЕР 4: Создать адаптер для новой POS системы
+────────────────────────────────────────────────────────────────────────
+
+// 1. Создайте класс, наследующий от IPosAdapter
+public class MyPosAdapter : IPosAdapter
+{
+	public string ProviderName => "MyPOS";
+
+	public async Task<ReservationResult> ReserveTableAsync(
+		CreateReservationRequest request,
+		CancellationToken ct = default)
+	{
+		try
+		{
+			// Ваш код: отправить в MyPOS API
+			var response = await _http.PostAsJsonAsync(
+				"https://mypos-api.com/reservations",
+				new {
+					restaurant = request.RestaurantId,
+					customer = request.Customer.Name,
+					phone = request.Customer.Phone,
+					datetime = request.ReservationTime,
+					guests = request.GuestsCount,
+					table = request.TableId
+				},
+				ct
+			);
+
+			var result = await response.Content.ReadAsAsync<dynamic>(ct);
+
+			return response.IsSuccessStatusCode
+				? new ReservationResult(
+					Success: true,
+					ExternalReservationId: result.reservationId,
+					ErrorMessage: null)
+				: new ReservationResult(
+					Success: false,
+					ExternalReservationId: null,
+					ErrorMessage: result.error);
+		}
+		catch (Exception ex)
+		{
+			return new ReservationResult(
+				Success: false,
+				ExternalReservationId: null,
+				ErrorMessage: ex.Message);
+		}
+	}
+
+	// ... остальные методы ...
+}
+
+// 2. Зарегистрируйте в фабрике (PosAdapterFactory.cs)
+public static IPosAdapter CreateAdapter(string providerName, ...)
+{
+	return providerName switch
+	{
+		"iiko" => new IikoAdapter(...),
+		"paloma" => new PalomaAdapter(...),
+		"rkeeper" => new RkeeperAdapter(...),
+		"mypos" => new MyPosAdapter(...),  // ← добавить
+		_ => throw new ArgumentException(...)
+	};
+}
+
+================================================================================
+ 10. ЧЕКЛИСТ ПРИ РАБОТЕ С МОДЕЛЯМИ
+================================================================================
+
+□ ВСЕ ДАТЫ ПАРСЯТСЯ ЧЕРЕЗ ReservationDateTime.TryParse()
+□ ВСЕ ВРЕМЕНА ПОЛУЧАЮТСЯ ИЗ ReservationDateTime.KazakhstanNow()
+□ ВСЕ СТАТУСЫ СРАВНИВАЮТСЯ С TableStatuses.* КОНСТАНТАМИ
+□ ВАЛИДАЦИЯ ВХОДЯЩИХ ДАННЫХ В КОНТРОЛЛЕРЕ
+□ ТРАНСФОРМАЦИЯ МЕЖДУ МОДЕЛЯМИ ЧЕРЕЗ ReservationMapper
+□ ИНТЕРФЕЙС IPosAdapter РЕАЛИЗОВАН ПРАВИЛЬНО
+□ ReservationResult ПРОВЕРЕН НА Success ПЕРЕД ДАЛЬНЕЙШЕЙ ОБРАБОТКОЙ
+□ НЕТУ ЖЁСТКОГО КОДА ВРОДЕ "occupied", "free" (используйте константы)
+□ РАБОТА С GOOGLE SHEETS ЧЕРЕЗ МЕТОДЫ IGoogleSheetsService
+□ ОТПРАВКА УВЕДОМЛЕНИЙ ЧЕРЕЗ IWhatsAppNotificationService
+
+================================================================================
+						КОНЕЦ ДОКУМЕНТАЦИИ
+================================================================================
