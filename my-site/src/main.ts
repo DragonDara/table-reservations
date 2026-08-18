@@ -7,6 +7,8 @@ import {
   type TableAvailability,
 } from "./api";
 
+import { privacyPolicyContent } from "./assets/data.js";
+
 const bookBtn = document.getElementById("bookBtn") as HTMLButtonElement | null;
 const bookBtn2 = document.getElementById(
   "bookBtn2",
@@ -971,4 +973,45 @@ successModalCloseBtn?.addEventListener("click", () => {
 
 successModalOverlay?.addEventListener("click", (e) => {
   if (e.target === successModalOverlay) successModalOverlay.hidden = true;
+});
+
+// since SPA, decided to make a pop-up modal div element.
+const privacyBtn = document.querySelector("#privacy-btn");
+const privacyModal = document.querySelector("#privacy-modal");
+const modalCloseBtn = document.querySelector("#privacy-modal-close");
+
+privacyBtn.addEventListener("click", () => {
+  privacyModal.classList.remove("hidden");
+  privacyModal.classList.add("flex");
+});
+
+modalCloseBtn.addEventListener("click", () => {
+  privacyModal.classList.remove("flex");
+  privacyModal.classList.add("hidden");
+});
+
+privacyModal.addEventListener("click", (e) => {
+  if (e.target === privacyModal) {
+    privacyModal.classList.remove("flex");
+    privacyModal.classList.add("hidden");
+  }
+});
+
+// rendering content within modal div.
+const title = document.querySelector("#privacy-title");
+const content = document.querySelector("#privacy-content");
+
+title.textContent = privacyPolicyContent.title;
+
+privacyPolicyContent.sections.forEach((section) => {
+  const sectionElement = document.createElement("section");
+
+  const heading = document.createElement("h3");
+  heading.textContent = section.title;
+
+  const paragraph = document.createElement("p");
+  paragraph.textContent = section.text;
+
+  sectionElement.append(heading, paragraph);
+  content.append(sectionElement);
 });

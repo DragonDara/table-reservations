@@ -335,7 +335,31 @@
       <a href="#" class="footer-link">Главная</a>
       <a href="#reservation" class="footer-link">Забронировать</a>
       <a href="#foter" class="footer-link">Контакты</a>
-      <a href="#policy" class="footer-link" onClick="">Политика конфиденциальности</a>
+      <a href="#policy" class="footer-link" id="privacy-btn">Политика конфиденциальности</a>
+    </div>
+
+    <div id="privacy-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/60 p-4">
+        <div
+          class="relative w-full max-w-3xl h-3/4
+                 overflow-y-auto rounded-2xl bg-zinc-900
+                 text-white flex justify-center text-center"
+        >
+          <button
+            id="privacy-modal-close"
+            class="absolute right-5 top-3 text-4xl cursor-pointer"
+          >
+            ×
+          </button>
+
+          <div class="py-12">
+            <h2 id="privacy-title" class="mb-5 text-2xl font-semibold"></h2>
+
+            <div
+              id="privacy-content"
+              class="text-sm leading-6 text-gray-300"
+            ></div>
+          </div>
+        </div>
     </div>
 
     <div class="footer-col" id="foter">
