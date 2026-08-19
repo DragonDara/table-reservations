@@ -1019,3 +1019,14 @@ privacyPolicyContent.sections.forEach((section: any) => {
 });
 
 lastUpdate.textContent = `Последнее обновление: ${privacyPolicyContent.lastUpdated}`;
+
+// 'disabled' property on a submit button whilst policy is not accepted by a consumer
+const agreePolicy = document.querySelector("#agree-policy") as HTMLInputElement;
+
+agreePolicy.addEventListener("change", () => {
+  if (agreePolicy.checked) {
+    submitButton.disabled = false;
+  } else {
+    submitButton.disabled = true;
+  }
+});

@@ -149,7 +149,14 @@
       Напомнить мне за час до брони
     </label>
 
-    <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
+    <label class="checkbox-row flex">
+        <input type="checkbox" name="agree" id="agree-policy" />
+        <div class="">
+            <span style="color: #A30000;">*</span> Даю согласие на сбор данных
+        </div>
+    </label>
+
+    <button type="submit" class="btn btn-primary btn-block" disabled>Забронировать</button>
     <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
   </form>
 </section>
