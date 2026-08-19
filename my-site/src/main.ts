@@ -1000,14 +1000,16 @@ privacyModal.addEventListener("click", (e) => {
 // rendering content within modal div.
 const title = document.querySelector("#privacy-title");
 const content = document.querySelector("#privacy-content");
+const lastUpdate = document.querySelector("#privacy-updated");
 
 title.textContent = privacyPolicyContent.title;
 
-privacyPolicyContent.sections.forEach((section) => {
+privacyPolicyContent.sections.forEach((section: any) => {
   const sectionElement = document.createElement("section");
 
   const heading = document.createElement("h3");
   heading.textContent = section.title;
+  heading.style.fontWeight = "bold";
 
   const paragraph = document.createElement("p");
   paragraph.textContent = section.text;
@@ -1015,3 +1017,5 @@ privacyPolicyContent.sections.forEach((section) => {
   sectionElement.append(heading, paragraph);
   content.append(sectionElement);
 });
+
+lastUpdate.textContent = `Последнее обновление: ${privacyPolicyContent.lastUpdated}`;

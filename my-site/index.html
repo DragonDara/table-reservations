@@ -340,7 +340,7 @@
 
     <div id="privacy-modal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/60 p-4">
         <div
-          class="relative w-full max-w-3xl h-3/4
+          class="relative w-full max-w-3xl h-6/7
                  overflow-y-auto rounded-2xl bg-zinc-900
                  text-white flex justify-center text-center"
         >
@@ -351,13 +351,15 @@
             ×
           </button>
 
-          <div class="py-12">
-            <h2 id="privacy-title" class="mb-5 text-2xl font-semibold"></h2>
+          <div class="max-w-2xl w-full px-6 py-12">
+            <p id="privacy-title" class="mb-5 text-2xl"></p>
 
             <div
               id="privacy-content"
-              class="text-sm leading-6 text-gray-300"
+              class="text-sm leading-6 text-gray-300 flex flex-col gap-4"
             ></div>
+
+            <p id="privacy-updated" class="my-6 text-sm text-zinc-500"></p>
           </div>
         </div>
     </div>
