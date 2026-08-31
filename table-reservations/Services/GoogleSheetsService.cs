@@ -3,26 +3,40 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Services;
 using Google.Apis.Sheets.v4;
 using Google.Apis.Sheets.v4.Data;
+using table_reservations.Configuration;
 using table_reservations.Constants;
 using table_reservations.Models;
+using table_reservations.Services.BusinessTypes;
+using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Services
 {
     public class GoogleSheetsService : IGoogleSheetsService
     {
         private const string ApplicationName = "TableReservationsAPI";
-        private const string TablesRange = "Столики!A2:C100";
-        private const string ReservationsRange = "Брони!A2:H10000";
-        private const string ReservationsAppendRange = "Брони!A:H";
 
         private static readonly string[] Scopes = { SheetsService.Scope.Spreadsheets };
+        private static readonly SheetSchemaOptions DefaultSchema = new();
 
         private readonly IConfiguration _config;
+        private readonly TenantContext _tenant;
+        private readonly IBusinessTypeStrategyResolver _strategyResolver;
 
-        public GoogleSheetsService(IConfiguration config)
+        public GoogleSheetsService(
+            IConfiguration config,
+            TenantContext tenant,
+            IBusinessTypeStrategyResolver strategyResolver)
         {
             _config = config;
+            _tenant = tenant;
+            _strategyResolver = strategyResolver;
         }
+
+        private SheetSchemaOptions Schema => _tenant.Organization?.Sheets ?? DefaultSchema;
+
+        private string TablesRange => Schema.TablesRange;
+        private string ReservationsRange => Schema.ReservationsRange;
+        private string ReservationsAppendRange => Schema.ReservationsAppendRange;
 
         public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default)
             {
@@ -90,13 +104,13 @@ namespace table_reservations.Services
                 {
                     string GetCell(int idx) =>
                         row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
-                    // B = TableId, E = Start, F = Status, G = Duration
-                    if (!TryParseTableIds(GetCell(1), out var reservationTableIds) || !reservationTableIds.Contains(table.Id))
+                    // TableIds / Start columns per tenant schema
+                    if (!TryParseTableIds(GetCell(Schema.TableIdsColumn), out var reservationTableIds) || !reservationTableIds.Contains(table.Id))
                     {
                         continue;
                     }
 
-                    if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
+                    if (!TryParseSheetDateTime(GetCell(Schema.ScheduledAtColumn), out var reservationStart))
                     {
                         continue;
                     }
@@ -163,8 +177,8 @@ namespace table_reservations.Services
             {
                 string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
 
-                // B = TableId
-                if (!TryParseTableIds(GetCell(1), out var reservationTableIds))
+                // TableIds column per tenant schema
+                if (!TryParseTableIds(GetCell(Schema.TableIdsColumn), out var reservationTableIds))
                 {
                     continue;
                 }
@@ -174,8 +188,8 @@ namespace table_reservations.Services
                     continue;
                 }
 
-                // E = Start
-                if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
+                // Start column per tenant schema
+                if (!TryParseSheetDateTime(GetCell(Schema.ScheduledAtColumn), out var reservationStart))
                 {
                     continue;
                 }
@@ -192,6 +206,23 @@ namespace table_reservations.Services
 
             return false;
 
+        }
+
+        public async Task<bool> HasConflictAsync(
+            ReservationInfo reservation,
+            DateTime scheduledAt,
+            CancellationToken ct = default)
+        {
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var strategy = _strategyResolver.Resolve(_tenant.BusinessType);
+
+            var response = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            return (response.Values ?? new List<IList<object>>())
+                .Any(row => strategy.HasConflict(reservation, scheduledAt, row, Schema));
         }
 
         public async Task<bool> IsPhoneAlreadyReservedAsync(string customerPhone, CancellationToken ct = default)
@@ -215,7 +246,7 @@ namespace table_reservations.Services
             {
                 string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
 
-                var existingPhone = GetCell(3);
+                var existingPhone = GetCell(Schema.CustomerPhoneColumn);
                 if (!string.Equals(existingPhone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -248,13 +279,13 @@ namespace table_reservations.Services
             {
                 string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
 
-                var existingPhone = GetCell(3);
+                var existingPhone = GetCell(Schema.CustomerPhoneColumn);
                 if (!string.Equals(existingPhone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
                 }
 
-                if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
+                if (!TryParseSheetDateTime(GetCell(Schema.ScheduledAtColumn), out var reservationStart))
                 {
                     continue;
                 }
@@ -274,21 +305,9 @@ namespace table_reservations.Services
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
 
-            // Валидация, что формат массива ID правильный
-            if (!TryParseTableIds(reservation.TablesId, out var ids))
-                throw new ArgumentException("Некорректные TablesId.");
-            var tablesIdCell = string.Join(",", ids);
-
-            var newRow = new List<object>
-            {
-                Guid.NewGuid().ToString(),
-                tablesIdCell,
-                reservation.CustomerName,
-                reservation.CustomerPhone,
-                scheduledAt.ToString(ReservationDateTime.Format),
-                "",
-                reservation.RemindBeforeHour ? "Да" : "Нет"
-            };
+            // Строку формирует стратегия бизнес-типа (ресторан / автомойка).
+            var strategy = _strategyResolver.Resolve(_tenant.BusinessType);
+            var newRow = strategy.BuildReservationRow(reservation, scheduledAt);
 
             var valueRange = new ValueRange
             {
@@ -308,7 +327,7 @@ namespace table_reservations.Services
         {
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
-            var range = $"Брони!H{sheetRowNumber}";
+            var range = $"{Schema.ReservationsSheetName}!{Schema.ReminderSentColumnLetter}{sheetRowNumber}";
 
             var update = service.Spreadsheets.Values.Update(
                 new ValueRange { Values = new List<IList<object>> { new List<object> { "Да" } } },
@@ -337,31 +356,12 @@ namespace table_reservations.Services
                 string GetCell(int idx) =>
                     row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
 
-                var tablesId = GetCell(1);
-                var customerName = GetCell(2);
-                var customerPhone = GetCell(3);
-                var scheduledAt = GetCell(4);
-                var remindCell = GetCell(6); // G
-                var sentCell = GetCell(7);   // H
-
-                // пустая/битая строка
-                if (string.IsNullOrWhiteSpace(tablesId) &&
-                    string.IsNullOrWhiteSpace(scheduledAt) &&
-                    string.IsNullOrWhiteSpace(remindCell))
+                var strategy = _strategyResolver.Resolve(_tenant.BusinessType);
+                var candidate = strategy.MapReminderCandidate(row, i + 2, Schema);
+                if (candidate is not null)
                 {
-                    continue;
+                    result.Add(candidate);
                 }
-
-                result.Add(new ReminderCandidate
-                {
-                    SheetRowNumber = i + 2, // A2 = первая строка данных
-                    TablesId = tablesId,
-                    CustomerName = customerName,
-                    CustomerPhone = customerPhone,
-                    ScheduledAt = scheduledAt,
-                    RemindBeforeHourCell = remindCell,
-                    ReminderSentCell = sentCell
-                });
             }
 
             return result;
@@ -376,7 +376,10 @@ namespace table_reservations.Services
 
         private GoogleCredential CreateCredential()
         {
-            var credentialsJson = _config["GoogleSheets:CredentialsJson"];
+            var org = _tenant.Organization;
+            var credentialsJson = org is not null
+                ? org.CredentialsJson
+                : _config["GoogleSheets:CredentialsJson"];
             if (!string.IsNullOrWhiteSpace(credentialsJson))
             {
                 using var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
@@ -386,7 +389,9 @@ namespace table_reservations.Services
                     .CreateScoped(Scopes);
             }
 
-            var jsonPath = _config["GoogleSheets:CredentialsJsonPath"];
+            var jsonPath = org is not null
+                ? org.CredentialsJsonPath
+                : _config["GoogleSheets:CredentialsJsonPath"];
             if (!string.IsNullOrWhiteSpace(jsonPath))
             {
                 using var stream = new FileStream(jsonPath, FileMode.Open, FileAccess.Read);
@@ -396,13 +401,26 @@ namespace table_reservations.Services
                     .CreateScoped(Scopes);
             }
 
+            var scope = org is null ? "GoogleSheets" : $"organization '{org.Id}'";
             throw new InvalidOperationException(
-                "GoogleSheets:CredentialsJson or GoogleSheets:CredentialsJsonPath must be configured.");
+                $"Google Sheets credentials must be configured for {scope}.");
         }
 
-        private string GetSpreadsheetId() =>
-            _config["GoogleSheets:SpreadsheetId"]
-            ?? throw new InvalidOperationException("GoogleSheets:SpreadsheetId is not configured.");
+        private string GetSpreadsheetId()
+        {
+            var org = _tenant.Organization;
+            if (org is not null)
+            {
+                return !string.IsNullOrWhiteSpace(org.SpreadsheetId)
+                    ? org.SpreadsheetId
+                    : throw new InvalidOperationException(
+                        $"Spreadsheet id is not configured for organization '{org.Id}'.");
+            }
+
+            return _config["GoogleSheets:SpreadsheetId"]
+                ?? throw new InvalidOperationException(
+                    "GoogleSheets:SpreadsheetId is not configured.");
+        }
 
         private static TableType ParseTableType(string value)
         {

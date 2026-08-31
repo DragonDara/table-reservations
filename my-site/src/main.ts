@@ -6,6 +6,21 @@ import {
   type ReservationPayload,
   type TableAvailability,
 } from './api';
+import { bootstrapTenant } from './tenancy/bootstrap';
+import { initCarWashExperience } from './experiences/carwash';
+
+// Load tenant public config, apply branding/theme/content, then initialize the
+// business experience. Restaurant interactions are defined at module scope below
+// and are null-safe, so they no-op for non-restaurant tenants; the car-wash
+// experience is initialized explicitly when resolved.
+bootstrapTenant()
+  .then((config) => {
+    if (!config) return;
+    if (config.businessType === 'CarWash') {
+      initCarWashExperience(config);
+    }
+  })
+  .catch((err) => console.error('Ошибка инициализации приложения', err));
 
 const bookBtn = document.getElementById('bookBtn') as HTMLButtonElement | null;
 const bookBtn2 = document.getElementById('bookBtn2') as HTMLButtonElement | null;
