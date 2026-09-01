@@ -46,7 +46,11 @@ public class TenantResolutionMiddlewareTests
         var middleware = new TenantResolutionMiddleware(
             next,
             NullLogger<TenantResolutionMiddleware>.Instance,
-            environment);
+            environment,
+            Options.Create(new TenantRoutingOptions
+            {
+                BaseDomains = new[] { "bron.cafe" }
+            }));
 
         return (middleware, nextCalled);
     }
@@ -94,6 +98,36 @@ public class TenantResolutionMiddlewareTests
         Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
         Assert.False(nextCalled[0]);
         Assert.False(tenant.IsResolved);
+    }
+
+    [Theory]
+    [InlineData("theveil.attacker.com")]
+    [InlineData("theveil.bron.cafe.attacker.com")]
+    [InlineData("nested.theveil.bron.cafe")]
+    public async Task ApiRequest_UntrustedOrNestedHost_DoesNotResolveTenant(string host)
+    {
+        var (middleware, nextCalled) = BuildMiddleware("Production");
+        var context = ApiContext(host);
+        var tenant = new TenantContext();
+
+        await middleware.InvokeAsync(context, BuildRegistry(), tenant);
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        Assert.False(nextCalled[0]);
+        Assert.False(tenant.IsResolved);
+    }
+
+    [Fact]
+    public async Task ApiRequest_TrailingDotOnTrustedHost_ResolvesTenant()
+    {
+        var (middleware, nextCalled) = BuildMiddleware("Production");
+        var context = ApiContext("theveil.bron.cafe.");
+        var tenant = new TenantContext();
+
+        await middleware.InvokeAsync(context, BuildRegistry(), tenant);
+
+        Assert.True(nextCalled[0]);
+        Assert.Equal("theveil", tenant.OrganizationId);
     }
 
     [Fact]

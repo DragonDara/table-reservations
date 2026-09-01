@@ -1,4 +1,7 @@
 .cursor
+.local-tools/
+node_modules/
+dist/
 appsettings.Development.json
 appsettings.Production.json
 table-reservations-*.json

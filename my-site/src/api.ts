@@ -35,6 +35,11 @@ export interface ReservationPayload {
 
 
 
+export interface RatingResponse {
+  rating: number;
+  reviewCount: number;
+}
+
 export interface ReservationResponse {
   success?: boolean;
   reservationId?: string;
@@ -99,6 +104,10 @@ export async function healthCheck(): Promise<{ status: string }> {
 
 export async function getPublicTenantConfig(): Promise<PublicTenantConfig> {
   return request<PublicTenantConfig>('/tenant/public-config');
+}
+
+export async function getRating(): Promise<RatingResponse> {
+  return request<RatingResponse>('/rating');
 }
 
 export async function getTables(scheduledAt?: string): Promise<TableAvailability[]> {

@@ -353,9 +353,6 @@ namespace table_reservations.Services
             {
                 var row = rows[i];
 
-                string GetCell(int idx) =>
-                    row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
-
                 var strategy = _strategyResolver.Resolve(_tenant.BusinessType);
                 var candidate = strategy.MapReminderCandidate(row, i + 2, Schema);
                 if (candidate is not null)
@@ -377,6 +374,18 @@ namespace table_reservations.Services
         private GoogleCredential CreateCredential()
         {
             var org = _tenant.Organization;
+
+            var credentialsJson = org is not null
+                ? org.CredentialsJson
+                : _config["GoogleSheets:CredentialsJson"];
+            if (!string.IsNullOrWhiteSpace(credentialsJson))
+            {
+                using var stream = new MemoryStream(Encoding.UTF8.GetBytes(credentialsJson));
+                return CredentialFactory
+                    .FromStream<ServiceAccountCredential>(stream)
+                    .ToGoogleCredential()
+                    .CreateScoped(Scopes);
+            }
 
             var jsonPath = org is not null
                 ? org.CredentialsJsonPath

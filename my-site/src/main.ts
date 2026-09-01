@@ -1,7 +1,7 @@
 import './style.css';
 import {
-  API_BASE_URL,
   createReservation,
+  getRating,
   getTables,
   type ReservationPayload,
   type TableAvailability,
@@ -16,6 +16,9 @@ import { initCarWashExperience } from './experiences/carwash';
 bootstrapTenant()
   .then((config) => {
     if (!config) return;
+    if (config.features.showRating) {
+      void loadRating();
+    }
     if (config.businessType === 'CarWash') {
       initCarWashExperience(config);
     }
@@ -56,12 +59,7 @@ navLinks.forEach((link) => {
 
 async function loadRating() {
   try {
-    const response = await fetch(`${API_BASE_URL}/rating`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
-
-    const data = await response.json();
+    const data = await getRating();
     const rating = Number(data?.rating ?? 0);
     const reviewCount = Number(data?.reviewCount ?? 0);
 
@@ -74,8 +72,6 @@ async function loadRating() {
     console.error('Не удалось загрузить рейтинг:', err);
   }
 }
-
-loadRating();
 
 // бронирование: заготовка под будущую карту столиков
 const openTablePickerBtn = document.getElementById('openTablePicker') as HTMLButtonElement | null;

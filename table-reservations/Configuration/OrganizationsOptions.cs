@@ -14,6 +14,18 @@ namespace table_reservations.Configuration
     }
 
     /// <summary>
+    /// Controls which DNS suffixes are authoritative for tenant subdomains.
+    /// A hostname is never treated as a tenant host unless it exactly matches
+    /// &lt;tenant&gt;.&lt;base-domain&gt;.
+    /// </summary>
+    public sealed class TenantRoutingOptions
+    {
+        public const string SectionName = "TenantRouting";
+
+        public string[] BaseDomains { get; set; } = new[] { "bron.cafe" };
+    }
+
+    /// <summary>
     /// Configuration for a single tenant (organization). Each organization is
     /// backed by its own Google Sheets spreadsheet and Google credentials, and
     /// declares the business type that selects its reservation rules and schema.
@@ -44,12 +56,50 @@ namespace table_reservations.Configuration
         /// <summary>Sheet names, ranges, and column layout for this organization's schema.</summary>
         public SheetSchemaOptions Sheets { get; set; } = new();
 
+        /// <summary>Tenant-specific WhatsApp delivery settings.</summary>
+        public WhatsAppOptions WhatsApp { get; set; } = new();
+
+        /// <summary>Tenant-specific rating provider settings.</summary>
+        public RatingOptions Rating { get; set; } = new();
+
+        /// <summary>Tenant-specific POS provider settings.</summary>
+        public PosOptions Pos { get; set; } = new();
+
         /// <summary>
         /// Public, front-end-facing branding/content/theme settings for this organization.
         /// Everything here is safe to expose to the browser; secrets (spreadsheet id,
         /// credentials, sheet schema) must never be placed in this section.
         /// </summary>
         public FrontendOptions Frontend { get; set; } = new();
+    }
+
+    public sealed class WhatsAppOptions
+    {
+        public string? ApiUrl { get; set; }
+        public string? IdInstance { get; set; }
+        public string? ApiTokenInstance { get; set; }
+        public string? AdminPhone { get; set; }
+
+        public bool IsConfigured =>
+            !string.IsNullOrWhiteSpace(ApiUrl)
+            && !string.IsNullOrWhiteSpace(IdInstance)
+            && !string.IsNullOrWhiteSpace(ApiTokenInstance);
+    }
+
+    public sealed class RatingOptions
+    {
+        public bool Enabled { get; set; }
+        public string? ApifyToken { get; set; }
+        public string? PlaceUrl { get; set; }
+    }
+
+    public sealed class PosOptions
+    {
+        public bool Enabled { get; set; }
+        public string Provider { get; set; } = "iiko";
+        public string? BaseUrl { get; set; }
+        public string? ApiLogin { get; set; }
+        public string? OrganizationId { get; set; }
     }
 
     /// <summary>

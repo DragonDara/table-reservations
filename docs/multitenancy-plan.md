@@ -91,9 +91,9 @@ The app is currently a single-tenant reservation API backed by Google Sheets.
 - `TableType`/`ReservationInfo` are restaurant-shaped; car wash needs either
   polymorphic DTOs or a shared superset — the plan uses per-type request DTOs +
   a common base to avoid breaking the restaurant flow.
-- Secrets: per-org `CredentialsJson` in `appsettings.json` is fine for dev, but
-  production should use user-secrets / Key Vault (note only, not implemented
-  here).
+- Secrets must never be stored in tracked `appsettings.json`. Development uses
+  the ignored `appsettings.Development.json`; production uses environment
+  variables or a managed secret store such as Key Vault.
 - CORS list must include every tenant subdomain; today it's a static list in
   `Program.cs`.
 

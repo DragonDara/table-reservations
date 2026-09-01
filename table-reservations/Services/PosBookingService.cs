@@ -2,9 +2,9 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using table_reservations.Helpers;
 using table_reservations.Models;
+using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Pos;
 
@@ -17,15 +17,36 @@ public class PosBookingService
     private readonly IPosAdapter _pos;
     private readonly string _restaurantId;
 
-    public PosBookingService(PosAdapterFactory factory, IConfiguration config)
+    public PosBookingService(IHttpClientFactory httpClientFactory, TenantContext tenant)
     {
-        // PosProvider appsetting присвоенно iiko , но можно поменять на другой адаптер.
-        var providerName = config["PosProvider"] ?? "iiko";
-        _pos = factory.Get(providerName);
+        var organization = tenant.Organization
+            ?? throw new InvalidOperationException("Tenant must be resolved before creating a POS service.");
+        var options = organization.Pos;
 
-        // RestaurantId (organizationId в терминах iiko) — тоже из appsetting
-        _restaurantId = config["Iiko:OrganizationId"]
-            ?? throw new InvalidOperationException("Iiko:OrganizationId не задан в конфигурации.");
+        if (!options.Enabled)
+        {
+            throw new InvalidOperationException($"POS is not enabled for organization '{organization.Id}'.");
+        }
+
+        if (!string.Equals(options.Provider, "iiko", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new NotSupportedException(
+                $"POS provider '{options.Provider}' is not supported for organization '{organization.Id}'.");
+        }
+
+        if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri)
+            || string.IsNullOrWhiteSpace(options.ApiLogin)
+            || string.IsNullOrWhiteSpace(options.OrganizationId))
+        {
+            throw new InvalidOperationException(
+                $"Complete iiko settings are required for organization '{organization.Id}'.");
+        }
+
+        var http = httpClientFactory.CreateClient("TenantPos");
+        http.BaseAddress = baseUri;
+        _pos = new AuthenticatingPosAdapter(
+            new IikoAdapter(http, options.ApiLogin, options.OrganizationId));
+        _restaurantId = options.OrganizationId;
     }
 
     // контроллер вызывает именно его.

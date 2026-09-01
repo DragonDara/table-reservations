@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Options;
+using table_reservations.Configuration;
 using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Middleware
@@ -21,20 +23,37 @@ namespace table_reservations.Middleware
         private readonly RequestDelegate _next;
         private readonly ILogger<TenantResolutionMiddleware> _logger;
         private readonly bool _isDevelopment;
+        private readonly string[] _baseDomains;
 
         public TenantResolutionMiddleware(
             RequestDelegate next,
             ILogger<TenantResolutionMiddleware> logger,
-            IHostEnvironment environment)
+            IHostEnvironment environment,
+            IOptions<TenantRoutingOptions> routingOptions)
         {
             _next = next;
             _logger = logger;
             _isDevelopment = environment.IsDevelopment();
+            _baseDomains = (routingOptions.Value.BaseDomains ?? Array.Empty<string>())
+                .Select(NormalizeHost)
+                .Where(domain => !string.IsNullOrWhiteSpace(domain))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            if (_baseDomains.Length == 0)
+            {
+                throw new InvalidOperationException("At least one tenant base domain must be configured.");
+            }
         }
 
         public async Task InvokeAsync(HttpContext context, OrganizationRegistry registry, TenantContext tenant)
         {
-            var resolution = ResolveOrganization(context, registry, _isDevelopment, out var organization);
+            var resolution = ResolveOrganization(
+                context,
+                registry,
+                _isDevelopment,
+                _baseDomains,
+                out var organization);
             if (resolution == TenantResolution.Resolved)
             {
                 tenant.Set(organization);
@@ -67,9 +86,10 @@ namespace table_reservations.Middleware
             HttpContext context,
             OrganizationRegistry registry,
             bool isDevelopment,
+            IReadOnlyCollection<string> baseDomains,
             out Configuration.OrganizationOptions organization)
         {
-            var subdomain = ExtractSubdomain(context.Request.Host.Host);
+            var subdomain = ExtractSubdomain(context.Request.Host.Host, baseDomains);
             if (subdomain is not null)
             {
                 return registry.TryGetBySubdomain(subdomain, out organization)
@@ -103,14 +123,17 @@ namespace table_reservations.Middleware
             return TenantResolution.Unknown;
         }
 
-        private static string? ExtractSubdomain(string? host)
+        private static string? ExtractSubdomain(
+            string? host,
+            IReadOnlyCollection<string> baseDomains)
         {
             if (string.IsNullOrWhiteSpace(host))
             {
                 return null;
             }
 
-            var labels = host.Split('.', StringSplitOptions.RemoveEmptyEntries);
+            var normalizedHost = NormalizeHost(host);
+            var labels = normalizedHost.Split('.', StringSplitOptions.RemoveEmptyEntries);
 
             // Local development: browsers resolve "*.localhost" to 127.0.0.1 automatically,
             // so "theveil.localhost" should map to the "theveil" tenant.
@@ -121,15 +144,30 @@ namespace table_reservations.Middleware
                 return labels.Length < 2 ? null : NormalizeCandidate(labels[0]);
             }
 
-            // Production: require at least three labels, e.g. "theveil.bron.cafe".
-            if (labels.Length < 3)
+            foreach (var baseDomain in baseDomains)
             {
-                // e.g. "bron.cafe" (no subdomain) or an IP/host without a tenant label.
-                return null;
+                var suffix = $".{baseDomain}";
+                if (!normalizedHost.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                var candidate = normalizedHost[..^suffix.Length];
+                // Only one tenant label is supported. This prevents unrelated or
+                // nested domains from being interpreted as trusted tenant hosts.
+                if (string.IsNullOrWhiteSpace(candidate) || candidate.Contains('.'))
+                {
+                    return null;
+                }
+
+                return NormalizeCandidate(candidate);
             }
 
-            return NormalizeCandidate(labels[0]);
+            return null;
         }
+
+        private static string NormalizeHost(string host) =>
+            host.Trim().TrimEnd('.').ToLowerInvariant();
 
         private static string? NormalizeCandidate(string candidate)
         {
