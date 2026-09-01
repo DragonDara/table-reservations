@@ -46,9 +46,23 @@
 
   <section class="hero">
     <div class="hero-content">
-      <p class="rating">
-        <span class="star">★</span>
-        <span id="dgisRating">4.9</span> · <span id="dgisReviews">265</span> отзывов · бар-ресторан
+      <p
+        class="rating"
+        id="dgisRatingBlock"
+        data-feature="rating"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <span class="star" aria-hidden="true">★</span>
+        <span class="rating-loader" id="dgisRatingLoader" aria-hidden="true">
+          <span class="rating-loader-dot"></span>
+          <span class="rating-loader-dot"></span>
+          <span class="rating-loader-dot"></span>
+        </span>
+        <span id="dgisRatingValues" hidden>
+          <span id="dgisRating">—</span> · <span id="dgisReviews">—</span> отзывов · бар-ресторан
+        </span>
+        <span class="visually-hidden" id="dgisRatingStatus">Загружаем рейтинг 2ГИС</span>
       </p>
 
       <h1 class="hero-title">

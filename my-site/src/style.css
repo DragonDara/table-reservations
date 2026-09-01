@@ -131,10 +131,72 @@ body {
     font-weight: 500;
     letter-spacing: 2%;
     font-family: "Montagu Slab", serif;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 20px;
 }
 
-#star {
-    color:#e8b84b;
+[hidden] {
+    display: none !important;
+}
+
+.star {
+    color: var(--gold);
+}
+
+.rating-loader {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 36px;
+}
+
+.rating-loader-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--gold);
+    opacity: 0.35;
+    animation: rating-dot-pulse 1s ease-in-out infinite;
+}
+
+.rating-loader-dot:nth-child(2) {
+    animation-delay: 0.15s;
+}
+
+.rating-loader-dot:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@keyframes rating-dot-pulse {
+    0%, 70%, 100% {
+        opacity: 0.3;
+        transform: translateY(0);
+    }
+    35% {
+        opacity: 1;
+        transform: translateY(-3px);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rating-loader-dot {
+        animation: none;
+        opacity: 0.7;
+    }
 }
 
 .hero-title {

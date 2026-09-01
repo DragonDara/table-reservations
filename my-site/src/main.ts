@@ -58,18 +58,35 @@ navLinks.forEach((link) => {
 });
 
 async function loadRating() {
+  const block = document.getElementById('dgisRatingBlock');
+  const loader = document.getElementById('dgisRatingLoader');
+  const values = document.getElementById('dgisRatingValues');
+  const status = document.getElementById('dgisRatingStatus');
+  const ratingEl = document.getElementById('dgisRating');
+  const reviewsEl = document.getElementById('dgisReviews');
+
+  block?.setAttribute('aria-busy', 'true');
+  if (loader) loader.hidden = false;
+  if (values) values.hidden = true;
+  if (status) status.textContent = 'Загружаем рейтинг 2ГИС';
+
   try {
     const data = await getRating();
     const rating = Number(data?.rating ?? 0);
     const reviewCount = Number(data?.reviewCount ?? 0);
 
-    const ratingEl = document.getElementById('dgisRating');
-    const reviewsEl = document.getElementById('dgisReviews');
-
     if (ratingEl) ratingEl.textContent = Number.isFinite(rating) ? rating.toFixed(1) : '0.0';
     if (reviewsEl) reviewsEl.textContent = Number.isFinite(reviewCount) ? String(reviewCount) : '0';
+    if (status) status.textContent = 'Рейтинг 2ГИС загружен';
   } catch (err) {
     console.error('Не удалось загрузить рейтинг:', err);
+    if (ratingEl) ratingEl.textContent = '—';
+    if (reviewsEl) reviewsEl.textContent = '—';
+    if (status) status.textContent = 'Рейтинг 2ГИС временно недоступен';
+  } finally {
+    block?.setAttribute('aria-busy', 'false');
+    if (loader) loader.hidden = true;
+    if (values) values.hidden = false;
   }
 }
 
