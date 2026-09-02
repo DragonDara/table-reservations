@@ -53,6 +53,13 @@ export interface PublicFeatures {
   showSocialLinks: boolean;
 }
 
+export interface PublicBookingTime {
+  startTime: string;
+  endTime: string;
+  slotDurationMinutes: number;
+  availableTimeSlots: string[];
+}
+
 export interface PublicTenantConfig {
   organizationId: string;
   businessType: BusinessType;
@@ -60,6 +67,7 @@ export interface PublicTenantConfig {
   displayName: string;
   documentTitle: string;
   layoutVariant: string;
+  bookingTime: PublicBookingTime;
   theme: PublicTheme;
   assets: PublicAssets;
   content: PublicContent;

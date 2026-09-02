@@ -58,3 +58,18 @@ ASP.NET environment variables can be used instead of the ignored JSON file. For
 example, the first organization's spreadsheet id is
 `Organizations__Items__0__SpreadsheetId`; nested settings follow the same
 double-underscore convention.
+
+Each organization also defines its own booking window and slot interval:
+
+```json
+"BookingTime": {
+  "StartTime": "08:00",
+  "EndTime": "20:00",
+  "SlotDurationMinutes": 60
+}
+```
+
+Times use the 24-hour `HH:mm` format. `EndTime` is exclusive, and a value earlier
+than `StartTime` creates an overnight window (for example, `12:00`–`04:00`). The
+backend publishes the generated slots to the frontend and rejects reservations
+whose time does not match one of those slots.

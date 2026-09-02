@@ -8,6 +8,7 @@ import {
 } from './api';
 import { bootstrapTenant } from './tenancy/bootstrap';
 import { initCarWashExperience } from './experiences/carwash';
+import type { PublicTenantConfig } from './tenancy/types';
 
 // Load tenant public config, apply branding/theme/content, then initialize the
 // business experience. Restaurant interactions are defined at module scope below
@@ -16,6 +17,7 @@ import { initCarWashExperience } from './experiences/carwash';
 bootstrapTenant()
   .then((config) => {
     if (!config) return;
+    configureBookingTime(config);
     if (config.features.showRating) {
       void loadRating();
     }
@@ -644,30 +646,54 @@ const submitButton = reservationForm?.querySelector<HTMLButtonElement>('button[t
 const reservationStatus = document.getElementById('reservationStatus') as HTMLParagraphElement | null;
 const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
 const reservationDateInput = document.getElementById('reservationDate') as HTMLInputElement | null;
-const reservationTimeInput = document.getElementById('reservationTime') as HTMLInputElement | null;
+const reservationTimeInput = document.getElementById('reservationTime') as HTMLSelectElement | null;
+const bookingTimeHint = document.getElementById('bookingTimeHint');
 let minimumDateTimeValue = '';
+let bookingTimeSlots: string[] = [];
 
-function parse24HourTime(value: string): string | null {
-  const match = /^(\d{2}):(\d{2})$/.exec(value.trim());
-  if (!match) return null;
+function configureBookingTime(config: PublicTenantConfig): void {
+  if (!reservationTimeInput) return;
 
-  const hours = Number(match[1]);
-  const minutes = Number(match[2]);
-  if (hours > 23 || minutes > 59) return null;
+  bookingTimeSlots = config.bookingTime.availableTimeSlots.filter(
+    (slot, index, slots) => /^([01]\d|2[0-3]):[0-5]\d$/.test(slot) && slots.indexOf(slot) === index,
+  );
 
-  return `${match[1]}:${match[2]}`;
+  reservationTimeInput.replaceChildren(new Option('Выберите время', ''));
+  bookingTimeSlots.forEach((slot) => {
+    reservationTimeInput.add(new Option(slot, slot));
+  });
+  reservationTimeInput.disabled = bookingTimeSlots.length === 0;
+
+  if (bookingTimeHint) {
+    bookingTimeHint.textContent = bookingTimeSlots.length > 0
+      ? `Доступно ${config.bookingTime.startTime}–${config.bookingTime.endTime}, шаг ${config.bookingTime.slotDurationMinutes} мин.`
+      : 'Для этой организации пока нет доступного времени';
+  }
+
+  updateTimeSlotAvailability();
 }
 
-function formatTimeInput(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 4);
-  return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+function updateTimeSlotAvailability(): void {
+  if (!reservationTimeInput) return;
+
+  const selectedDate = reservationDateInput?.value ?? '';
+  Array.from(reservationTimeInput.options).forEach((option) => {
+    if (!option.value) return;
+    option.disabled = Boolean(
+      selectedDate && minimumDateTimeValue && `${selectedDate}T${option.value}` <= minimumDateTimeValue,
+    );
+  });
+
+  if (reservationTimeInput.selectedOptions[0]?.disabled) {
+    reservationTimeInput.value = '';
+  }
 }
 
 function syncDateTimeValue(showMessage = false): boolean {
   if (!datetimeInput || !reservationDateInput || !reservationTimeInput) return true;
 
   const date = reservationDateInput.value;
-  const time = parse24HourTime(reservationTimeInput.value);
+  const time = reservationTimeInput.value;
   datetimeInput.value = date && time ? `${date}T${time}` : '';
 
   if (!date || !time) {
@@ -695,28 +721,13 @@ function setReservationStatus(message: string, type: 'info' | 'success' | 'error
   reservationStatus.className = `reservation-status ${type}`;
 }
 
-function isRestaurantOpenAt(value: string): boolean {
-  if (!value) return false;
-
-  const [, timePart] = value.split('T');
-  if (!timePart) return false;
-
-  const [hours, minutes] = timePart.split(':').map(Number);
-
-  const selectedHour = Number.isFinite(hours) ? hours : 0;
-  const selectedMinute = Number.isFinite(minutes) ? minutes : 0;
-
-  const normalizedHour = selectedHour + selectedMinute / 60;
-  return normalizedHour >= 12 || normalizedHour < 4;
-}
-
 function validateSelectedTime(showMessage = false): boolean {
   if (!datetimeInput) return true;
 
   const selectedValue = datetimeInput.value.trim();
   if (!selectedValue) return true;
 
-  if (minimumDateTimeValue && selectedValue < minimumDateTimeValue) {
+  if (minimumDateTimeValue && selectedValue <= minimumDateTimeValue) {
     if (showMessage) {
       setReservationStatus('Выберите будущее время.', 'error');
       reservationTimeInput?.focus();
@@ -724,10 +735,10 @@ function validateSelectedTime(showMessage = false): boolean {
     return false;
   }
 
-  const isOpen = isRestaurantOpenAt(selectedValue);
-  if (!isOpen) {
+  const selectedTime = selectedValue.split('T')[1];
+  if (!selectedTime || !bookingTimeSlots.includes(selectedTime)) {
     if (showMessage) {
-      setReservationStatus('Ресторан работает с 12:00 до 04:00. Выберите время в рабочем окне.', 'error');
+      setReservationStatus('Выберите одно из доступных времён организации.', 'error');
       reservationTimeInput?.focus();
     }
     return false;
@@ -863,16 +874,10 @@ if (datetimeInput) {
   reservationDateInput?.setAttribute('min', minimumDateTimeValue.slice(0, 10));
 
   reservationDateInput?.addEventListener('change', () => {
+    updateTimeSlotAvailability();
     syncDateTimeValue(false);
     refreshTableStatuses();
     validateSelectedTime(true);
-  });
-
-  reservationTimeInput?.addEventListener('input', () => {
-    reservationTimeInput.value = formatTimeInput(reservationTimeInput.value);
-    syncDateTimeValue(false);
-    refreshTableStatuses();
-    validateSelectedTime(false);
   });
 
   reservationTimeInput?.addEventListener('change', () => {

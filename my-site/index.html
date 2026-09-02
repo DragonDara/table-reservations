@@ -152,20 +152,13 @@
         </label>
         <label class="datetime-field" for="reservationTime">
           <span>Время (24 ч)</span>
-          <input
-            type="text"
-            id="reservationTime"
-            placeholder="18:30"
-            inputmode="numeric"
-            maxlength="5"
-            autocomplete="off"
-            pattern="(?:[01]\d|2[0-3]):[0-5]\d"
-            required
-          />
+          <select id="reservationTime" required disabled>
+            <option value="">Выберите время</option>
+          </select>
         </label>
       </div>
       <input type="hidden" id="datetime" name="datetime" />
-      <span class="field-hint">Введите время в 24-часовом формате, например 18:30</span>
+      <span class="field-hint" id="bookingTimeHint">Доступное время зависит от организации</span>
     </div>
 
     <div class="field">

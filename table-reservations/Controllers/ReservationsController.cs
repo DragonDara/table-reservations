@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using table_reservations.Configuration;
 using table_reservations.Models;
 using table_reservations.Services;
 using table_reservations.Services.BusinessTypes;
@@ -44,6 +45,13 @@ namespace table_reservations.Controllers
             }
 
             var scheduledAt = validation.ScheduledAt;
+
+            var bookingTime = _tenant.Organization?.BookingTime ?? new BookingTimeOptions();
+            if (!BookingTimeSchedule.IsAvailable(bookingTime, scheduledAt))
+            {
+                return BadRequest(
+                    $"Выбранное время недоступно. Доступное окно: {BookingTimeSchedule.Describe(bookingTime)}");
+            }
 
             if (await _sheets.IsPhoneAlreadyReservedAsync(request.CustomerPhone, ct))
             {

@@ -1,4 +1,5 @@
 using table_reservations.Configuration;
+using table_reservations.Services;
 
 namespace table_reservations.Models.Tenancy
 {
@@ -15,6 +16,7 @@ namespace table_reservations.Models.Tenancy
         public string DisplayName { get; init; } = string.Empty;
         public string DocumentTitle { get; init; } = string.Empty;
         public string LayoutVariant { get; init; } = string.Empty;
+        public PublicBookingTimeDto BookingTime { get; init; } = new();
 
         public PublicThemeDto Theme { get; init; } = new();
         public PublicAssetsDto Assets { get; init; } = new();
@@ -43,6 +45,13 @@ namespace table_reservations.Models.Tenancy
                 LayoutVariant = string.IsNullOrWhiteSpace(f.LayoutVariant)
                     ? org.BusinessType.ToString().ToLowerInvariant()
                     : f.LayoutVariant,
+                BookingTime = new PublicBookingTimeDto
+                {
+                    StartTime = org.BookingTime.StartTime,
+                    EndTime = org.BookingTime.EndTime,
+                    SlotDurationMinutes = org.BookingTime.SlotDurationMinutes,
+                    AvailableTimeSlots = BookingTimeSchedule.GetAvailableSlots(org.BookingTime).ToArray()
+                },
                 Theme = new PublicThemeDto
                 {
                     Background = f.Theme.Background,
@@ -97,6 +106,14 @@ namespace table_reservations.Models.Tenancy
                     : new Dictionary<string, string>(f.BusinessUi)
             };
         }
+    }
+
+    public sealed class PublicBookingTimeDto
+    {
+        public string StartTime { get; init; } = string.Empty;
+        public string EndTime { get; init; } = string.Empty;
+        public int SlotDurationMinutes { get; init; }
+        public string[] AvailableTimeSlots { get; init; } = Array.Empty<string>();
     }
 
     public sealed class PublicThemeDto

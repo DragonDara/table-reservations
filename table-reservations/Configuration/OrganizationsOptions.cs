@@ -44,6 +44,9 @@ namespace table_reservations.Configuration
         /// <summary>Business type that selects the pluggable reservation strategy.</summary>
         public BusinessType BusinessType { get; set; } = BusinessType.Restaurant;
 
+        /// <summary>Organization-specific booking window and slot interval.</summary>
+        public BookingTimeOptions BookingTime { get; set; } = new();
+
         /// <summary>Google Sheets spreadsheet id backing this organization.</summary>
         public string SpreadsheetId { get; set; } = string.Empty;
 
@@ -71,6 +74,21 @@ namespace table_reservations.Configuration
         /// credentials, sheet schema) must never be placed in this section.
         /// </summary>
         public FrontendOptions Frontend { get; set; } = new();
+    }
+
+    public sealed class BookingTimeOptions
+    {
+        /// <summary>First available slot, formatted as HH:mm.</summary>
+        public string StartTime { get; set; } = "12:00";
+
+        /// <summary>
+        /// Exclusive end of the booking window, formatted as HH:mm. An end time
+        /// earlier than the start time represents a window crossing midnight.
+        /// </summary>
+        public string EndTime { get; set; } = "04:00";
+
+        /// <summary>Number of minutes between available booking slots.</summary>
+        public int SlotDurationMinutes { get; set; } = 60;
     }
 
     public sealed class WhatsAppOptions
