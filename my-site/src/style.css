@@ -1010,6 +1010,15 @@ body {
   margin-bottom: 24px;
 }
 
+.overwrite-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.overwrite-modal-actions .btn {
+  flex: 1;
+}
+
 
 .icon-blocked {
   background: rgba(200, 50, 50, 0.15);

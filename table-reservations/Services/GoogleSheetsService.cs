@@ -153,7 +153,11 @@ namespace table_reservations.Services
 
         }
 
-        public async Task<bool> IsReservationTakenAsync(string tablesId, DateTime scheduledAt, CancellationToken ct = default)
+        public async Task<bool> IsReservationTakenAsync(
+            string tablesId,
+            DateTime scheduledAt,
+            int? excludeSheetRowNumber = null,
+            CancellationToken ct = default)
         {
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
@@ -173,8 +177,15 @@ namespace table_reservations.Services
 
             var rows = response.Values ?? new List<IList<object>>();
 
-            foreach ( var row in rows)
+            for (var i = 0; i < rows.Count; i++)
             {
+                var sheetRowNumber = i + 2; // A2 = первая строка данных
+                if (excludeSheetRowNumber.HasValue && sheetRowNumber == excludeSheetRowNumber.Value)
+                {
+                    continue;
+                }
+
+                var row = rows[i];
                 string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
 
                 // TableIds column per tenant schema
@@ -211,6 +222,7 @@ namespace table_reservations.Services
         public async Task<bool> HasConflictAsync(
             ReservationInfo reservation,
             DateTime scheduledAt,
+            int? excludeSheetRowNumber = null,
             CancellationToken ct = default)
         {
             var service = CreateService();
@@ -221,8 +233,22 @@ namespace table_reservations.Services
                 .Get(spreadsheetId, ReservationsRange)
                 .ExecuteAsync(ct);
 
-            return (response.Values ?? new List<IList<object>>())
-                .Any(row => strategy.HasConflict(reservation, scheduledAt, row, Schema));
+            var rows = response.Values ?? new List<IList<object>>();
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var sheetRowNumber = i + 2;
+                if (excludeSheetRowNumber.HasValue && sheetRowNumber == excludeSheetRowNumber.Value)
+                {
+                    continue;
+                }
+
+                if (strategy.HasConflict(reservation, scheduledAt, rows[i], Schema))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public async Task<bool> IsPhoneAlreadyReservedAsync(string customerPhone, CancellationToken ct = default)
@@ -256,6 +282,165 @@ namespace table_reservations.Services
             }
 
             return false;
+        }
+
+        public async Task<ActiveReservationInfo?> FindActiveReservationByPhoneAsync(
+            string customerPhone,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(customerPhone))
+            {
+                return null;
+            }
+
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var normalizedPhone = customerPhone.Trim();
+            var now = ReservationDateTime.KazakhstanNow();
+
+            var response = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            var rows = response.Values ?? new List<IList<object>>();
+            ActiveReservationInfo? nearest = null;
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+                var existingPhone = GetCell(Schema.CustomerPhoneColumn);
+                if (!string.Equals(existingPhone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!TryParseSheetDateTime(GetCell(Schema.ScheduledAtColumn), out var reservationStart))
+                {
+                    continue;
+                }
+
+                var reservationEnd = reservationStart.AddHours(ReservationDuration.Hours);
+                if (reservationEnd <= now)
+                {
+                    continue;
+                }
+
+                var candidate = new ActiveReservationInfo
+                {
+                    SheetRowNumber = i + 2,
+                    TablesId = GetCell(Schema.TableIdsColumn),
+                    CustomerName = GetCell(Schema.CustomerNameColumn),
+                    CustomerPhone = existingPhone,
+                    ScheduledAt = reservationStart.ToString(ReservationDateTime.Format),
+                    ScheduledAtValue = reservationStart
+                };
+
+                if (nearest is null || candidate.ScheduledAtValue < nearest.ScheduledAtValue)
+                {
+                    nearest = candidate;
+                }
+            }
+
+            return nearest;
+        }
+
+        public async Task<IReadOnlyList<ActiveReservationInfo>> FindAllActiveReservationsByPhoneAsync(
+            string customerPhone,
+            CancellationToken ct = default)
+        {
+            var result = new List<ActiveReservationInfo>();
+            if (string.IsNullOrWhiteSpace(customerPhone))
+            {
+                return result;
+            }
+
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var normalizedPhone = customerPhone.Trim();
+            var now = ReservationDateTime.KazakhstanNow();
+
+            var response = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            var rows = response.Values ?? new List<IList<object>>();
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+                var existingPhone = GetCell(Schema.CustomerPhoneColumn);
+                if (!string.Equals(existingPhone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!TryParseSheetDateTime(GetCell(Schema.ScheduledAtColumn), out var reservationStart))
+                {
+                    continue;
+                }
+
+                var reservationEnd = reservationStart.AddHours(ReservationDuration.Hours);
+                if (reservationEnd <= now)
+                {
+                    continue;
+                }
+
+                result.Add(new ActiveReservationInfo
+                {
+                    SheetRowNumber = i + 2,
+                    TablesId = GetCell(Schema.TableIdsColumn),
+                    CustomerName = GetCell(Schema.CustomerNameColumn),
+                    CustomerPhone = existingPhone,
+                    ScheduledAt = reservationStart.ToString(ReservationDateTime.Format),
+                    ScheduledAtValue = reservationStart
+                });
+            }
+
+            return result;
+        }
+
+        public async Task OverwriteReservationAsync(
+            int sheetRowNumber,
+            ReservationInfo reservation,
+            DateTime scheduledAt,
+            CancellationToken ct = default)
+        {
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var strategy = _strategyResolver.Resolve(_tenant.BusinessType);
+            var row = strategy.BuildReservationRow(reservation, scheduledAt).ToList();
+            var range = GetReservationRowRange(sheetRowNumber, out var columnCount);
+
+            while (row.Count < columnCount)
+            {
+                row.Add(string.Empty);
+            }
+
+            var valueRange = new ValueRange
+            {
+                Values = new List<IList<object>>
+                {
+                    row
+                }
+            };
+
+            var update = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, range);
+            update.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+            await update.ExecuteAsync(ct);
+        }
+
+        public async Task ClearReservationRowAsync(int sheetRowNumber, CancellationToken ct = default)
+        {
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var range = GetReservationRowRange(sheetRowNumber, out _);
+
+            var clear = service.Spreadsheets.Values.Clear(new ClearValuesRequest(), spreadsheetId, range);
+            await clear.ExecuteAsync(ct);
         }
 
         public async Task<bool> HasReservationForPhoneAsync(string customerPhone, DateTime scheduledAt, CancellationToken ct = default)
@@ -359,6 +544,37 @@ namespace table_reservations.Services
                 {
                     result.Add(candidate);
                 }
+            }
+
+            return result;
+        }
+
+        private string GetReservationRowRange(int sheetRowNumber, out int columnCount)
+        {
+            var separatorIndex = ReservationsAppendRange.LastIndexOf('!');
+            var sheetName = separatorIndex >= 0
+                ? ReservationsAppendRange[..separatorIndex]
+                : Schema.ReservationsSheetName;
+            var columnRange = separatorIndex >= 0
+                ? ReservationsAppendRange[(separatorIndex + 1)..]
+                : ReservationsAppendRange;
+            var columns = columnRange.Split(':', 2);
+            var firstColumn = NormalizeColumnName(columns[0]);
+            var lastColumn = NormalizeColumnName(columns.Length > 1 ? columns[1] : columns[0]);
+
+            columnCount = GetColumnNumber(lastColumn) - GetColumnNumber(firstColumn) + 1;
+            return $"{sheetName}!{firstColumn}{sheetRowNumber}:{lastColumn}{sheetRowNumber}";
+        }
+
+        private static string NormalizeColumnName(string value) =>
+            new string(value.Where(char.IsLetter).ToArray()).ToUpperInvariant();
+
+        private static int GetColumnNumber(string columnName)
+        {
+            var result = 0;
+            foreach (var character in columnName)
+            {
+                result = result * 26 + character - 'A' + 1;
             }
 
             return result;
