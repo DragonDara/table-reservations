@@ -475,9 +475,38 @@ body {
   gap: 8px;
 }
 
-.field label {
+.field label,
+.field-label {
   font-size: 15px;
   color: var(--text);
+}
+
+.datetime-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.datetime-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.datetime-field > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.datetime-field input {
+  width: 100%;
+}
+
+@media (max-width: 420px) {
+  .datetime-fields {
+    grid-template-columns: 1fr;
+  }
 }
 
 .field input {

@@ -642,6 +642,44 @@ confirmTableBtn?.addEventListener('click', () => {
 const reservationForm = document.getElementById('reservationForm') as HTMLFormElement | null;
 const submitButton = reservationForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? null;
 const reservationStatus = document.getElementById('reservationStatus') as HTMLParagraphElement | null;
+const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
+const reservationDateInput = document.getElementById('reservationDate') as HTMLInputElement | null;
+const reservationTimeInput = document.getElementById('reservationTime') as HTMLInputElement | null;
+let minimumDateTimeValue = '';
+
+function parse24HourTime(value: string): string | null {
+  const match = /^(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+
+  return `${match[1]}:${match[2]}`;
+}
+
+function formatTimeInput(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 4);
+  return digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits;
+}
+
+function syncDateTimeValue(showMessage = false): boolean {
+  if (!datetimeInput || !reservationDateInput || !reservationTimeInput) return true;
+
+  const date = reservationDateInput.value;
+  const time = parse24HourTime(reservationTimeInput.value);
+  datetimeInput.value = date && time ? `${date}T${time}` : '';
+
+  if (!date || !time) {
+    if (showMessage) {
+      setReservationStatus('Укажите дату и время в 24-часовом формате, например 18:30.', 'error');
+      (date ? reservationTimeInput : reservationDateInput).focus();
+    }
+    return false;
+  }
+
+  return true;
+}
 
 function setFormBusy(isBusy: boolean) {
   if (!submitButton) return;
@@ -678,11 +716,19 @@ function validateSelectedTime(showMessage = false): boolean {
   const selectedValue = datetimeInput.value.trim();
   if (!selectedValue) return true;
 
+  if (minimumDateTimeValue && selectedValue < minimumDateTimeValue) {
+    if (showMessage) {
+      setReservationStatus('Выберите будущее время.', 'error');
+      reservationTimeInput?.focus();
+    }
+    return false;
+  }
+
   const isOpen = isRestaurantOpenAt(selectedValue);
   if (!isOpen) {
     if (showMessage) {
       setReservationStatus('Ресторан работает с 12:00 до 04:00. Выберите время в рабочем окне.', 'error');
-      datetimeInput.focus();
+      reservationTimeInput?.focus();
     }
     return false;
   }
@@ -704,6 +750,10 @@ reservationForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
   if (!reservationForm) return;
+
+  if (!syncDateTimeValue(true)) {
+    return;
+  }
 
   const formData = new FormData(reservationForm);
   const selectedIds = Array.from(selectedTables).map((marker) => marker.dataset.id ?? '');
@@ -769,9 +819,7 @@ const payload: ReservationPayload = {
   }
 });
 
-const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
-
-// Значение datetime-local уходит на бэкенд как "голая" строка без таймзоны и
+// Объединённые дата и время уходят на бэкенд как "голая" строка без таймзоны и
 // сравнивается там с ReservationDateTime.KazakhstanNow() (Asia/Almaty). Поэтому
 // и минимально допустимое время в самом инпуте нужно считать в таймзоне
 // Алматы, а не в таймзоне устройства пользователя — иначе для гостей/сотрудников
@@ -811,14 +859,24 @@ if (datetimeInput) {
   now.setUTCMinutes(now.getUTCMinutes() + 5);
 
   const pad = (value: number) => String(value).padStart(2, '0');
-  datetimeInput.min = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
+  minimumDateTimeValue = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
+  reservationDateInput?.setAttribute('min', minimumDateTimeValue.slice(0, 10));
 
-  datetimeInput.addEventListener('input', () => {
+  reservationDateInput?.addEventListener('change', () => {
+    syncDateTimeValue(false);
+    refreshTableStatuses();
+    validateSelectedTime(true);
+  });
+
+  reservationTimeInput?.addEventListener('input', () => {
+    reservationTimeInput.value = formatTimeInput(reservationTimeInput.value);
+    syncDateTimeValue(false);
     refreshTableStatuses();
     validateSelectedTime(false);
   });
 
-  datetimeInput.addEventListener('change', () => {
+  reservationTimeInput?.addEventListener('change', () => {
+    if (!syncDateTimeValue(true)) return;
     refreshTableStatuses();
     validateSelectedTime(true);
   });

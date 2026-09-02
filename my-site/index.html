@@ -144,9 +144,29 @@
     </div>
 
     <div class="field">
-  <label for="datetime">Дата и время</label>
-  <input type="datetime-local" id="datetime" name="datetime" />
-</div>
+      <span class="field-label" id="datetimeLabel">Дата и время</span>
+      <div class="datetime-fields" role="group" aria-labelledby="datetimeLabel">
+        <label class="datetime-field" for="reservationDate">
+          <span>Дата</span>
+          <input type="date" id="reservationDate" required />
+        </label>
+        <label class="datetime-field" for="reservationTime">
+          <span>Время (24 ч)</span>
+          <input
+            type="text"
+            id="reservationTime"
+            placeholder="18:30"
+            inputmode="numeric"
+            maxlength="5"
+            autocomplete="off"
+            pattern="(?:[01]\d|2[0-3]):[0-5]\d"
+            required
+          />
+        </label>
+      </div>
+      <input type="hidden" id="datetime" name="datetime" />
+      <span class="field-hint">Введите время в 24-часовом формате, например 18:30</span>
+    </div>
 
     <div class="field">
       <label>Столик</label>
