@@ -6,13 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build:static": "tsc && vite build --base=./ --outDir dist",
+    "clean": "rimraf dist",
+    "preview": "vite preview",
+    "preview:dist": "vite preview --outDir dist"
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "^0.99.0",
     "@tailwindcss/vite": "^4.3.2",
     "autoprefixer": "^10.5.3",
     "postcss": "^8.5.19",
+    "rimraf": "^6.0.1",
     "tailwindcss": "^4.3.2",
     "typescript": "^5.9.3",
     "vite": "^8.2.1"

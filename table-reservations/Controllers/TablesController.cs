@@ -47,7 +47,7 @@ public async Task<IActionResult> GetTables([FromQuery] string? scheduledAt, Canc
                 return BadRequest($"Некорректный формат scheduledAt. Ожидается {ReservationDateTime.Format}.");
             }
 
-            var isTaken = await _sheets.IsReservationTakenAsync(tableId.ToString(), dateTime, ct);
+            var isTaken = await _sheets.IsReservationTakenAsync(tableId.ToString(), dateTime, ct: ct);
 
             return Ok(new
             {

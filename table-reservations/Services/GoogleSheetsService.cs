@@ -139,7 +139,11 @@ namespace table_reservations.Services
 
         }
 
-        public async Task<bool> IsReservationTakenAsync(string tablesId, DateTime scheduledAt, CancellationToken ct = default)
+        public async Task<bool> IsReservationTakenAsync(
+            string tablesId,
+            DateTime scheduledAt,
+            int? excludeSheetRowNumber = null,
+            CancellationToken ct = default)
         {
             var service = CreateService();
             var spreadsheetId = GetSpreadsheetId();
@@ -159,8 +163,15 @@ namespace table_reservations.Services
 
             var rows = response.Values ?? new List<IList<object>>();
 
-            foreach ( var row in rows)
+            for (var i = 0; i < rows.Count; i++)
             {
+                var sheetRowNumber = i + 2; // A2 = первая строка данных
+                if (excludeSheetRowNumber.HasValue && sheetRowNumber == excludeSheetRowNumber.Value)
+                {
+                    continue;
+                }
+
+                var row = rows[i];
                 string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
 
                 // B = TableId
@@ -225,6 +236,172 @@ namespace table_reservations.Services
             }
 
             return false;
+        }
+
+        public async Task<ActiveReservationInfo?> FindActiveReservationByPhoneAsync(
+            string customerPhone,
+            CancellationToken ct = default)
+        {
+            if (string.IsNullOrWhiteSpace(customerPhone))
+            {
+                return null;
+            }
+
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var normalizedPhone = customerPhone.Trim();
+            var now = ReservationDateTime.KazakhstanNow();
+
+            var response = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            var rows = response.Values ?? new List<IList<object>>();
+            ActiveReservationInfo? nearest = null;
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+                var existingPhone = GetCell(3);
+                if (!string.Equals(existingPhone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
+                {
+                    continue;
+                }
+
+                var reservationEnd = reservationStart.AddHours(ReservationDuration.Hours);
+                if (reservationEnd <= now)
+                {
+                    continue;
+                }
+
+                var candidate = new ActiveReservationInfo
+                {
+                    SheetRowNumber = i + 2,
+                    TablesId = GetCell(1),
+                    CustomerName = GetCell(2),
+                    CustomerPhone = existingPhone,
+                    ScheduledAt = reservationStart.ToString(ReservationDateTime.Format),
+                    ScheduledAtValue = reservationStart
+                };
+
+                if (nearest is null || candidate.ScheduledAtValue < nearest.ScheduledAtValue)
+                {
+                    nearest = candidate;
+                }
+            }
+
+            return nearest;
+        }
+
+        public async Task<IReadOnlyList<ActiveReservationInfo>> FindAllActiveReservationsByPhoneAsync(
+            string customerPhone,
+            CancellationToken ct = default)
+        {
+            var result = new List<ActiveReservationInfo>();
+            if (string.IsNullOrWhiteSpace(customerPhone))
+            {
+                return result;
+            }
+
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var normalizedPhone = customerPhone.Trim();
+            var now = ReservationDateTime.KazakhstanNow();
+
+            var response = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            var rows = response.Values ?? new List<IList<object>>();
+
+            for (var i = 0; i < rows.Count; i++)
+            {
+                var row = rows[i];
+                string GetCell(int idx) => row.Count > idx ? row[idx]?.ToString()?.Trim() ?? "" : "";
+
+                var existingPhone = GetCell(3);
+                if (!string.Equals(existingPhone, normalizedPhone, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!TryParseSheetDateTime(GetCell(4), out var reservationStart))
+                {
+                    continue;
+                }
+
+                var reservationEnd = reservationStart.AddHours(ReservationDuration.Hours);
+                if (reservationEnd <= now)
+                {
+                    continue;
+                }
+
+                result.Add(new ActiveReservationInfo
+                {
+                    SheetRowNumber = i + 2,
+                    TablesId = GetCell(1),
+                    CustomerName = GetCell(2),
+                    CustomerPhone = existingPhone,
+                    ScheduledAt = reservationStart.ToString(ReservationDateTime.Format),
+                    ScheduledAtValue = reservationStart
+                });
+            }
+
+            return result;
+        }
+
+        public async Task OverwriteReservationAsync(
+            int sheetRowNumber,
+            ReservationInfo reservation,
+            DateTime scheduledAt,
+            CancellationToken ct = default)
+        {
+            if (!TryParseTableIds(reservation.TablesId, out var ids))
+                throw new ArgumentException("Некорректные TablesId.");
+
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var tablesIdCell = string.Join(",", ids);
+            var range = $"Брони!A{sheetRowNumber}:H{sheetRowNumber}";
+
+            var valueRange = new ValueRange
+            {
+                Values = new List<IList<object>>
+                {
+                    new List<object>
+                    {
+                        Guid.NewGuid().ToString(),
+                        tablesIdCell,
+                        reservation.CustomerName,
+                        reservation.CustomerPhone,
+                        scheduledAt.ToString(ReservationDateTime.Format),
+                        "",
+                        reservation.RemindBeforeHour ? "Да" : "Нет",
+                        ""
+                    }
+                }
+            };
+
+            var update = service.Spreadsheets.Values.Update(valueRange, spreadsheetId, range);
+            update.ValueInputOption = SpreadsheetsResource.ValuesResource.UpdateRequest.ValueInputOptionEnum.RAW;
+            await update.ExecuteAsync(ct);
+        }
+
+        public async Task ClearReservationRowAsync(int sheetRowNumber, CancellationToken ct = default)
+        {
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+            var range = $"Брони!A{sheetRowNumber}:H{sheetRowNumber}";
+
+            var clear = service.Spreadsheets.Values.Clear(new ClearValuesRequest(), spreadsheetId, range);
+            await clear.ExecuteAsync(ct);
         }
 
         public async Task<bool> HasReservationForPhoneAsync(string customerPhone, DateTime scheduledAt, CancellationToken ct = default)
