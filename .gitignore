@@ -1,0 +1,15 @@
+.cursor
+appsettings.Development.json
+appsettings.Production.json
+table-reservations-*.json
+webflow 
+
+# Ignore local build artifacts
+bin/
+obj/
+.vs/
+*.user
+*.suo
+table-reservations-*.json*.userosscache
+*.sln.docstate
+s
