@@ -12,6 +12,21 @@
 
 const STORAGE_KEY = 'organizationId';
 
+function isLocalDevelopmentHost(): boolean {
+  return import.meta.env.DEV
+    && ['localhost', '127.0.0.1', '::1'].includes(window.location.hostname);
+}
+
+function reflectOrganizationInLocalUrl(organizationId: string): void {
+  if (!isLocalDevelopmentHost()) return;
+
+  const url = new URL(window.location.href);
+  if (url.searchParams.has('org') || url.searchParams.has('organizationId')) return;
+
+  url.searchParams.set('org', organizationId);
+  window.history.replaceState(window.history.state, '', url);
+}
+
 function fromQuery(): string | null {
   try {
     const params = new URLSearchParams(window.location.search);
@@ -50,5 +65,10 @@ function fromEnv(): string | null {
  * when the backend should resolve the tenant from the host (production).
  */
 export function resolveOrganizationIdFallback(): string | null {
-  return fromQuery() ?? fromStorage() ?? fromEnv();
+  const organizationId = fromQuery() ?? fromStorage() ?? fromEnv();
+  if (organizationId) {
+    reflectOrganizationInLocalUrl(organizationId);
+  }
+
+  return organizationId;
 }
