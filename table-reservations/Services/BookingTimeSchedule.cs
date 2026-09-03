@@ -14,10 +14,10 @@ public static class BookingTimeSchedule
 
     public static IReadOnlyList<string> GetAvailableSlots(BookingTimeOptions options)
     {
-        var (startMinutes, endMinutes, slotDuration) = Parse(options);
+        var (startMinutes, deadlineMinutes, slotDuration) = Parse(options);
         var slots = new List<string>();
 
-        for (var minute = startMinutes; minute < endMinutes; minute += slotDuration)
+        for (var minute = startMinutes; minute < deadlineMinutes; minute += slotDuration)
         {
             slots.Add(FormatMinutes(minute % MinutesPerDay));
         }
@@ -31,10 +31,15 @@ public static class BookingTimeSchedule
         return GetAvailableSlots(options).Contains(selectedTime, StringComparer.Ordinal);
     }
 
-    public static string Describe(BookingTimeOptions options) =>
-        $"{options.StartTime}–{options.EndTime}, шаг {options.SlotDurationMinutes} мин.";
+    public static string Describe(BookingTimeOptions options)
+    {
+        var deadline = string.IsNullOrWhiteSpace(options.ReservationDeadline)
+            ? options.EndTime
+            : options.ReservationDeadline;
+        return $"бронь {options.StartTime}–{deadline}, время работы до {options.EndTime}, шаг {options.SlotDurationMinutes} мин.";
+    }
 
-    private static (int StartMinutes, int EndMinutes, int SlotDuration) Parse(BookingTimeOptions options)
+    private static (int StartMinutes, int DeadlineMinutes, int SlotDuration) Parse(BookingTimeOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
@@ -73,7 +78,34 @@ public static class BookingTimeSchedule
             endMinutes += MinutesPerDay;
         }
 
-        return (startMinutes, endMinutes, options.SlotDurationMinutes);
+        var deadlineText = string.IsNullOrWhiteSpace(options.ReservationDeadline)
+            ? options.EndTime
+            : options.ReservationDeadline;
+        if (!TimeOnly.TryParseExact(
+                deadlineText,
+                TimeFormat,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var deadline))
+        {
+            throw new InvalidOperationException(
+                $"Reservation deadline '{deadlineText}' must use the {TimeFormat} format.");
+        }
+
+        var deadlineMinutes = deadline.Hour * 60 + deadline.Minute;
+        if (deadlineMinutes <= startMinutes)
+        {
+            deadlineMinutes += MinutesPerDay;
+        }
+
+        if (deadlineMinutes > endMinutes)
+        {
+            throw new InvalidOperationException(
+                $"Reservation deadline '{deadlineText}' must fall within the booking window " +
+                $"{options.StartTime}–{options.EndTime}.");
+        }
+
+        return (startMinutes, deadlineMinutes, options.SlotDurationMinutes);
     }
 
     private static string FormatMinutes(int minutes) =>

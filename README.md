@@ -65,11 +65,14 @@ Each organization also defines its own booking window and slot interval:
 "BookingTime": {
   "StartTime": "08:00",
   "EndTime": "20:00",
+  "ReservationDeadline": "18:00",
   "SlotDurationMinutes": 60
 }
 ```
 
-Times use the 24-hour `HH:mm` format. `EndTime` is exclusive, and a value earlier
-than `StartTime` creates an overnight window (for example, `12:00`–`04:00`). The
-backend publishes the generated slots to the frontend and rejects reservations
-whose time does not match one of those slots.
+Times use the 24-hour `HH:mm` format. `EndTime` is the closing time displayed to
+customers. `ReservationDeadline` is the exclusive last-slot boundary and must
+fall inside the start/end window; when omitted, it defaults to `EndTime`. A time
+earlier than `StartTime` represents an overnight window (for example,
+`12:00`–`04:00`). The backend publishes slots generated up to the deadline and
+rejects reservations outside that exact set.

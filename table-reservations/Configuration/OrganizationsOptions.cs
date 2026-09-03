@@ -87,6 +87,13 @@ namespace table_reservations.Configuration
         /// </summary>
         public string EndTime { get; set; } = "04:00";
 
+        /// <summary>
+        /// Exclusive cutoff for reservation start times, formatted as HH:mm.
+        /// When omitted, <see cref="EndTime"/> is used for backward compatibility.
+        /// The cutoff must fall within the configured start/end window.
+        /// </summary>
+        public string? ReservationDeadline { get; set; }
+
         /// <summary>Number of minutes between available booking slots.</summary>
         public int SlotDurationMinutes { get; set; } = 60;
     }

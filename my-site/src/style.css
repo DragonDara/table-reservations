@@ -442,6 +442,17 @@ body {
   opacity: 0.5;
 }
 
+.reservation-hours {
+  margin: -36px 0 32px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.reservation-hours time {
+  color: var(--text);
+  font-weight: 700;
+}
+
 .reservation-form {
   max-width: 420px;
   margin: 0 auto;

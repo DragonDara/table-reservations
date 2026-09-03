@@ -654,6 +654,8 @@ const datetimeInput = document.getElementById('datetime') as HTMLInputElement | 
 const reservationDateInput = document.getElementById('reservationDate') as HTMLInputElement | null;
 const reservationTimeInput = document.getElementById('reservationTime') as HTMLSelectElement | null;
 const bookingTimeHint = document.getElementById('bookingTimeHint');
+const bookingStartTime = document.getElementById('bookingStartTime') as HTMLTimeElement | null;
+const bookingEndTime = document.getElementById('bookingEndTime') as HTMLTimeElement | null;
 let minimumDateTimeValue = '';
 let bookingTimeSlots: string[] = [];
 
@@ -670,9 +672,18 @@ function configureBookingTime(config: PublicTenantConfig): void {
   });
   reservationTimeInput.disabled = bookingTimeSlots.length === 0;
 
+  if (bookingStartTime) {
+    bookingStartTime.textContent = config.bookingTime.startTime;
+    bookingStartTime.dateTime = config.bookingTime.startTime;
+  }
+  if (bookingEndTime) {
+    bookingEndTime.textContent = config.bookingTime.endTime;
+    bookingEndTime.dateTime = config.bookingTime.endTime;
+  }
+
   if (bookingTimeHint) {
     bookingTimeHint.textContent = bookingTimeSlots.length > 0
-      ? `Доступно ${config.bookingTime.startTime}–${config.bookingTime.endTime}, шаг ${config.bookingTime.slotDurationMinutes} мин.`
+      ? `Доступные интервалы с шагом ${config.bookingTime.slotDurationMinutes} мин.`
       : 'Для этой организации пока нет доступного времени';
   }
 

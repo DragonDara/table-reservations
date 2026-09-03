@@ -50,6 +50,40 @@ public class BookingTimeScheduleTests
         Assert.Equal(new[] { "08:00", "08:30", "09:00", "09:30" }, slots);
     }
 
+    [Fact]
+    public void GetAvailableSlots_ReservationDeadlineStopsSlotsBeforeClosingTime()
+    {
+        var options = new BookingTimeOptions
+        {
+            StartTime = "12:00",
+            EndTime = "20:00",
+            ReservationDeadline = "18:00",
+            SlotDurationMinutes = 60
+        };
+
+        var slots = BookingTimeSchedule.GetAvailableSlots(options);
+
+        Assert.Equal(new[] { "12:00", "13:00", "14:00", "15:00", "16:00", "17:00" }, slots);
+    }
+
+    [Fact]
+    public void GetAvailableSlots_OvernightDeadlineStopsBeforeClosingTime()
+    {
+        var options = new BookingTimeOptions
+        {
+            StartTime = "12:00",
+            EndTime = "04:00",
+            ReservationDeadline = "02:00",
+            SlotDurationMinutes = 60
+        };
+
+        var slots = BookingTimeSchedule.GetAvailableSlots(options);
+
+        Assert.Equal("01:00", slots[^1]);
+        Assert.DoesNotContain("02:00", slots);
+        Assert.DoesNotContain("03:00", slots);
+    }
+
     [Theory]
     [InlineData(8, 0, true)]
     [InlineData(9, 0, true)]
@@ -82,6 +116,26 @@ public class BookingTimeScheduleTests
             StartTime = startTime,
             EndTime = endTime,
             SlotDurationMinutes = slotDurationMinutes
+        };
+
+        Assert.Throws<InvalidOperationException>(() => BookingTimeSchedule.GetAvailableSlots(options));
+    }
+
+    [Theory]
+    [InlineData("08:00", "20:00", "not-a-time")]
+    [InlineData("08:00", "20:00", "21:00")]
+    [InlineData("12:00", "04:00", "05:00")]
+    public void GetAvailableSlots_InvalidReservationDeadline_Throws(
+        string startTime,
+        string endTime,
+        string reservationDeadline)
+    {
+        var options = new BookingTimeOptions
+        {
+            StartTime = startTime,
+            EndTime = endTime,
+            ReservationDeadline = reservationDeadline,
+            SlotDurationMinutes = 60
         };
 
         Assert.Throws<InvalidOperationException>(() => BookingTimeSchedule.GetAvailableSlots(options));
