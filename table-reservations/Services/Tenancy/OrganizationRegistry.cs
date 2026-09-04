@@ -1,5 +1,6 @@
 using Microsoft.Extensions.Options;
 using table_reservations.Configuration;
+using table_reservations.Services;
 
 namespace table_reservations.Services.Tenancy
 {
@@ -34,6 +35,21 @@ namespace table_reservations.Services.Tenancy
             if (items.Any(o => string.IsNullOrWhiteSpace(o.Id)))
             {
                 throw new InvalidOperationException("Every organization must have a non-empty id.");
+            }
+
+            foreach (var org in items)
+            {
+                org.BookingTime ??= new BookingTimeOptions();
+                try
+                {
+                    _ = BookingTimeSchedule.GetAvailableSlots(org.BookingTime);
+                }
+                catch (InvalidOperationException ex)
+                {
+                    throw new InvalidOperationException(
+                        $"Invalid booking time configuration for organization '{org.Id}'. {ex.Message}",
+                        ex);
+                }
             }
 
             _byId = items

@@ -5,11 +5,13 @@ import {
   getAvailableSlots,
   getRating,
   getTables,
+  type ExistingReservation,
   type ReservationPayload,
   type TableAvailability,
 } from './api';
 import { bootstrapTenant } from './tenancy/bootstrap';
 import { initCarWashExperience } from './experiences/carwash';
+import type { PublicTenantConfig } from './tenancy/types';
 
 // Load tenant public config, apply branding/theme/content, then initialize the
 // business experience. Restaurant interactions are defined at module scope below
@@ -18,6 +20,7 @@ import { initCarWashExperience } from './experiences/carwash';
 bootstrapTenant()
   .then((config) => {
     if (!config) return;
+    configureBookingTime(config);
     if (config.features.showRating) {
       void loadRating();
     }
@@ -121,6 +124,10 @@ const continueToTimeBtn = document.getElementById('continueToTime') as HTMLButto
 const continueToTableBtn = document.getElementById('continueToTable') as HTMLButtonElement | null;
 const continueToNameBtn = document.getElementById('continueToName') as HTMLButtonElement | null;
 const continueToPhoneBtn = document.getElementById('continueToPhone') as HTMLButtonElement | null;
+const overwriteModalOverlay = document.getElementById('overwriteModalOverlay') as HTMLElement | null;
+const overwriteModalText = document.getElementById('overwriteModalText') as HTMLElement | null;
+const overwriteModalCancelBtn = document.getElementById('overwriteModalCancelBtn') as HTMLButtonElement | null;
+const overwriteModalConfirmBtn = document.getElementById('overwriteModalConfirmBtn') as HTMLButtonElement | null;
 
 let scale = 1;
 let panX = 0;
@@ -570,6 +577,92 @@ tableMarkers.forEach((marker) => {
 const reservationForm = document.getElementById('reservationForm') as HTMLFormElement | null;
 const submitButton = reservationForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? null;
 const reservationStatus = document.getElementById('reservationStatus') as HTMLParagraphElement | null;
+const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
+const dateOptions = document.getElementById('dateOptions') as HTMLElement | null;
+const timeOptions = document.getElementById('timeOptions') as HTMLElement | null;
+const slotStatus = document.getElementById('slotStatus') as HTMLElement | null;
+const reservationDateInput = document.getElementById('reservationDate') as HTMLInputElement | null;
+const reservationTimeInput = document.getElementById('reservationTime') as HTMLSelectElement | null;
+const bookingTimeHint = document.getElementById('bookingTimeHint');
+const bookingStartTime = document.getElementById('bookingStartTime') as HTMLTimeElement | null;
+const bookingEndTime = document.getElementById('bookingEndTime') as HTMLTimeElement | null;
+let minimumDateTimeValue = '';
+let bookingTimeSlots: string[] = [];
+let slotRequestId = 0;
+
+const bookingSteps = [dateStep, timeStep, tableStep, nameStep, phoneStep];
+
+function showBookingStep(step: HTMLElement | null) {
+  bookingSteps.forEach((bookingStep) => {
+    if (bookingStep) bookingStep.hidden = bookingStep !== step;
+  });
+  setReservationStatus('');
+}
+
+function configureBookingTime(config: PublicTenantConfig): void {
+  bookingTimeSlots = config.bookingTime.availableTimeSlots.filter(
+    (slot, index, slots) => /^([01]\d|2[0-3]):[0-5]\d$/.test(slot) && slots.indexOf(slot) === index,
+  );
+
+  if (reservationTimeInput) {
+    reservationTimeInput.replaceChildren(new Option('Выберите время', ''));
+    bookingTimeSlots.forEach((slot) => {
+      reservationTimeInput.add(new Option(slot, slot));
+    });
+    reservationTimeInput.disabled = bookingTimeSlots.length === 0;
+  }
+
+  if (bookingStartTime) {
+    bookingStartTime.textContent = config.bookingTime.startTime;
+    bookingStartTime.dateTime = config.bookingTime.startTime;
+  }
+  if (bookingEndTime) {
+    bookingEndTime.textContent = config.bookingTime.endTime;
+    bookingEndTime.dateTime = config.bookingTime.endTime;
+  }
+
+  if (bookingTimeHint) {
+    bookingTimeHint.textContent = bookingTimeSlots.length > 0
+      ? `Доступные интервалы с шагом ${config.bookingTime.slotDurationMinutes} мин.`
+      : 'Для этой организации пока нет доступного времени';
+  }
+
+  updateTimeSlotAvailability();
+}
+
+function updateTimeSlotAvailability(): void {
+  if (!reservationTimeInput) return;
+
+  const selectedDate = reservationDateInput?.value ?? '';
+  Array.from(reservationTimeInput.options).forEach((option) => {
+    if (!option.value) return;
+    option.disabled = Boolean(
+      selectedDate && minimumDateTimeValue && `${selectedDate}T${option.value}` <= minimumDateTimeValue,
+    );
+  });
+
+  if (reservationTimeInput.selectedOptions[0]?.disabled) {
+    reservationTimeInput.value = '';
+  }
+}
+
+function syncDateTimeValue(showMessage = false): boolean {
+  if (!datetimeInput || !reservationDateInput || !reservationTimeInput) return true;
+
+  const date = reservationDateInput.value;
+  const time = reservationTimeInput.value;
+  datetimeInput.value = date && time ? `${date}T${time}` : '';
+
+  if (!date || !time) {
+    if (showMessage) {
+      setReservationStatus('Укажите дату и время в 24-часовом формате, например 18:30.', 'error');
+      (date ? reservationTimeInput : reservationDateInput).focus();
+    }
+    return false;
+  }
+
+  return true;
+}
 
 function setFormBusy(isBusy: boolean) {
   if (!submitButton) return;
@@ -585,32 +678,25 @@ function setReservationStatus(message: string, type: 'info' | 'success' | 'error
   reservationStatus.className = `reservation-status ${type}`;
 }
 
-function isRestaurantOpenAt(value: string): boolean {
-  if (!value) return false;
-
-  const [, timePart] = value.split('T');
-  if (!timePart) return false;
-
-  const [hours, minutes] = timePart.split(':').map(Number);
-
-  const selectedHour = Number.isFinite(hours) ? hours : 0;
-  const selectedMinute = Number.isFinite(minutes) ? minutes : 0;
-
-  const normalizedHour = selectedHour + selectedMinute / 60;
-  return normalizedHour >= 12 || normalizedHour < 4;
-}
-
 function validateSelectedTime(showMessage = false): boolean {
   if (!datetimeInput) return true;
 
   const selectedValue = datetimeInput.value.trim();
   if (!selectedValue) return true;
 
-  const isOpen = isRestaurantOpenAt(selectedValue);
-  if (!isOpen) {
+  if (minimumDateTimeValue && selectedValue <= minimumDateTimeValue) {
     if (showMessage) {
-      setReservationStatus('Ресторан работает с 12:00 до 04:00. Выберите время в рабочем окне.', 'error');
-      datetimeInput.focus();
+      setReservationStatus('Выберите будущее время.', 'error');
+      reservationTimeInput?.focus();
+    }
+    return false;
+  }
+
+  const selectedTime = selectedValue.split('T')[1];
+  if (!selectedTime || !bookingTimeSlots.includes(selectedTime)) {
+    if (showMessage) {
+      setReservationStatus('Выберите одно из доступных времён организации.', 'error');
+      reservationTimeInput?.focus();
     }
     return false;
   }
@@ -627,21 +713,118 @@ function getActiveFloorSection(): string {
   return 'Общий зал';
 }
 
+function formatReservationDateTime(value: string): string {
+  const match = value.trim().match(/^(\d{2})[./](\d{2})[./](\d{4})\s+(\d{2}):(\d{2})/);
+  if (!match) return value;
+
+  const [, day, month, year, hour, minute] = match;
+  return `${day}.${month}.${year} в ${hour}:${minute}`;
+}
+
+function showOverwriteModal(existing: ExistingReservation): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (!overwriteModalOverlay || !overwriteModalText) {
+      resolve(false);
+      return;
+    }
+
+    const when = formatReservationDateTime(existing.scheduledAt);
+    const tablePart = existing.tablesId ? ` (стол №${existing.tablesId})` : '';
+    overwriteModalText.textContent =
+      `У вас уже есть актуальная бронь на ${when}${tablePart}. Хотите перезаписать бронь?`;
+
+    overwriteModalOverlay.hidden = false;
+
+    const cleanup = (result: boolean) => {
+      overwriteModalOverlay.hidden = true;
+      overwriteModalConfirmBtn?.removeEventListener('click', onConfirm);
+      overwriteModalCancelBtn?.removeEventListener('click', onCancel);
+      overwriteModalOverlay.removeEventListener('click', onOverlay);
+      resolve(result);
+    };
+
+    const onConfirm = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    const onOverlay = (e: MouseEvent) => {
+      if (e.target === overwriteModalOverlay) cleanup(false);
+    };
+
+    overwriteModalConfirmBtn?.addEventListener('click', onConfirm);
+    overwriteModalCancelBtn?.addEventListener('click', onCancel);
+    overwriteModalOverlay.addEventListener('click', onOverlay);
+  });
+}
+
+function resetReservationFormUi() {
+  if (!reservationForm) return;
+
+  reservationForm.reset();
+  clearSelectedTable();
+  void initRestaurantBooking();
+}
+
+async function submitReservation(payload: ReservationPayload) {
+  setFormBusy(true);
+  setReservationStatus(payload.overwrite ? 'Перезаписываем бронь…' : 'Отправляем бронь…', 'info');
+
+  try {
+    const response = await createReservation(payload);
+    const successMessage = response.message
+      || (payload.overwrite ? 'Бронь перезаписана.' : 'Бронирование успешно отправлено.');
+
+    setReservationStatus(successMessage, 'success');
+
+    if (successModalOverlay && successModalText) {
+      successModalText.textContent = successMessage;
+      successModalOverlay.hidden = false;
+    }
+
+    refreshTableStatuses();
+    resetReservationFormUi();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 409 && error.code === 'EXISTING_RESERVATION' && error.existing) {
+      setFormBusy(false);
+      setReservationStatus('Найдена актуальная бронь по этому номеру.', 'info');
+
+      const shouldOverwrite = await showOverwriteModal(error.existing);
+      if (!shouldOverwrite) {
+        setReservationStatus('Бронь не изменена.', 'info');
+        return;
+      }
+
+      await submitReservation({ ...payload, overwrite: true });
+      return;
+    }
+
+    console.error('Reservation submission failed', error);
+    const message = error instanceof Error && error.message
+      ? error.message
+      : 'Не удалось отправить бронь. Проверьте подключение к API или попробуйте позже.';
+
+    setReservationStatus(message, 'error');
+  } finally {
+    setFormBusy(false);
+  }
+}
 
 reservationForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
   if (!reservationForm) return;
 
+  if (!syncDateTimeValue(true)) {
+    return;
+  }
+
   const formData = new FormData(reservationForm);
-const payload: ReservationPayload = {
-  customerName: String(formData.get('name') ?? '').trim(),
-  customerPhone: `+${String(formData.get('phone') ?? '').replace(/\D/g, '')}`,
-  scheduledAt: String(formData.get('datetime') ?? '').trim(),
-  tablesId: selectedTable?.dataset.id ?? '',
-  remindBeforeHour: true,
-  section: getActiveFloorSection(),
-};
+  const payload: ReservationPayload = {
+    customerName: String(formData.get('name') ?? '').trim(),
+    customerPhone: `+${String(formData.get('phone') ?? '').replace(/\D/g, '')}`,
+    scheduledAt: String(formData.get('datetime') ?? '').trim(),
+    tablesId: selectedTable?.dataset.id ?? '',
+    remindBeforeHour: true,
+    section: getActiveFloorSection(),
+  };
   if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || !payload.tablesId) {
     setReservationStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
     return;
@@ -657,61 +840,8 @@ const payload: ReservationPayload = {
     return;
   }
 
-  setFormBusy(true);
-  setReservationStatus('Отправляем бронь…', 'info');
-
-  try {
-    const response = await createReservation(payload);
-    const successMessage = response.message || response.reservationId
-      ? `Бронирование отправлено${response.reservationId ? ` (ID: ${response.reservationId})` : ''}.`
-      : 'Бронирование успешно отправлено.';
-
-    setReservationStatus(successMessage, 'success');
-
-    if (successModalOverlay && successModalText) {
-      successModalText.textContent = successMessage;
-      successModalOverlay.hidden = false;
-    }
-
-    refreshTableStatuses();
-    reservationForm.reset();
-    clearSelectedTable();
-    await initRestaurantBooking();
-  } catch (error) {
-    console.error('Reservation submission failed', error);
-    const message = error instanceof Error && error.message
-      ? error.message
-      : 'Не удалось отправить бронь. Проверьте подключение к API или попробуйте позже.';
-
-    setReservationStatus(message, 'error');
-
-    if (error instanceof ApiError && error.status === 409 && /(ресурс|стол|занят)/i.test(error.message)) {
-      clearSelectedTable();
-      await refreshTableStatuses();
-      if (overlay) {
-        overlay.hidden = false;
-        centerCanvas();
-      }
-    }
-  } finally {
-    setFormBusy(false);
-  }
+  await submitReservation(payload);
 });
-
-const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
-const dateOptions = document.getElementById('dateOptions') as HTMLElement | null;
-const timeOptions = document.getElementById('timeOptions') as HTMLElement | null;
-const slotStatus = document.getElementById('slotStatus') as HTMLElement | null;
-let slotRequestId = 0;
-
-const bookingSteps = [dateStep, timeStep, tableStep, nameStep, phoneStep];
-
-function showBookingStep(step: HTMLElement | null) {
-  bookingSteps.forEach((bookingStep) => {
-    if (bookingStep) bookingStep.hidden = bookingStep !== step;
-  });
-  setReservationStatus('');
-}
 
 // Date chips are anchored to Kazakhstan calendar dates regardless of the
 // visitor's device timezone. Slot strings remain timezone-free by API design.

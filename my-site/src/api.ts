@@ -31,9 +31,14 @@ export interface ReservationPayload {
   // Car-wash tenants only; ignored by restaurant tenants.
   plateNumber?: string;
   washServiceType?: string;
+  overwrite?: boolean;
 }
 
-
+export interface ExistingReservation {
+  scheduledAt: string;
+  tablesId: string;
+  customerName: string;
+}
 
 export interface RatingResponse {
   rating: number;
@@ -46,19 +51,55 @@ export interface ReservationResponse {
   id?: string;
   message?: string;
   status?: string;
+  overwritten?: boolean;
   [key: string]: unknown;
 }
 
 export class ApiError extends Error {
   readonly status: number;
+  code?: string;
+  existing?: ExistingReservation;
+  readonly body: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, body: unknown = null) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.body = body;
+
+    if (body && typeof body === 'object') {
+      const record = body as Record<string, unknown>;
+      this.code = typeof record.code === 'string' ? record.code : undefined;
+      const existing = record.existing;
+      if (existing && typeof existing === 'object') {
+        const ex = existing as Record<string, unknown>;
+        this.existing = {
+          scheduledAt: String(ex.scheduledAt ?? ''),
+          tablesId: String(ex.tablesId ?? ''),
+          customerName: String(ex.customerName ?? ''),
+        };
+      }
+    }
   }
 }
 
+function extractErrorMessage(payload: unknown, fallback: string): string {
+  if (typeof payload === 'string' && payload.trim()) {
+    return payload;
+  }
+
+  if (payload && typeof payload === 'object') {
+    const record = payload as Record<string, unknown>;
+    const message =
+      (typeof record.message === 'string' && record.message)
+      || (typeof record.title === 'string' && record.title)
+      || (typeof record.detail === 'string' && record.detail);
+
+    if (message) return message;
+  }
+
+  return fallback;
+}
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
@@ -84,13 +125,11 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    const message =
-      (payload as Record<string, unknown> | null)?.message as string | undefined
-      ?? (payload as Record<string, unknown> | null)?.title as string | undefined
-      ?? (payload as Record<string, unknown> | null)?.detail as string | undefined
-      ?? 'Сервер вернул ошибку';
-
-    throw new ApiError(message, response.status);
+    throw new ApiError(
+      extractErrorMessage(payload, 'Сервер вернул ошибку'),
+      response.status,
+      payload,
+    );
   }
 
   if (payload && typeof payload === 'object') {

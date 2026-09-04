@@ -12,9 +12,6 @@ namespace table_reservations.Services.BusinessTypes
     /// </summary>
     public sealed class RestaurantStrategy : IBusinessTypeStrategy
     {
-        private static readonly TimeSpan OpensAt = new(12, 0, 0);
-        private static readonly TimeSpan ClosesAt = new(4, 0, 0);
-
         public BusinessType Type => BusinessType.Restaurant;
 
         public ReservationValidationResult ValidateCreate(ReservationInfo request)
@@ -40,15 +37,6 @@ namespace table_reservations.Services.BusinessTypes
             {
                 return ReservationValidationResult.Invalid(
                     $"Минимальное время брони — {minAllowedTime:HH:mm}. Выберите время позже.");
-            }
-
-            // Бар работает каждый день с 12:00 до 04:00 следующего дня.
-            var time = scheduledAt.TimeOfDay;
-            var isWithinWorkingHours = time >= OpensAt || time < ClosesAt;
-            if (!isWithinWorkingHours)
-            {
-                return ReservationValidationResult.Invalid(
-                    "Бронь доступна только на время работы бара: с 12:00 до 04:00.");
             }
 
             if (!TryParseTableIds(request.TablesId, out var tableIds) || tableIds.Length == 0)

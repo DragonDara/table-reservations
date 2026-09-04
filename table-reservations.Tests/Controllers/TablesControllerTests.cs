@@ -86,10 +86,10 @@ public class TablesControllerTests
         public Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, CancellationToken ct = default) =>
+        public Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, int? excludeSheetRowNumber = null, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<bool> HasConflictAsync(ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default) =>
+        public Task<bool> HasConflictAsync(ReservationInfo reservation, DateTime scheduledAt, int? excludeSheetRowNumber = null, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
         public Task<bool> IsPhoneAlreadyReservedAsync(string customerPhone, CancellationToken ct = default) =>
@@ -98,7 +98,19 @@ public class TablesControllerTests
         public Task<bool> HasReservationForPhoneAsync(string customerPhone, DateTime scheduledAt, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
+        public Task<ActiveReservationInfo?> FindActiveReservationByPhoneAsync(string customerPhone, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task<IReadOnlyList<ActiveReservationInfo>> FindAllActiveReservationsByPhoneAsync(string customerPhone, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public Task<AppendValuesResponse> AppendReservationAsync(ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task OverwriteReservationAsync(int sheetRowNumber, ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
+        public Task ClearReservationRowAsync(int sheetRowNumber, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
         public bool TryParseTableIds(string value, out int[] ids)

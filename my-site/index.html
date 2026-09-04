@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -130,6 +129,10 @@
 
 <section class="reservation" id="reservation">
   <h2 class="section-title reservation-title">Забронируйте столик</h2>
+  <p class="reservation-hours" id="reservationHours" aria-live="polite">
+    Время работы:
+    <time id="bookingStartTime">—</time>–<time id="bookingEndTime">—</time>
+  </p>
 
   <form class="reservation-form" id="reservationForm">
     <div class="booking-step" id="dateStep">
@@ -347,6 +350,17 @@
     <h3 class="success-modal-title">Бронь подтверждена!</h3>
     <p class="success-modal-text" id="successModalText"></p>
     <button type="button" class="btn btn-primary btn-block" id="successModalCloseBtn">Отлично</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="overwriteModalOverlay" hidden>
+  <div class="success-modal overwrite-modal">
+    <h3 class="success-modal-title">Перезаписать бронь?</h3>
+    <p class="success-modal-text" id="overwriteModalText"></p>
+    <div class="overwrite-modal-actions">
+      <button type="button" class="btn btn-secondary" id="overwriteModalCancelBtn">Отмена</button>
+      <button type="button" class="btn btn-primary" id="overwriteModalConfirmBtn">Перезаписать</button>
+    </div>
   </div>
 </div>
 

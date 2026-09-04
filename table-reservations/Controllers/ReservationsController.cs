@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using table_reservations.Configuration;
 using table_reservations.Models;
 using table_reservations.Services;
 using table_reservations.Services.BusinessTypes;
 using table_reservations.Services.Tenancy;
+
 namespace table_reservations.Controllers
 {
     [ApiController]
@@ -45,25 +47,72 @@ namespace table_reservations.Controllers
 
             var scheduledAt = validation.ScheduledAt;
 
-            if (await _sheets.IsPhoneAlreadyReservedAsync(request.CustomerPhone, ct))
+            var bookingTime = _tenant.Organization?.BookingTime ?? new BookingTimeOptions();
+            if (!BookingTimeSchedule.IsAvailable(bookingTime, scheduledAt))
             {
-                return Conflict("На этот номер телефона уже есть бронь. Один номер телефона = один заказ.");
+                return BadRequest(
+                    $"Выбранное время недоступно. Доступное окно: {BookingTimeSchedule.Describe(bookingTime)}");
             }
 
-            if (await _sheets.HasConflictAsync(request, scheduledAt, ct))
+            var activeReservations = await _sheets.FindAllActiveReservationsByPhoneAsync(request.CustomerPhone, ct);
+            var primaryActive = activeReservations
+                .OrderBy(r => r.ScheduledAtValue)
+                .FirstOrDefault();
+
+            if (primaryActive is not null && !request.Overwrite)
             {
-                return Conflict("Выбранный ресурс уже занят на указанное время.");
+                return Conflict(new
+                {
+                    code = "EXISTING_RESERVATION",
+                    message = "У вас уже есть актуальная бронь. Хотите перезаписать?",
+                    existing = new
+                    {
+                        scheduledAt = primaryActive.ScheduledAt,
+                        tablesId = primaryActive.TablesId,
+                        customerName = primaryActive.CustomerName
+                    }
+                });
             }
 
-            if (await _sheets.HasReservationForPhoneAsync(
-                    request.CustomerPhone,
+            int? excludeRow = request.Overwrite && primaryActive is not null
+                ? primaryActive.SheetRowNumber
+                : null;
+
+            if (await _sheets.HasConflictAsync(
+                    request,
                     scheduledAt,
+                    excludeRow,
                     ct))
             {
-                return Conflict("На данный номер уже есть бронь.");
+                return Conflict(new
+                {
+                    code = "TABLE_TAKEN",
+                    message = "Выбранный ресурс уже занят на указанное время."
+                });
             }
 
-            var appendResp = await _sheets.AppendReservationAsync(request, scheduledAt, ct);
+            object? update = null;
+
+            if (request.Overwrite && primaryActive is not null)
+            {
+                await _sheets.OverwriteReservationAsync(
+                    primaryActive.SheetRowNumber,
+                    request,
+                    scheduledAt,
+                    ct);
+
+                foreach (var extra in activeReservations.Where(r => r.SheetRowNumber != primaryActive.SheetRowNumber))
+                {
+                    await _sheets.ClearReservationRowAsync(extra.SheetRowNumber, ct);
+                }
+
+                update = new { overwrittenRow = primaryActive.SheetRowNumber };
+            }
+            else
+            {
+                var appendResp = await _sheets.AppendReservationAsync(request, scheduledAt, ct);
+                update = appendResp.Updates;
+            }
 
             IReadOnlyList<TableInfo> tables = Array.Empty<TableInfo>();
             if (strategy.Type == Models.Tenancy.BusinessType.Restaurant)
@@ -78,10 +127,11 @@ namespace table_reservations.Controllers
 
             return Ok(new
             {
-                message = "Бронь создана.",
+                message = request.Overwrite ? "Бронь перезаписана." : "Бронь создана.",
+                overwritten = request.Overwrite && primaryActive is not null,
                 whatsAppSent = customerSent,
                 adminWhatsAppSent = adminSent,
-                update = appendResp.Updates
+                update
             });
         }
 

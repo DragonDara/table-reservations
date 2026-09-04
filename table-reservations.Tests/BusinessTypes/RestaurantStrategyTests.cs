@@ -112,15 +112,14 @@ public class RestaurantStrategyTests
     }
 
     [Fact]
-    public void ValidateCreate_OutsideWorkingHours_ReturnsInvalid()
+    public void ValidateCreate_BusinessHoursAreHandledByTenantSchedule()
     {
-        // 08:00 is neither >= 12:00 nor < 04:00.
         var request = ValidRequest();
         request.ScheduledAt = FutureAt(8);
 
         var result = _strategy.ValidateCreate(request);
 
-        Assert.False(result.IsValid);
+        Assert.True(result.IsValid);
     }
 
     [Theory]
