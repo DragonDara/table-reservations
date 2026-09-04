@@ -56,10 +56,10 @@ export interface ReservationResponse {
 }
 
 export class ApiError extends Error {
-  status: number;
+  readonly status: number;
   code?: string;
   existing?: ExistingReservation;
-  body: unknown;
+  readonly body: unknown;
 
   constructor(message: string, status: number, body: unknown = null) {
     super(message);
@@ -100,7 +100,6 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
 
   return fallback;
 }
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
@@ -163,6 +162,10 @@ export async function getRating(): Promise<RatingResponse> {
 export async function getTables(scheduledAt?: string): Promise<TableAvailability[]> {
   const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
   return request<TableAvailability[]>(`/Tables${query}`);
+}
+
+export async function getAvailableSlots(date: string): Promise<string[]> {
+  return request<string[]>(`/Tables/slots?date=${encodeURIComponent(date)}`);
 }
 
 export async function getTableAvailability(tablesId: string, scheduledAt?: string): Promise<TableAvailability> {

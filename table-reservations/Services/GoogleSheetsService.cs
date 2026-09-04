@@ -153,6 +153,67 @@ namespace table_reservations.Services
 
         }
 
+        public async Task<IReadOnlyList<DateTime>> GetAvailableSlotsAsync(
+            DateOnly date,
+            DateTime now,
+            CancellationToken ct = default)
+        {
+            var candidates = RestaurantSlotSchedule.GetCandidateSlots(date, now);
+            if (candidates.Count == 0)
+            {
+                return Array.Empty<DateTime>();
+            }
+
+            var service = CreateService();
+            var spreadsheetId = GetSpreadsheetId();
+
+            var tablesResponse = await service.Spreadsheets.Values
+                .Get(spreadsheetId, TablesRange)
+                .ExecuteAsync(ct);
+
+            var tableIds = (tablesResponse.Values ?? new List<IList<object>>())
+                .Select(row => row.Count > 0 ? row[0]?.ToString()?.Trim() : null)
+                .Where(value => int.TryParse(value, out var id) && id > 0)
+                .Select(value => int.Parse(value!))
+                .ToHashSet();
+
+            if (tableIds.Count == 0)
+            {
+                return Array.Empty<DateTime>();
+            }
+
+            var reservationsResponse = await service.Spreadsheets.Values
+                .Get(spreadsheetId, ReservationsRange)
+                .ExecuteAsync(ct);
+
+            var reservationsByTable = tableIds.ToDictionary(id => id, _ => new List<DateTime>());
+            foreach (var row in reservationsResponse.Values ?? new List<IList<object>>())
+            {
+                string GetCell(int index) =>
+                    row.Count > index ? row[index]?.ToString()?.Trim() ?? string.Empty : string.Empty;
+
+                if (!TryParseTableIds(GetCell(Schema.TableIdsColumn), out var reservedIds) ||
+                    !TryParseSheetDateTime(GetCell(Schema.ScheduledAtColumn), out var reservationStart))
+                {
+                    continue;
+                }
+
+                foreach (var tableId in reservedIds)
+                {
+                    if (reservationsByTable.TryGetValue(tableId, out var starts))
+                    {
+                        starts.Add(reservationStart);
+                    }
+                }
+            }
+
+            return candidates
+                .Where(slot => RestaurantSlotSchedule.HasAvailableTable(
+                    slot,
+                    tableIds.Select(tableId => reservationsByTable[tableId])))
+                .ToArray();
+        }
+
         public async Task<bool> IsReservationTakenAsync(
             string tablesId,
             DateTime scheduledAt,
