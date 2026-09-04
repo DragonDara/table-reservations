@@ -7,6 +7,7 @@ namespace table_reservations.Services
     {
         Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default);
         Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, int? excludeSheetRowNumber = null, CancellationToken ct = default);
+        Task<bool> HasConflictAsync(ReservationInfo reservation, DateTime scheduledAt, int? excludeSheetRowNumber = null, CancellationToken ct = default);
         Task<bool> IsPhoneAlreadyReservedAsync(string customerPhone, CancellationToken ct = default);
         Task<bool> HasReservationForPhoneAsync(string customerPhone, DateTime scheduledAt, CancellationToken ct = default);
         Task<ActiveReservationInfo?> FindActiveReservationByPhoneAsync(string customerPhone, CancellationToken ct = default);

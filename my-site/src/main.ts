@@ -1,13 +1,33 @@
 import './style.css';
 import {
-  API_BASE_URL,
   ApiError,
   createReservation,
+  getRating,
   getTables,
   type ExistingReservation,
   type ReservationPayload,
   type TableAvailability,
 } from './api';
+import { bootstrapTenant } from './tenancy/bootstrap';
+import { initCarWashExperience } from './experiences/carwash';
+import type { PublicTenantConfig } from './tenancy/types';
+
+// Load tenant public config, apply branding/theme/content, then initialize the
+// business experience. Restaurant interactions are defined at module scope below
+// and are null-safe, so they no-op for non-restaurant tenants; the car-wash
+// experience is initialized explicitly when resolved.
+bootstrapTenant()
+  .then((config) => {
+    if (!config) return;
+    configureBookingTime(config);
+    if (config.features.showRating) {
+      void loadRating();
+    }
+    if (config.businessType === 'CarWash') {
+      initCarWashExperience(config);
+    }
+  })
+  .catch((err) => console.error('Ошибка инициализации приложения', err));
 
 const bookBtn = document.getElementById('bookBtn') as HTMLButtonElement | null;
 const bookBtn2 = document.getElementById('bookBtn2') as HTMLButtonElement | null;
@@ -42,27 +62,37 @@ navLinks.forEach((link) => {
 });
 
 async function loadRating() {
-  try {
-    const response = await fetch(`${API_BASE_URL}/rating`);
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+  const block = document.getElementById('dgisRatingBlock');
+  const loader = document.getElementById('dgisRatingLoader');
+  const values = document.getElementById('dgisRatingValues');
+  const status = document.getElementById('dgisRatingStatus');
+  const ratingEl = document.getElementById('dgisRating');
+  const reviewsEl = document.getElementById('dgisReviews');
 
-    const data = await response.json();
+  block?.setAttribute('aria-busy', 'true');
+  if (loader) loader.hidden = false;
+  if (values) values.hidden = true;
+  if (status) status.textContent = 'Загружаем рейтинг 2ГИС';
+
+  try {
+    const data = await getRating();
     const rating = Number(data?.rating ?? 0);
     const reviewCount = Number(data?.reviewCount ?? 0);
 
-    const ratingEl = document.getElementById('dgisRating');
-    const reviewsEl = document.getElementById('dgisReviews');
-
     if (ratingEl) ratingEl.textContent = Number.isFinite(rating) ? rating.toFixed(1) : '0.0';
     if (reviewsEl) reviewsEl.textContent = Number.isFinite(reviewCount) ? String(reviewCount) : '0';
+    if (status) status.textContent = 'Рейтинг 2ГИС загружен';
   } catch (err) {
     console.error('Не удалось загрузить рейтинг:', err);
+    if (ratingEl) ratingEl.textContent = '—';
+    if (reviewsEl) reviewsEl.textContent = '—';
+    if (status) status.textContent = 'Рейтинг 2ГИС временно недоступен';
+  } finally {
+    block?.setAttribute('aria-busy', 'false');
+    if (loader) loader.hidden = true;
+    if (values) values.hidden = false;
   }
 }
-
-loadRating();
 
 // бронирование: заготовка под будущую карту столиков
 const openTablePickerBtn = document.getElementById('openTablePicker') as HTMLButtonElement | null;
@@ -620,6 +650,79 @@ confirmTableBtn?.addEventListener('click', () => {
 const reservationForm = document.getElementById('reservationForm') as HTMLFormElement | null;
 const submitButton = reservationForm?.querySelector<HTMLButtonElement>('button[type="submit"]') ?? null;
 const reservationStatus = document.getElementById('reservationStatus') as HTMLParagraphElement | null;
+const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
+const reservationDateInput = document.getElementById('reservationDate') as HTMLInputElement | null;
+const reservationTimeInput = document.getElementById('reservationTime') as HTMLSelectElement | null;
+const bookingTimeHint = document.getElementById('bookingTimeHint');
+const bookingStartTime = document.getElementById('bookingStartTime') as HTMLTimeElement | null;
+const bookingEndTime = document.getElementById('bookingEndTime') as HTMLTimeElement | null;
+let minimumDateTimeValue = '';
+let bookingTimeSlots: string[] = [];
+
+function configureBookingTime(config: PublicTenantConfig): void {
+  if (!reservationTimeInput) return;
+
+  bookingTimeSlots = config.bookingTime.availableTimeSlots.filter(
+    (slot, index, slots) => /^([01]\d|2[0-3]):[0-5]\d$/.test(slot) && slots.indexOf(slot) === index,
+  );
+
+  reservationTimeInput.replaceChildren(new Option('Выберите время', ''));
+  bookingTimeSlots.forEach((slot) => {
+    reservationTimeInput.add(new Option(slot, slot));
+  });
+  reservationTimeInput.disabled = bookingTimeSlots.length === 0;
+
+  if (bookingStartTime) {
+    bookingStartTime.textContent = config.bookingTime.startTime;
+    bookingStartTime.dateTime = config.bookingTime.startTime;
+  }
+  if (bookingEndTime) {
+    bookingEndTime.textContent = config.bookingTime.endTime;
+    bookingEndTime.dateTime = config.bookingTime.endTime;
+  }
+
+  if (bookingTimeHint) {
+    bookingTimeHint.textContent = bookingTimeSlots.length > 0
+      ? `Доступные интервалы с шагом ${config.bookingTime.slotDurationMinutes} мин.`
+      : 'Для этой организации пока нет доступного времени';
+  }
+
+  updateTimeSlotAvailability();
+}
+
+function updateTimeSlotAvailability(): void {
+  if (!reservationTimeInput) return;
+
+  const selectedDate = reservationDateInput?.value ?? '';
+  Array.from(reservationTimeInput.options).forEach((option) => {
+    if (!option.value) return;
+    option.disabled = Boolean(
+      selectedDate && minimumDateTimeValue && `${selectedDate}T${option.value}` <= minimumDateTimeValue,
+    );
+  });
+
+  if (reservationTimeInput.selectedOptions[0]?.disabled) {
+    reservationTimeInput.value = '';
+  }
+}
+
+function syncDateTimeValue(showMessage = false): boolean {
+  if (!datetimeInput || !reservationDateInput || !reservationTimeInput) return true;
+
+  const date = reservationDateInput.value;
+  const time = reservationTimeInput.value;
+  datetimeInput.value = date && time ? `${date}T${time}` : '';
+
+  if (!date || !time) {
+    if (showMessage) {
+      setReservationStatus('Укажите дату и время в 24-часовом формате, например 18:30.', 'error');
+      (date ? reservationTimeInput : reservationDateInput).focus();
+    }
+    return false;
+  }
+
+  return true;
+}
 
 function setFormBusy(isBusy: boolean) {
   if (!submitButton) return;
@@ -635,32 +738,25 @@ function setReservationStatus(message: string, type: 'info' | 'success' | 'error
   reservationStatus.className = `reservation-status ${type}`;
 }
 
-function isRestaurantOpenAt(value: string): boolean {
-  if (!value) return false;
-
-  const [, timePart] = value.split('T');
-  if (!timePart) return false;
-
-  const [hours, minutes] = timePart.split(':').map(Number);
-
-  const selectedHour = Number.isFinite(hours) ? hours : 0;
-  const selectedMinute = Number.isFinite(minutes) ? minutes : 0;
-
-  const normalizedHour = selectedHour + selectedMinute / 60;
-  return normalizedHour >= 12 || normalizedHour < 4;
-}
-
 function validateSelectedTime(showMessage = false): boolean {
   if (!datetimeInput) return true;
 
   const selectedValue = datetimeInput.value.trim();
   if (!selectedValue) return true;
 
-  const isOpen = isRestaurantOpenAt(selectedValue);
-  if (!isOpen) {
+  if (minimumDateTimeValue && selectedValue <= minimumDateTimeValue) {
     if (showMessage) {
-      setReservationStatus('Ресторан работает с 12:00 до 04:00. Выберите время в рабочем окне.', 'error');
-      datetimeInput.focus();
+      setReservationStatus('Выберите будущее время.', 'error');
+      reservationTimeInput?.focus();
+    }
+    return false;
+  }
+
+  const selectedTime = selectedValue.split('T')[1];
+  if (!selectedTime || !bookingTimeSlots.includes(selectedTime)) {
+    if (showMessage) {
+      setReservationStatus('Выберите одно из доступных времён организации.', 'error');
+      reservationTimeInput?.focus();
     }
     return false;
   }
@@ -783,6 +879,10 @@ reservationForm?.addEventListener('submit', async (e) => {
 
   if (!reservationForm) return;
 
+  if (!syncDateTimeValue(true)) {
+    return;
+  }
+
   const formData = new FormData(reservationForm);
   const selectedIds = Array.from(selectedTables).map((marker) => marker.dataset.id ?? '');
   const payload: ReservationPayload = {
@@ -811,9 +911,7 @@ reservationForm?.addEventListener('submit', async (e) => {
   await submitReservation(payload);
 });
 
-const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
-
-// Значение datetime-local уходит на бэкенд как "голая" строка без таймзоны и
+// Объединённые дата и время уходят на бэкенд как "голая" строка без таймзоны и
 // сравнивается там с ReservationDateTime.KazakhstanNow() (Asia/Almaty). Поэтому
 // и минимально допустимое время в самом инпуте нужно считать в таймзоне
 // Алматы, а не в таймзоне устройства пользователя — иначе для гостей/сотрудников
@@ -853,14 +951,18 @@ if (datetimeInput) {
   now.setUTCMinutes(now.getUTCMinutes() + 5);
 
   const pad = (value: number) => String(value).padStart(2, '0');
-  datetimeInput.min = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
+  minimumDateTimeValue = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
+  reservationDateInput?.setAttribute('min', minimumDateTimeValue.slice(0, 10));
 
-  datetimeInput.addEventListener('input', () => {
+  reservationDateInput?.addEventListener('change', () => {
+    updateTimeSlotAvailability();
+    syncDateTimeValue(false);
     refreshTableStatuses();
-    validateSelectedTime(false);
+    validateSelectedTime(true);
   });
 
-  datetimeInput.addEventListener('change', () => {
+  reservationTimeInput?.addEventListener('change', () => {
+    if (!syncDateTimeValue(true)) return;
     refreshTableStatuses();
     validateSelectedTime(true);
   });

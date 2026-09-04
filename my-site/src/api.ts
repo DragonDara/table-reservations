@@ -1,4 +1,17 @@
+import { resolveOrganizationIdFallback } from './tenancy/tenant';
+import type { PublicTenantConfig } from './tenancy/types';
+
 export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '');
+
+const ORGANIZATION_ID_HEADER = 'X-Organization-Id';
+
+// Resolved once at module load. On production tenant subdomains this is null and
+// the header is omitted, keeping the host authoritative for tenant resolution.
+const organizationIdFallback = resolveOrganizationIdFallback();
+
+function tenantHeaders(): Record<string, string> {
+  return organizationIdFallback ? { [ORGANIZATION_ID_HEADER]: organizationIdFallback } : {};
+}
 
 export interface TableAvailability {
   id: number;
@@ -15,6 +28,9 @@ export interface ReservationPayload {
   tablesId: string;
   section: string;
   remindBeforeHour: boolean;
+  // Car-wash tenants only; ignored by restaurant tenants.
+  plateNumber?: string;
+  washServiceType?: string;
   overwrite?: boolean;
 }
 
@@ -22,6 +38,11 @@ export interface ExistingReservation {
   scheduledAt: string;
   tablesId: string;
   customerName: string;
+}
+
+export interface RatingResponse {
+  rating: number;
+  reviewCount: number;
 }
 
 export interface ReservationResponse {
@@ -88,6 +109,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     credentials: 'include',
     headers: {
       Accept: 'application/json',
+      ...tenantHeaders(),
       ...(init.body ? { 'Content-Type': 'application/json' } : {}),
       ...(init.headers ?? {}),
     },
@@ -128,6 +150,14 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
 
 export async function healthCheck(): Promise<{ status: string }> {
   return request<{ status: string }>('/health');
+}
+
+export async function getPublicTenantConfig(): Promise<PublicTenantConfig> {
+  return request<PublicTenantConfig>('/tenant/public-config');
+}
+
+export async function getRating(): Promise<RatingResponse> {
+  return request<RatingResponse>('/rating');
 }
 
 export async function getTables(scheduledAt?: string): Promise<TableAvailability[]> {

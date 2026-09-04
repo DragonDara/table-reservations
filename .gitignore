@@ -1,8 +1,11 @@
 .cursor
+.local-tools/
+node_modules/
+dist/
 appsettings.Development.json
 appsettings.Production.json
 table-reservations-*.json
-webflow 
+webflow
 
 # Ignore local build artifacts
 bin/
@@ -13,3 +16,7 @@ obj/
 table-reservations-*.json*.userosscache
 *.sln.docstate
 s
+
+# used this when i wasn't on my local machine
+.devcontainer/
+.local-tools/

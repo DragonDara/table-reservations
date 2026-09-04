@@ -46,9 +46,21 @@
 
   <section class="hero">
     <div class="hero-content">
-      <p class="rating">
-        <span class="star">★</span>
-        <span id="dgisRating">4.9</span> · <span id="dgisReviews">265</span> отзывов · бар-ресторан
+      <p
+        class="rating"
+        id="dgisRatingBlock"
+        data-feature="rating"
+        aria-live="polite"
+        aria-busy="true"
+      >
+        <span class="star" aria-hidden="true">★</span>
+        <span class="rating-loader" id="dgisRatingLoader" aria-hidden="true">
+          <span class="rating-loader-line"></span>
+        </span>
+        <span id="dgisRatingValues" hidden>
+          <span id="dgisRating">—</span> · <span id="dgisReviews">—</span> отзывов · бар-ресторан
+        </span>
+        <span class="visually-hidden" id="dgisRatingStatus">Загружаем рейтинг 2ГИС</span>
       </p>
 
       <h1 class="hero-title">
@@ -118,6 +130,10 @@
 
 <section class="reservation" id="reservation">
   <h2 class="section-title reservation-title">Забронируйте столик</h2>
+  <p class="reservation-hours" id="reservationHours" aria-live="polite">
+    Время работы:
+    <time id="bookingStartTime">—</time>–<time id="bookingEndTime">—</time>
+  </p>
 
   <form class="reservation-form" id="reservationForm">
     <div class="field">
@@ -132,9 +148,22 @@
     </div>
 
     <div class="field">
-  <label for="datetime">Дата и время</label>
-  <input type="datetime-local" id="datetime" name="datetime" />
-</div>
+      <span class="field-label" id="datetimeLabel">Дата и время</span>
+      <div class="datetime-fields" role="group" aria-labelledby="datetimeLabel">
+        <label class="datetime-field" for="reservationDate">
+          <span>Дата</span>
+          <input type="date" id="reservationDate" required />
+        </label>
+        <label class="datetime-field" for="reservationTime">
+          <span>Время (24 ч)</span>
+          <select id="reservationTime" required disabled>
+            <option value="">Выберите время</option>
+          </select>
+        </label>
+      </div>
+      <input type="hidden" id="datetime" name="datetime" />
+      <span class="field-hint" id="bookingTimeHint">Доступное время зависит от организации</span>
+    </div>
 
     <div class="field">
       <label>Столик</label>

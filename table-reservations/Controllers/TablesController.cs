@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using table_reservations.Models;
 using table_reservations.Constants;
+using table_reservations.Models.Tenancy;
 using table_reservations.Services;
+using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Controllers
 {
@@ -10,12 +12,22 @@ namespace table_reservations.Controllers
     public class TablesController : ControllerBase
     {   
         private readonly IGoogleSheetsService _sheets;
+        private readonly TenantContext _tenant;
         
-        public TablesController(IGoogleSheetsService sheets) => _sheets = sheets;
+        public TablesController(IGoogleSheetsService sheets, TenantContext tenant)
+        {
+            _sheets = sheets;
+            _tenant = tenant;
+        }
 
         [HttpGet]
 public async Task<IActionResult> GetTables([FromQuery] string? scheduledAt, CancellationToken ct)
 {
+    if (_tenant.BusinessType != BusinessType.Restaurant)
+    {
+        return NotFound();
+    }
+
     DateTime? targetTime = null;
 
     if (!string.IsNullOrWhiteSpace(scheduledAt))
@@ -37,6 +49,11 @@ public async Task<IActionResult> GetTables([FromQuery] string? scheduledAt, Canc
             [FromQuery] string scheduledAt,
             CancellationToken ct)
         {
+            if (_tenant.BusinessType != BusinessType.Restaurant)
+            {
+                return NotFound();
+            }
+
             if (tableId <= 0 || string.IsNullOrWhiteSpace(scheduledAt))
             {
                 return BadRequest("Укажите tableId и scheduledAt.");

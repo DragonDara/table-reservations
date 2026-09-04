@@ -1,16 +1,18 @@
 ﻿using System.Text.Json;
 
+using table_reservations.Services.Tenancy;
+
 public class DgisRatingService
 {
     private readonly HttpClient _http;
-    private readonly IConfiguration _config;
+    private readonly TenantContext _tenant;
     private (double Rating, int ReviewCount)? _cache;
     private DateTime _cacheTime;
 
-    public DgisRatingService(HttpClient http, IConfiguration config)
+    public DgisRatingService(HttpClient http, TenantContext tenant)
     {
         _http = http;
-        _config = config;
+        _tenant = tenant;
     }
 
     public async Task<(double Rating, int ReviewCount)> GetRatingAsync()
@@ -18,15 +20,20 @@ public class DgisRatingService
         if (_cache.HasValue && DateTime.UtcNow - _cacheTime < TimeSpan.FromHours(24))
             return _cache.Value;
 
-        var token = _config["Apify:Token"];
-        if (string.IsNullOrWhiteSpace(token))
-            throw new InvalidOperationException("Apify:Token не задан в конфигурации (user-secrets / appsettings / переменная окружения Apify__Token).");
+        var organization = _tenant.Organization
+            ?? throw new InvalidOperationException("Tenant must be resolved before loading a rating.");
+        var options = organization.Rating;
+        if (!options.Enabled)
+            throw new InvalidOperationException($"Ratings are not enabled for organization '{organization.Id}'.");
+        if (string.IsNullOrWhiteSpace(options.ApifyToken)
+            || string.IsNullOrWhiteSpace(options.PlaceUrl))
+            throw new InvalidOperationException($"Rating settings are incomplete for organization '{organization.Id}'.");
 
         var url = "https://api.apify.com/v2/acts/zen-studio~2gis-reviews-scraper/run-sync-get-dataset-items";
 
         var body = new
         {
-            startUrls = new[] { new { url = "https://2gis.ru/atyrau/firm/70000001087012933" } },
+            startUrls = new[] { new { url = options.PlaceUrl } },
             maxReviews = 1
         };
 
@@ -34,7 +41,7 @@ public class DgisRatingService
         {
             Content = JsonContent.Create(body)
         };
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApifyToken);
 
         var response = await _http.SendAsync(request);
         var json = await response.Content.ReadAsStringAsync();

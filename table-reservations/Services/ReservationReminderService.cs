@@ -1,5 +1,6 @@
 ﻿using table_reservations.Constants;
 using table_reservations.Models;
+using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Services
 {
@@ -8,13 +9,16 @@ namespace table_reservations.Services
         private static readonly TimeSpan PollInterval = TimeSpan.FromMinutes(5);
 
         private readonly IServiceScopeFactory _scopeFactory;
+        private readonly OrganizationRegistry _registry;
         private readonly ILogger<ReservationReminderService> _logger;
 
         public ReservationReminderService(
             IServiceScopeFactory scopeFactory,
+            OrganizationRegistry registry,
             ILogger<ReservationReminderService> logger)
         {
             _scopeFactory = scopeFactory;
+            _registry = registry;
             _logger = logger;
         }
 
@@ -26,7 +30,7 @@ namespace table_reservations.Services
             {
                 try
                 {
-                    await ProcessRemindersAsync(stoppingToken);
+                    await ProcessAllOrganizationsAsync(stoppingToken);
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
@@ -44,9 +48,30 @@ namespace table_reservations.Services
             }
         }
 
-        private async Task ProcessRemindersAsync(CancellationToken ct)
+        private async Task ProcessAllOrganizationsAsync(CancellationToken ct)
+        {
+            foreach (var organization in _registry.All)
+            {
+                try
+                {
+                    await ProcessRemindersAsync(organization, ct);
+                }
+                catch (Exception ex) when (ex is not OperationCanceledException)
+                {
+                    _logger.LogError(ex, "Ошибка при обработке напоминаний для организации {Org}", organization.Id);
+                }
+            }
+        }
+
+        private async Task ProcessRemindersAsync(Configuration.OrganizationOptions organization, CancellationToken ct)
         {
             using var scope = _scopeFactory.CreateScope();
+
+            // Настраиваем tenant-контекст для этого прохода, чтобы GoogleSheetsService
+            // работал с таблицей и схемой нужной организации.
+            var tenant = scope.ServiceProvider.GetRequiredService<TenantContext>();
+            tenant.Set(organization);
+
             var sheets = scope.ServiceProvider.GetRequiredService<IGoogleSheetsService>();
             var whatsApp = scope.ServiceProvider.GetRequiredService<IWhatsAppNotificationService>();
 
@@ -62,17 +87,18 @@ namespace table_reservations.Services
 
             foreach (var item in rows)
             {
-                // G = "Да" / "Нет"
                 if (!IsYes(item.RemindBeforeHourCell))
                     continue;
 
-                // H уже отправлено
                 if (IsYes(item.ReminderSentCell))
                     continue;
 
-                if (!ReservationDateTime.TryParse(item.ScheduledAt, out var dateTime))
+                if (!ReservationDateTime.TryParse(item.Reservation.ScheduledAt, out var dateTime))
                 {
-                    _logger.LogWarning("Некорректная дата в строке {Row}: {Value}", item.SheetRowNumber, item.ScheduledAt);
+                    _logger.LogWarning(
+                        "Некорректная дата в строке {Row}: {Value}",
+                        item.SheetRowNumber,
+                        item.Reservation.ScheduledAt);
                     continue;
                 }
 
@@ -82,17 +108,7 @@ namespace table_reservations.Services
                 if (now < remindAt || now >= dateTime)
                     continue;
 
-                var reservation = new ReservationInfo
-                {
-                    TablesId = item.TablesId,
-                    CustomerName = item.CustomerName,
-                    CustomerPhone = item.CustomerPhone,
-                    ScheduledAt = item.ScheduledAt,
-                    Section = item.Section ?? string.Empty,
-                    RemindBeforeHour = true
-                };
-
-                var sent = await whatsApp.SendReminderBeforeHourAsync(reservation, dateTime, ct);
+                var sent = await whatsApp.SendReminderBeforeHourAsync(item.Reservation, dateTime, ct);
                 if (!sent)
                 {
                     _logger.LogWarning("Не удалось отправить напоминание, строка {Row}", item.SheetRowNumber);

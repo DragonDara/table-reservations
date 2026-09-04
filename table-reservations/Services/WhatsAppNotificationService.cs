@@ -2,23 +2,25 @@
 using System.Text.Json.Serialization;
 using table_reservations.Constants;
 using table_reservations.Models;
+using table_reservations.Models.Tenancy;
+using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Services
 {
     public class WhatsAppNotificationService : IWhatsAppNotificationService
     {
         private readonly HttpClient _http;
-        private readonly IConfiguration _config;
         private readonly ILogger<WhatsAppNotificationService> _logger;
+        private readonly TenantContext _tenant;
 
         public WhatsAppNotificationService(
             HttpClient http,
-            IConfiguration config,
-            ILogger<WhatsAppNotificationService> logger)
+            ILogger<WhatsAppNotificationService> logger,
+            TenantContext tenant)
         {
             _http = http;
-            _config = config;
             _logger = logger;
+            _tenant = tenant;
         }
 
         public async Task<(bool CustomerSent, bool AdminSent)> SendReservationNotificationsAsync(
@@ -31,7 +33,7 @@ namespace table_reservations.Services
             if (customerChatId == null)
                 _logger.LogWarning("Некорректный телефон клиента: {Phone}", reservation.CustomerPhone);
 
-            var adminPhone = _config["GreenApi:AdminPhone"];
+            var adminPhone = _tenant.Organization?.WhatsApp.AdminPhone;
             var adminChatId = string.IsNullOrWhiteSpace(adminPhone) ? null : ToChatId(adminPhone);
             if (adminChatId == null && !string.IsNullOrWhiteSpace(adminPhone))
                 _logger.LogWarning("Некорректный AdminPhone: {Phone}", adminPhone);
@@ -60,6 +62,13 @@ namespace table_reservations.Services
         private async Task<bool> SendMessageAsync(string chatId, string message, CancellationToken ct)
         {
             var url = BuildSendMessageUrl();
+            if (url is null)
+            {
+                _logger.LogInformation(
+                    "WhatsApp is not configured for organization {OrganizationId}; notification skipped.",
+                    _tenant.OrganizationId);
+                return false;
+            }
             var payload = new GreenApiSendMessageRequest { ChatId = chatId, Message = message };
 
             using var response = await _http.PostAsJsonAsync(url, payload, ct);
@@ -74,35 +83,58 @@ namespace table_reservations.Services
             return true;
         }
 
-        private string BuildSendMessageUrl()
+        private string? BuildSendMessageUrl()
         {
-            var apiUrl = _config["GreenApi:ApiUrl"]
-                ?? throw new InvalidOperationException("GreenApi:ApiUrl is not configured.");
-            var idInstance = _config["GreenApi:IdInstance"]
-                ?? throw new InvalidOperationException("GreenApi:IdInstance is not configured.");
-            var apiToken = _config["GreenApi:ApiTokenInstance"]
-                ?? throw new InvalidOperationException("GreenApi:ApiTokenInstance is not configured.");
+            var options = _tenant.Organization?.WhatsApp;
+            if (options is null || !options.IsConfigured)
+            {
+                return null;
+            }
 
-            return $"{apiUrl.TrimEnd('/')}/waInstance{idInstance}/sendMessage/{apiToken}";
+            return $"{options.ApiUrl!.TrimEnd('/')}/waInstance{options.IdInstance}/sendMessage/{options.ApiTokenInstance}";
         }
 
-        private static string BuildCustomerMessage(ReservationInfo reservation, DateTime dateTime, string tableTypeLabel)
+        private string BuildCustomerMessage(ReservationInfo reservation, DateTime dateTime, string typeLabel)
         {
+            if (_tenant.BusinessType == BusinessType.CarWash)
+            {
+                return $"""
+                    Ваша запись подтверждена:
+                    Автомобиль: {reservation.PlateNumber}
+                    Услуга: {typeLabel}
+                    Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
+
+                    Ждём вас в {_tenant.Organization!.DisplayName}!
+                    """;
+            }
+
             return $"""
                 Здравствуйте, {reservation.CustomerName}!
 
                 Ваша бронь подтверждена:
                 Стол №{reservation.TablesId}
                 Секция: {reservation.Section}
-                Тип столика: {tableTypeLabel}
+                Тип столика: {typeLabel}
                 Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
 
                 Ждём вас!
                 """;
         }
 
-        private static string BuildAdminMessage(ReservationInfo reservation, DateTime dateTime, string tableTypeLabel)
+        private string BuildAdminMessage(ReservationInfo reservation, DateTime dateTime, string typeLabel)
         {
+            if (_tenant.BusinessType == BusinessType.CarWash)
+            {
+                return $"""
+                    Новая запись на автомойку!
+
+                    Телефон: {reservation.CustomerPhone}
+                    Автомобиль: {reservation.PlateNumber}
+                    Услуга: {typeLabel}
+                    Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
+                    """;
+            }
+
             return $"""
                 Новая бронь!
 
@@ -110,7 +142,7 @@ namespace table_reservations.Services
                 Телефон: {reservation.CustomerPhone}
                 Стол №{reservation.TablesId}
                 Секция: {reservation.Section}
-                Тип столика: {tableTypeLabel}
+                Тип столика: {typeLabel}
                 Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
                 """;
         }
@@ -125,15 +157,23 @@ namespace table_reservations.Services
             var chatId = ToChatId(reservation.CustomerPhone);
             if (chatId == null) return false;
 
-            var text =
-             $"""
-                Здравствуйте, {reservation.CustomerName}!
+            var organizationName = _tenant.Organization!.DisplayName;
+            var text = _tenant.BusinessType == BusinessType.CarWash
+                ? $"""
+                    Напоминаем о записи в {organizationName} в {dateTime.ToString(ReservationDateTime.Format)}.
+                    Автомобиль: {reservation.PlateNumber}
+                    Услуга: {reservation.WashServiceType}
 
-                Напоминаем, что у вас есть бронь в нашем заведении TheTochka в {dateTime.ToString(ReservationDateTime.Format)}
-                Ваш столик №{reservation.TablesId}                
+                    Ждём вас!
+                    """
+                : $"""
+                    Здравствуйте, {reservation.CustomerName}!
 
-                Ждём вас!
-                """;
+                    Напоминаем, что у вас есть бронь в {organizationName} в {dateTime.ToString(ReservationDateTime.Format)}.
+                    Ваш столик №{reservation.TablesId}
+
+                    Ждём вас!
+                    """;
 
             return await SendMessageAsync(chatId, text, ct);
         }

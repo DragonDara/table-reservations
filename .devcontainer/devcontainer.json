@@ -1,0 +1,35 @@
+{
+  "name": "Table Reservations",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/dotnet:2": {
+      "version": "10.0"
+    },
+    "ghcr.io/devcontainers/features/node:2": {
+      "version": "24"
+    }
+  },
+  "forwardPorts": [5173, 5183],
+  "portsAttributes": {
+    "5173": {
+      "label": "Vite frontend",
+      "onAutoForward": "openPreview"
+    },
+    "5183": {
+      "label": "ASP.NET Core API",
+      "onAutoForward": "notify"
+    }
+  },
+  "postCreateCommand": {
+    "restore-api": "dotnet restore table-reservations/table-reservations.csproj",
+    "restore-frontend": "npm ci --prefix my-site"
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-dotnettools.csdevkit",
+        "dbaeumer.vscode-eslint"
+      ]
+    }
+  }
+}

@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using table_reservations.Constants;
+using table_reservations.Configuration;
 using table_reservations.Models;
 using table_reservations.Services;
+using table_reservations.Services.BusinessTypes;
+using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Controllers
 {
@@ -11,56 +13,45 @@ namespace table_reservations.Controllers
     {
         private readonly IGoogleSheetsService _sheets;
         private readonly IWhatsAppNotificationService _whatsApp;
+        private readonly TenantContext _tenant;
+        private readonly IBusinessTypeStrategyResolver _strategyResolver;
 
-        public ReservationsController(IGoogleSheetsService sheets, IWhatsAppNotificationService whatsApp)
+        public ReservationsController(
+            IGoogleSheetsService sheets,
+            IWhatsAppNotificationService whatsApp,
+            TenantContext tenant,
+            IBusinessTypeStrategyResolver strategyResolver)
         {
             _sheets = sheets;
             _whatsApp = whatsApp;
+            _tenant = tenant;
+            _strategyResolver = strategyResolver;
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateReservation([FromBody] ReservationInfo request, CancellationToken ct)
         {
-            if (request == null ||
-                string.IsNullOrWhiteSpace(request.TablesId) ||
-                string.IsNullOrWhiteSpace(request.CustomerName) ||
-                string.IsNullOrWhiteSpace(request.CustomerPhone) ||
-                string.IsNullOrWhiteSpace(request.ScheduledAt) ||
-                string.IsNullOrWhiteSpace(request.Section))
+            if (request == null)
             {
                 return BadRequest("Некорректные данные бронирования.");
             }
 
-            if (!ReservationDateTime.TryParse(request.ScheduledAt, out var scheduledAt))
+            // Правила и обязательные поля зависят от типа бизнеса (ресторан / автомойка).
+            var strategy = _strategyResolver.Resolve(_tenant.BusinessType);
+
+            var validation = strategy.ValidateCreate(request);
+            if (!validation.IsValid)
             {
-                return BadRequest($"Некорректный формат dateTime. Ожидается {ReservationDateTime.Format}.");
+                return BadRequest(validation.Error);
             }
 
-            var minAllowedTime = ReservationDateTime.KazakhstanNow().AddMinutes(5);
-            if (scheduledAt < minAllowedTime)
-            {
-                return BadRequest($"Минимальное время брони — {minAllowedTime:HH:mm}. Выберите время позже.");
-            }
+            var scheduledAt = validation.ScheduledAt;
 
-            // Бар работает каждый день с 12:00 до 04:00 следующего дня.
-            // Значит "рабочее" время суток — это [12:00, 24:00) или [00:00, 04:00).
-            var time = scheduledAt.TimeOfDay;
-            var opensAt = new TimeSpan(12, 0, 0);
-            var closesAt = new TimeSpan(4, 0, 0);
-            var isWithinWorkingHours = time >= opensAt || time < closesAt;
-            if (!isWithinWorkingHours)
+            var bookingTime = _tenant.Organization?.BookingTime ?? new BookingTimeOptions();
+            if (!BookingTimeSchedule.IsAvailable(bookingTime, scheduledAt))
             {
-                return BadRequest("Бронь доступна только на время работы бара: с 12:00 до 04:00.");
-            }
-
-            if (!_sheets.TryParseTableIds(request.TablesId, out var tableIds) || tableIds.Length == 0)
-            {
-                return BadRequest("Некорректный номер столика.");
-            }
-
-            if (tableIds.Length != tableIds.Distinct().Count())
-            {
-                return BadRequest("В одной броне нельзя указывать один и тот же номер столика несколько раз.");
+                return BadRequest(
+                    $"Выбранное время недоступно. Доступное окно: {BookingTimeSchedule.Describe(bookingTime)}");
             }
 
             var activeReservations = await _sheets.FindAllActiveReservationsByPhoneAsync(request.CustomerPhone, ct);
@@ -87,8 +78,8 @@ namespace table_reservations.Controllers
                 ? primaryActive.SheetRowNumber
                 : null;
 
-            if (await _sheets.IsReservationTakenAsync(
-                    request.TablesId,
+            if (await _sheets.HasConflictAsync(
+                    request,
                     scheduledAt,
                     excludeRow,
                     ct))
@@ -96,7 +87,7 @@ namespace table_reservations.Controllers
                 return Conflict(new
                 {
                     code = "TABLE_TAKEN",
-                    message = "Один из выбранных столов уже занят на указанное время."
+                    message = "Выбранный ресурс уже занят на указанное время."
                 });
             }
 
@@ -123,12 +114,13 @@ namespace table_reservations.Controllers
                 update = appendResp.Updates;
             }
 
-            var tables = await _sheets.GetTablesAsync(scheduledAt: scheduledAt, ct: ct);
-            var typeLabel = string.Join(", ",
-                tables
-                    .Where(t => tableIds.Contains(t.Id))
-                    .Select(t => t.Type == TableType.VIP ? "VIP" : "Обычный")
-                    .Distinct());
+            IReadOnlyList<TableInfo> tables = Array.Empty<TableInfo>();
+            if (strategy.Type == Models.Tenancy.BusinessType.Restaurant)
+            {
+                tables = await _sheets.GetTablesAsync(scheduledAt: scheduledAt, ct: ct);
+            }
+
+            var typeLabel = strategy.BuildNotificationLabel(request, tables);
 
             var (customerSent, adminSent) = await _whatsApp.SendReservationNotificationsAsync(
                 request, scheduledAt, typeLabel, ct);
@@ -142,5 +134,6 @@ namespace table_reservations.Controllers
                 update
             });
         }
+
     }
 }

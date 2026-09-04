@@ -1,3 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".gitignore" />
+  </Folder>
+  <Project Path="table-reservations.Tests/table-reservations.Tests.csproj" />
   <Project Path="table-reservations/table-reservations.csproj" />
 </Solution>
