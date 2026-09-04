@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 using table_reservations.Configuration;
+using table_reservations.Data;
 using table_reservations.Middleware;
 using table_reservations.Services;
 using table_reservations.Services.BusinessTypes;
@@ -42,7 +43,11 @@ namespace table_reservations
 
             #endregion
 
-            builder.Services.AddScoped<IGoogleSheetsService, GoogleSheetsService>();
+            builder.Services.Configure<TursoOptions>(
+                builder.Configuration.GetSection(TursoOptions.SectionName));
+            builder.Services.AddHttpClient<ITursoClient, TursoClient>();
+            builder.Services.AddSingleton<DatabaseInitializer>();
+            builder.Services.AddScoped<IReservationRepository, TursoReservationRepository>();
             builder.Services.AddHttpClient<IWhatsAppNotificationService, WhatsAppNotificationService>();
             builder.Services.AddHostedService<ReservationReminderService>();
             builder.Services.AddHttpClient<DgisRatingService>();
@@ -98,8 +103,14 @@ namespace table_reservations
             #endregion
 
             var app = builder.Build();
- 
-           app.UseCors("AllowWebFlow");
+
+            // Создаём/обновляем схему Turso до начала обслуживания запросов.
+            app.Services.GetRequiredService<DatabaseInitializer>()
+                .InitializeAsync()
+                .GetAwaiter()
+                .GetResult();
+
+            app.UseCors("AllowWebFlow");
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())

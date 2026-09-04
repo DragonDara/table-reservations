@@ -1,6 +1,5 @@
 using table_reservations.Models;
 using table_reservations.Models.Tenancy;
-using table_reservations.Configuration;
 
 namespace table_reservations.Services.BusinessTypes
 {
@@ -37,22 +36,15 @@ namespace table_reservations.Services.BusinessTypes
         ReservationValidationResult ValidateCreate(ReservationInfo request);
 
         /// <summary>
-        /// Builds the ordered cell values for a new reservation row matching this
-        /// business type's sheet schema.
+        /// Builds the persistence record for a reservation of this business type.
+        /// The caller assigns <see cref="ReservationRecord.OrganizationId"/>.
         /// </summary>
-        IList<object> BuildReservationRow(ReservationInfo request, DateTime scheduledAt);
+        ReservationRecord BuildRecord(ReservationInfo request, DateTime scheduledAt);
 
-        bool HasConflict(
-            ReservationInfo request,
-            DateTime scheduledAt,
-            IList<object> existingRow,
-            SheetSchemaOptions schema);
+        bool HasConflict(ReservationInfo request, DateTime scheduledAt, ReservationRecord existing);
 
         string BuildNotificationLabel(ReservationInfo request, IReadOnlyList<TableInfo> tables);
 
-        ReminderCandidate? MapReminderCandidate(
-            IList<object> row,
-            int sheetRowNumber,
-            SheetSchemaOptions schema);
+        ReminderCandidate? MapReminderCandidate(ReservationRecord record);
     }
 }

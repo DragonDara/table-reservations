@@ -1,5 +1,4 @@
 using table_reservations.Constants;
-using table_reservations.Configuration;
 using table_reservations.Models;
 using table_reservations.Models.Tenancy;
 
@@ -43,72 +42,49 @@ namespace table_reservations.Services.BusinessTypes
             return ReservationValidationResult.Valid(scheduledAt);
         }
 
-        public IList<object> BuildReservationRow(ReservationInfo request, DateTime scheduledAt)
+        public ReservationRecord BuildRecord(ReservationInfo request, DateTime scheduledAt)
         {
-            // Schema: id, plate number, reservation time, phone number, wash service type.
-            return new List<object>
+            return new ReservationRecord
             {
-                Guid.NewGuid().ToString(),
-                request.PlateNumber ?? string.Empty,
-                scheduledAt.ToString(ReservationDateTime.Format),
-                request.CustomerPhone,
-                request.WashServiceType ?? string.Empty
+                PlateNumber = request.PlateNumber ?? string.Empty,
+                WashServiceType = request.WashServiceType ?? string.Empty,
+                CustomerName = request.CustomerName ?? string.Empty,
+                CustomerPhone = request.CustomerPhone,
+                ScheduledAt = scheduledAt,
+                RemindBeforeHour = request.RemindBeforeHour
             };
         }
 
-        public bool HasConflict(
-            ReservationInfo request,
-            DateTime scheduledAt,
-            IList<object> existingRow,
-            SheetSchemaOptions schema)
+        public bool HasConflict(ReservationInfo request, DateTime scheduledAt, ReservationRecord existing)
         {
-            var existingPlate = GetCell(existingRow, schema.ResourceColumn);
-            var existingTime = GetCell(existingRow, schema.ScheduledAtColumn);
-            return string.Equals(existingPlate, request.PlateNumber?.Trim(), StringComparison.OrdinalIgnoreCase) &&
-                   ReservationDateTime.TryParse(existingTime, out var existingStart) &&
-                   existingStart == scheduledAt;
+            return string.Equals(existing.PlateNumber, request.PlateNumber?.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                   existing.ScheduledAt == scheduledAt;
         }
 
         public string BuildNotificationLabel(ReservationInfo request, IReadOnlyList<TableInfo> tables) =>
             request.WashServiceType ?? string.Empty;
 
-        public ReminderCandidate? MapReminderCandidate(
-            IList<object> row,
-            int sheetRowNumber,
-            SheetSchemaOptions schema)
+        public ReminderCandidate? MapReminderCandidate(ReservationRecord record)
         {
-            if (schema.RemindBeforeHourColumn < 0 || schema.ReminderSentColumn < 0)
-            {
-                return null;
-            }
-
-            var plateNumber = GetCell(row, schema.ResourceColumn);
-            var scheduledAt = GetCell(row, schema.ScheduledAtColumn);
-            if (string.IsNullOrWhiteSpace(plateNumber) && string.IsNullOrWhiteSpace(scheduledAt))
+            if (string.IsNullOrWhiteSpace(record.PlateNumber) && record.ScheduledAt == default)
             {
                 return null;
             }
 
             return new ReminderCandidate
             {
-                SheetRowNumber = sheetRowNumber,
+                Id = record.Id,
                 Reservation = new ReservationInfo
                 {
-                    PlateNumber = plateNumber,
-                    WashServiceType = GetCell(row, schema.ServiceTypeColumn),
-                    CustomerPhone = GetCell(row, schema.CustomerPhoneColumn),
-                    ScheduledAt = scheduledAt,
-                    RemindBeforeHour = IsYes(GetCell(row, schema.RemindBeforeHourColumn))
+                    PlateNumber = record.PlateNumber,
+                    WashServiceType = record.WashServiceType,
+                    CustomerPhone = record.CustomerPhone,
+                    ScheduledAt = record.ScheduledAt.ToString(ReservationDateTime.Format),
+                    RemindBeforeHour = record.RemindBeforeHour
                 },
-                RemindBeforeHourCell = GetCell(row, schema.RemindBeforeHourColumn),
-                ReminderSentCell = GetCell(row, schema.ReminderSentColumn)
+                RemindBeforeHour = record.RemindBeforeHour,
+                ReminderSent = record.ReminderSent
             };
         }
-
-        private static string GetCell(IList<object> row, int index) =>
-            index >= 0 && row.Count > index ? row[index]?.ToString()?.Trim() ?? string.Empty : string.Empty;
-
-        private static bool IsYes(string value) =>
-            string.Equals(value, "Да", StringComparison.OrdinalIgnoreCase);
     }
 }

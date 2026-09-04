@@ -11,18 +11,18 @@ namespace table_reservations.Controllers
     [Route("api/[controller]")]
     public class ReservationsController : ControllerBase
     {
-        private readonly IGoogleSheetsService _sheets;
+        private readonly IReservationRepository _reservations;
         private readonly IWhatsAppNotificationService _whatsApp;
         private readonly TenantContext _tenant;
         private readonly IBusinessTypeStrategyResolver _strategyResolver;
 
         public ReservationsController(
-            IGoogleSheetsService sheets,
+            IReservationRepository reservations,
             IWhatsAppNotificationService whatsApp,
             TenantContext tenant,
             IBusinessTypeStrategyResolver strategyResolver)
         {
-            _sheets = sheets;
+            _reservations = reservations;
             _whatsApp = whatsApp;
             _tenant = tenant;
             _strategyResolver = strategyResolver;
@@ -54,7 +54,7 @@ namespace table_reservations.Controllers
                     $"Выбранное время недоступно. Доступное окно: {BookingTimeSchedule.Describe(bookingTime)}");
             }
 
-            var activeReservations = await _sheets.FindAllActiveReservationsByPhoneAsync(request.CustomerPhone, ct);
+            var activeReservations = await _reservations.FindAllActiveReservationsByPhoneAsync(request.CustomerPhone, ct);
             var primaryActive = activeReservations
                 .OrderBy(r => r.ScheduledAtValue)
                 .FirstOrDefault();
@@ -74,14 +74,14 @@ namespace table_reservations.Controllers
                 });
             }
 
-            int? excludeRow = request.Overwrite && primaryActive is not null
-                ? primaryActive.SheetRowNumber
+            long? excludeReservationId = request.Overwrite && primaryActive is not null
+                ? primaryActive.Id
                 : null;
 
-            if (await _sheets.HasConflictAsync(
+            if (await _reservations.HasConflictAsync(
                     request,
                     scheduledAt,
-                    excludeRow,
+                    excludeReservationId,
                     ct))
             {
                 return Conflict(new
@@ -95,29 +95,29 @@ namespace table_reservations.Controllers
 
             if (request.Overwrite && primaryActive is not null)
             {
-                await _sheets.OverwriteReservationAsync(
-                    primaryActive.SheetRowNumber,
+                await _reservations.OverwriteReservationAsync(
+                    primaryActive.Id,
                     request,
                     scheduledAt,
                     ct);
 
-                foreach (var extra in activeReservations.Where(r => r.SheetRowNumber != primaryActive.SheetRowNumber))
+                foreach (var extra in activeReservations.Where(r => r.Id != primaryActive.Id))
                 {
-                    await _sheets.ClearReservationRowAsync(extra.SheetRowNumber, ct);
+                    await _reservations.DeleteReservationAsync(extra.Id, ct);
                 }
 
-                update = new { overwrittenRow = primaryActive.SheetRowNumber };
+                update = new { reservationId = primaryActive.Id };
             }
             else
             {
-                var appendResp = await _sheets.AppendReservationAsync(request, scheduledAt, ct);
-                update = appendResp.Updates;
+                var reservationId = await _reservations.AppendReservationAsync(request, scheduledAt, ct);
+                update = new { reservationId };
             }
 
             IReadOnlyList<TableInfo> tables = Array.Empty<TableInfo>();
             if (strategy.Type == Models.Tenancy.BusinessType.Restaurant)
             {
-                tables = await _sheets.GetTablesAsync(scheduledAt: scheduledAt, ct: ct);
+                tables = await _reservations.GetTablesAsync(scheduledAt: scheduledAt, ct: ct);
             }
 
             var typeLabel = strategy.BuildNotificationLabel(request, tables);

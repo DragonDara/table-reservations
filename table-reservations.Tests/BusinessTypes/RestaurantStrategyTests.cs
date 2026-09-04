@@ -159,18 +159,17 @@ public class RestaurantStrategyTests
     }
 
     [Fact]
-    public void BuildReservationRow_ValidRequest_MapsRestaurantSchema()
+    public void BuildRecord_ValidRequest_MapsRestaurantFields()
     {
         var request = ValidRequest();
         var scheduledAt = ReservationDateTime.KazakhstanNow().Date.AddDays(3).AddHours(20);
 
-        var row = _strategy.BuildReservationRow(request, scheduledAt);
+        var record = _strategy.BuildRecord(request, scheduledAt);
 
-        Assert.Equal(7, row.Count);
-        Assert.Equal("1,2", row[1]);
-        Assert.Equal(request.CustomerName, row[2]);
-        Assert.Equal(request.CustomerPhone, row[3]);
-        Assert.Equal(scheduledAt.ToString(ReservationDateTime.Format), row[4]);
-        Assert.Equal("Да", row[6]);
+        Assert.Equal("1,2", record.TableIds);
+        Assert.Equal(request.CustomerName, record.CustomerName);
+        Assert.Equal(request.CustomerPhone, record.CustomerPhone);
+        Assert.Equal(scheduledAt, record.ScheduledAt);
+        Assert.True(record.RemindBeforeHour);
     }
 }

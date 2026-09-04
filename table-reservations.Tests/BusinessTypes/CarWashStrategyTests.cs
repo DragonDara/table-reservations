@@ -120,18 +120,16 @@ public class CarWashStrategyTests
     }
 
     [Fact]
-    public void BuildReservationRow_ValidRequest_MapsCarWashSchema()
+    public void BuildRecord_ValidRequest_MapsCarWashFields()
     {
         var request = ValidRequest();
         var scheduledAt = ReservationDateTime.KazakhstanNow().Date.AddDays(3).AddHours(9);
 
-        var row = _strategy.BuildReservationRow(request, scheduledAt);
+        var record = _strategy.BuildRecord(request, scheduledAt);
 
-        // Schema: id, plate number, reservation time, phone number, wash service type.
-        Assert.Equal(5, row.Count);
-        Assert.Equal(request.PlateNumber, row[1]);
-        Assert.Equal(scheduledAt.ToString(ReservationDateTime.Format), row[2]);
-        Assert.Equal(request.CustomerPhone, row[3]);
-        Assert.Equal(request.WashServiceType, row[4]);
+        Assert.Equal(request.PlateNumber, record.PlateNumber);
+        Assert.Equal(scheduledAt, record.ScheduledAt);
+        Assert.Equal(request.CustomerPhone, record.CustomerPhone);
+        Assert.Equal(request.WashServiceType, record.WashServiceType);
     }
 }

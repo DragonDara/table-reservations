@@ -67,43 +67,34 @@ namespace table_reservations.Services
         {
             using var scope = _scopeFactory.CreateScope();
 
-            // Настраиваем tenant-контекст для этого прохода, чтобы GoogleSheetsService
-            // работал с таблицей и схемой нужной организации.
+            // Настраиваем tenant-контекст для этого прохода, чтобы репозиторий
+            // работал с данными нужной организации.
             var tenant = scope.ServiceProvider.GetRequiredService<TenantContext>();
             tenant.Set(organization);
 
-            var sheets = scope.ServiceProvider.GetRequiredService<IGoogleSheetsService>();
+            var reservations = scope.ServiceProvider.GetRequiredService<IReservationRepository>();
             var whatsApp = scope.ServiceProvider.GetRequiredService<IWhatsAppNotificationService>();
 
-            // Нужен метод, который читает Брони!A2:H и возвращает строки + номер строки в Sheet
-            var rows = await sheets.GetReminderCandidatesAsync(ct);
+            var rows = await reservations.GetReminderCandidatesAsync(ct);
 
-            // Раньше здесь было "DateTime.UtcNow.AddHours(5)" — жёстко зашитый оффсет,
-            // который расходился с остальным приложением (GoogleSheetsService.KazakhstanNow()
-            // использует TimeZoneInfo "Asia/Almaty"). Любое несовпадение источника "текущего
-            // времени Казахстана" — это и есть почва для сдвигов на несколько часов.
-            // Используем единственный канонический источник времени во всём проекте.
+            // Единственный канонический источник времени во всём проекте (Asia/Almaty).
             var now = ReservationDateTime.KazakhstanNow();
 
             foreach (var item in rows)
             {
-                if (!IsYes(item.RemindBeforeHourCell))
-                    continue;
-
-                if (IsYes(item.ReminderSentCell))
+                if (!item.RemindBeforeHour || item.ReminderSent)
                     continue;
 
                 if (!ReservationDateTime.TryParse(item.Reservation.ScheduledAt, out var dateTime))
                 {
                     _logger.LogWarning(
-                        "Некорректная дата в строке {Row}: {Value}",
-                        item.SheetRowNumber,
+                        "Некорректная дата в брони {Id}: {Value}",
+                        item.Id,
                         item.Reservation.ScheduledAt);
                     continue;
                 }
 
-                // было: now <= dateTime && RemindBeforeHour
-                // нужно: сейчас внутри часа до брони
+                // сейчас должно быть внутри часа до брони
                 var remindAt = dateTime.AddHours(-1);
                 if (now < remindAt || now >= dateTime)
                     continue;
@@ -111,17 +102,14 @@ namespace table_reservations.Services
                 var sent = await whatsApp.SendReminderBeforeHourAsync(item.Reservation, dateTime, ct);
                 if (!sent)
                 {
-                    _logger.LogWarning("Не удалось отправить напоминание, строка {Row}", item.SheetRowNumber);
+                    _logger.LogWarning("Не удалось отправить напоминание, бронь {Id}", item.Id);
                     continue;
                 }
 
-                await sheets.MarkReminderSentAsync(item.SheetRowNumber, ct); // пишем H = "Да"
-                _logger.LogInformation("Напоминание отправлено, строка {Row}, бронь {At}", item.SheetRowNumber, dateTime);
+                await reservations.MarkReminderSentAsync(item.Id, ct);
+                _logger.LogInformation("Напоминание отправлено, бронь {Id}, время {At}", item.Id, dateTime);
             }
         }
-
-        private static bool IsYes(string? value) =>
-            string.Equals(value?.Trim(), "Да", StringComparison.OrdinalIgnoreCase);
     }
 
 }
