@@ -442,6 +442,17 @@ body {
   opacity: 0.5;
 }
 
+.reservation-hours {
+  margin: -36px 0 32px;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.reservation-hours time {
+  color: var(--text);
+  font-weight: 700;
+}
+
 .reservation-form {
   max-width: 420px;
   margin: 0 auto;
@@ -475,12 +486,43 @@ body {
   gap: 8px;
 }
 
-.field label {
+.field label,
+.field-label {
   font-size: 15px;
   color: var(--text);
 }
 
-.field input {
+.datetime-fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.datetime-field {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.datetime-field > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.datetime-field input,
+.datetime-field select {
+  width: 100%;
+}
+
+@media (max-width: 420px) {
+  .datetime-fields {
+    grid-template-columns: 1fr;
+  }
+}
+
+.field input,
+.field select {
   background: #0c0c0c;
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 10px;
@@ -491,13 +533,32 @@ body {
   color-scheme: dark;
 }
 
+.field select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 13px) calc(50% - 2px);
+  background-repeat: no-repeat;
+  background-size: 5px 5px, 5px 5px;
+  padding-right: 36px;
+}
+
 .field input::placeholder {
   color: var(--muted);
 }
 
-.field input:focus {
+.field input:focus,
+.field select:focus {
   outline: none;
   border-color: var(--accent);
+}
+
+.field select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .field-hint {
@@ -958,6 +1019,15 @@ body {
   color: var(--muted);
   line-height: 1.4;
   margin-bottom: 24px;
+}
+
+.overwrite-modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.overwrite-modal-actions .btn {
+  flex: 1;
 }
 
 

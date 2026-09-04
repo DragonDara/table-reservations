@@ -130,6 +130,10 @@
 
 <section class="reservation" id="reservation">
   <h2 class="section-title reservation-title">Забронируйте столик</h2>
+  <p class="reservation-hours" id="reservationHours" aria-live="polite">
+    Время работы:
+    <time id="bookingStartTime">—</time>–<time id="bookingEndTime">—</time>
+  </p>
 
   <form class="reservation-form" id="reservationForm">
     <div class="field">
@@ -144,9 +148,22 @@
     </div>
 
     <div class="field">
-  <label for="datetime">Дата и время</label>
-  <input type="datetime-local" id="datetime" name="datetime" />
-</div>
+      <span class="field-label" id="datetimeLabel">Дата и время</span>
+      <div class="datetime-fields" role="group" aria-labelledby="datetimeLabel">
+        <label class="datetime-field" for="reservationDate">
+          <span>Дата</span>
+          <input type="date" id="reservationDate" required />
+        </label>
+        <label class="datetime-field" for="reservationTime">
+          <span>Время (24 ч)</span>
+          <select id="reservationTime" required disabled>
+            <option value="">Выберите время</option>
+          </select>
+        </label>
+      </div>
+      <input type="hidden" id="datetime" name="datetime" />
+      <span class="field-hint" id="bookingTimeHint">Доступное время зависит от организации</span>
+    </div>
 
     <div class="field">
       <label>Столик</label>
@@ -332,6 +349,17 @@
     <h3 class="success-modal-title">Бронь подтверждена!</h3>
     <p class="success-modal-text" id="successModalText"></p>
     <button type="button" class="btn btn-primary btn-block" id="successModalCloseBtn">Отлично</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="overwriteModalOverlay" hidden>
+  <div class="success-modal overwrite-modal">
+    <h3 class="success-modal-title">Перезаписать бронь?</h3>
+    <p class="success-modal-text" id="overwriteModalText"></p>
+    <div class="overwrite-modal-actions">
+      <button type="button" class="btn btn-secondary" id="overwriteModalCancelBtn">Отмена</button>
+      <button type="button" class="btn btn-primary" id="overwriteModalConfirmBtn">Перезаписать</button>
+    </div>
   </div>
 </div>
 
