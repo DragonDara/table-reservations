@@ -4,6 +4,7 @@ using table_reservations.Constants;
 using table_reservations.Models.Tenancy;
 using table_reservations.Services;
 using table_reservations.Services.Tenancy;
+using System.Globalization;
 
 namespace table_reservations.Controllers
 {
@@ -72,6 +73,36 @@ public async Task<IActionResult> GetTables([FromQuery] string? scheduledAt, Canc
                 seats = 0,
                 status = isTaken ? "occupied" : "free",
             });
+        }
+
+        [HttpGet("slots")]
+        public async Task<IActionResult> GetAvailableSlots(
+            [FromQuery] string date,
+            CancellationToken ct)
+        {
+            if (_tenant.BusinessType != BusinessType.Restaurant)
+            {
+                return NotFound();
+            }
+
+            if (!DateOnly.TryParseExact(
+                    date,
+                    "yyyy-MM-dd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var requestedDate))
+            {
+                return BadRequest("Некорректный формат date. Ожидается yyyy-MM-dd.");
+            }
+
+            var now = ReservationDateTime.KazakhstanNow();
+            if (!RestaurantSlotSchedule.IsBookableDate(requestedDate, now))
+            {
+                return BadRequest($"Доступна запись только на ближайшие {RestaurantSlotSchedule.BookingDays} дней.");
+            }
+
+            var slots = await _sheets.GetAvailableSlotsAsync(requestedDate, now, ct);
+            return Ok(slots.Select(slot => slot.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture)));
         }
     }
 }

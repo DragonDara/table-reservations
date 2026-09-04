@@ -132,36 +132,70 @@
   <h2 class="section-title reservation-title">Забронируйте столик</h2>
 
   <form class="reservation-form" id="reservationForm">
-    <div class="field">
-      <label for="name">Имя</label>
-      <input type="text" id="name" name="name" placeholder="Мансур..." />
+    <div class="booking-step" id="dateStep">
+      <div class="booking-step-heading">
+        <span class="booking-step-number">1</span>
+        <span>Выберите дату</span>
+      </div>
+      <div class="date-options" id="dateOptions" role="group" aria-label="Дата бронирования"></div>
+      <button type="button" class="btn btn-primary btn-block" id="continueToTime" disabled>Далее</button>
     </div>
 
-    <div class="field">
-      <label for="phone">Номер телефона</label>
-      <input type="tel" id="phone" name="phone" placeholder="+7 700 (000) 00 00" inputmode="numeric"/>
-      <span class="field-hint">На этот номер придёт подтверждение брони</span>
+    <div class="booking-step" id="timeStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">2</span>
+        <span>Выберите время</span>
+      </div>
+      <div class="time-options" id="timeOptions" role="group" aria-label="Время бронирования"></div>
+      <p class="slot-status" id="slotStatus" role="status" aria-live="polite"></p>
+      <button type="button" class="btn btn-primary btn-block" id="continueToTable" disabled>Далее</button>
+      <button type="button" class="step-back" data-booking-back="date">← Изменить дату</button>
+      <input type="hidden" id="datetime" name="datetime" />
     </div>
 
-    <div class="field">
-  <label for="datetime">Дата и время</label>
-  <input type="datetime-local" id="datetime" name="datetime" />
-</div>
-
-    <div class="field">
-      <label>Столик</label>
+    <div class="booking-step" id="tableStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">3</span>
+        <span>Выберите столик</span>
+      </div>
       <button type="button" class="table-picker" id="openTablePicker">
         <span class="table-picker-placeholder">Выбрать столик на карте</span>
         <span class="table-picker-selected" id="selectedTableBadge" hidden></span>
       </button>
+      <button type="button" class="btn btn-primary btn-block" id="continueToName" disabled>Далее</button>
+      <button type="button" class="step-back" data-booking-back="time">← Изменить время</button>
     </div>
 
-    <label class="checkbox-row">
-      <input type="checkbox" name="remind" />
-      Напомнить мне за час до брони
-    </label>
+    <div class="booking-step contact-step" id="nameStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">4</span>
+        <span>Как вас зовут?</span>
+      </div>
 
-    <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
+      <div class="field">
+        <label for="name">Имя</label>
+        <input type="text" id="name" name="name" placeholder="Мансур..." autocomplete="name" required />
+      </div>
+
+      <button type="button" class="btn btn-primary btn-block" id="continueToPhone">Далее</button>
+      <button type="button" class="step-back" data-booking-back="table">← Изменить столик</button>
+    </div>
+
+    <div class="booking-step contact-step" id="phoneStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">5</span>
+        <span>Как с вами связаться?</span>
+      </div>
+
+      <div class="field">
+        <label for="phone">Номер телефона</label>
+        <input type="tel" id="phone" name="phone" placeholder="+7 700 (000) 00 00" inputmode="numeric" autocomplete="tel" required />
+        <span class="field-hint">На этот номер придёт подтверждение и напоминание за час</span>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
+      <button type="button" class="step-back" data-booking-back="name">← Изменить имя</button>
+    </div>
     <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
   </form>
 </section>
@@ -295,33 +329,14 @@
 </div>
     </div>
 
-    <aside class="table-sidebar">
-      <div class="sidebar-header">
-        <h3>Выберите столик</h3>
-        <div class="sidebar-header-actions">
-          <button type="button" class="sidebar-toggle" id="toggleSidebarBtn" aria-label="Свернуть панель" aria-expanded="true">▾</button>
-        </div>
-      </div>
-
-      <div class="selected-summary" id="selectedSummary" hidden>
-  <div class="selected-tables-list" id="selectedTablesList"></div>
-  <div class="selected-total-row">
-    <span class="selected-total" id="selectedTotal"></span>
-    <button type="button" class="clear-selection" id="clearSelectionBtn">Очистить всё</button>
-  </div>
-</div>
-
+    <div class="map-legend" aria-label="Обозначения карты">
       <div class="legend">
         <span class="legend-item"><span class="legend-dot legend-free"></span> Свободно</span>
         <span class="legend-item"><span class="legend-dot legend-selected"></span> Выбрано</span>
         <span class="legend-item"><span class="legend-dot legend-occupied"></span> Занято</span>
         <span class="legend-item"><span class="legend-dot legend-vip"></span> VIP</span>
       </div>
-
-      <div class="sidebar-footer">
-        <button type="button" class="btn btn-primary btn-block" id="confirmTableBtn" disabled>Подтвердить</button>
-      </div>
-    </aside>
+    </div>
   </div>
 </div>
 

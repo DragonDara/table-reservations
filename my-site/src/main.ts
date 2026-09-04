@@ -1,6 +1,8 @@
 import './style.css';
 import {
+  ApiError,
   createReservation,
+  getAvailableSlots,
   getRating,
   getTables,
   type ReservationPayload,
@@ -21,6 +23,8 @@ bootstrapTenant()
     }
     if (config.businessType === 'CarWash') {
       initCarWashExperience(config);
+    } else {
+      void initRestaurantBooking();
     }
   })
   .catch((err) => console.error('Ошибка инициализации приложения', err));
@@ -105,16 +109,18 @@ const zoomInBtn = document.getElementById('zoomInBtn') as HTMLButtonElement | nu
 const zoomOutBtn = document.getElementById('zoomOutBtn') as HTMLButtonElement | null;
 const closeModalBtn = document.getElementById('closeTableModal') as HTMLButtonElement | null;
 const mobileCloseModalBtn = document.getElementById('mobileCloseTableModal') as HTMLButtonElement | null;
-const toggleSidebarBtn = document.getElementById('toggleSidebarBtn') as HTMLButtonElement | null;
-const tableSidebar = document.querySelector<HTMLElement>('.table-sidebar');
-const confirmTableBtn = document.getElementById('confirmTableBtn') as HTMLButtonElement | null;
-const clearSelectionBtn = document.getElementById('clearSelectionBtn') as HTMLButtonElement | null;
 const successModalOverlay = document.getElementById('successModalOverlay') as HTMLElement | null;
 const successModalText = document.getElementById('successModalText') as HTMLElement | null;
 const successModalCloseBtn = document.getElementById('successModalCloseBtn') as HTMLButtonElement | null;
-const selectedSummary = document.getElementById('selectedSummary') as HTMLElement | null;
-const selectedTablesList = document.getElementById('selectedTablesList') as HTMLElement | null;
-const selectedTotal = document.getElementById('selectedTotal') as HTMLElement | null;
+const dateStep = document.getElementById('dateStep') as HTMLElement | null;
+const timeStep = document.getElementById('timeStep') as HTMLElement | null;
+const tableStep = document.getElementById('tableStep') as HTMLElement | null;
+const nameStep = document.getElementById('nameStep') as HTMLElement | null;
+const phoneStep = document.getElementById('phoneStep') as HTMLElement | null;
+const continueToTimeBtn = document.getElementById('continueToTime') as HTMLButtonElement | null;
+const continueToTableBtn = document.getElementById('continueToTable') as HTMLButtonElement | null;
+const continueToNameBtn = document.getElementById('continueToName') as HTMLButtonElement | null;
+const continueToPhoneBtn = document.getElementById('continueToPhone') as HTMLButtonElement | null;
 
 let scale = 1;
 let panX = 0;
@@ -312,17 +318,7 @@ openTablePickerBtn?.addEventListener('click', () => {
 
 function closeTableModal() {
   if (!overlay) return;
-
-  selectedTables.forEach((marker) => marker.classList.remove('selected'));
-  selectedTables.clear();
-  updateSummary();
-
-  if (selectedTableBadge && tablePlaceholder) {
-    selectedTableBadge.hidden = true;
-    selectedTableBadge.textContent = '';
-    tablePlaceholder.hidden = false;
-  }
-
+  closeTablePopup();
   overlay.hidden = true;
 }
 
@@ -331,15 +327,6 @@ mobileCloseModalBtn?.addEventListener('click', closeTableModal);
 
 overlay?.addEventListener('click', (e) => {
   if (e.target === overlay) closeTableModal();
-});
-
-toggleSidebarBtn?.addEventListener('click', () => {
-  if (!tableSidebar) return;
-
-  const isCollapsed = tableSidebar.classList.toggle('collapsed');
-  toggleSidebarBtn.textContent = isCollapsed ? '▴' : '▾';
-  toggleSidebarBtn.setAttribute('aria-expanded', String(!isCollapsed));
-  toggleSidebarBtn.setAttribute('aria-label', isCollapsed ? 'Развернуть панель' : 'Свернуть панель');
 });
 
 // выбор столика
@@ -358,17 +345,18 @@ function closeTablePopup() {
 }
 
 function formatHoursFromNow(hours: number): string {
-  const target = new Date(Date.now() + hours * 60 * 60 * 1000);
-  // Ресторан всегда работает по времени Алматы/Казахстана, поэтому время нужно
-  // форматировать именно в этой таймзоне, а не в таймзоне устройства посетителя.
-  // Раньше здесь не было `timeZone`, и toLocaleTimeString подставлял локальную
-  // зону браузера — если у гостя/сотрудника устройство настроено, например, на
-  // UTC, время "свободен до" уезжало на 5 часов относительно реального времени
-  // Казахстана.
+  const selectedSlot = (document.getElementById('datetime') as HTMLInputElement | null)?.value;
+  const target = selectedSlot
+    ? new Date(`${selectedSlot}:00Z`)
+    : new Date();
+  target.setTime(target.getTime() + hours * 60 * 60 * 1000);
+
+  // The selected timestamp is already Kazakhstan wall-clock time. UTC is used
+  // here only as a timezone-neutral calendar calculator.
   return target.toLocaleTimeString('ru-RU', {
     hour: '2-digit',
     minute: '2-digit',
-    timeZone: 'Asia/Almaty',
+    timeZone: 'UTC',
   });
 }
 
@@ -397,6 +385,7 @@ function formatPhoneNumber(rawValue: string): string {
 }
 
 const phoneInput = document.getElementById('phone') as HTMLInputElement | null;
+const nameInput = document.getElementById('name') as HTMLInputElement | null;
 
 phoneInput?.addEventListener('input', () => {
   const cursorWasAtEnd = phoneInput.selectionEnd === phoneInput.value.length;
@@ -426,71 +415,36 @@ phoneInput?.addEventListener('beforeinput', (e) => {
   phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
 });
 
-const selectedTables = new Set<HTMLButtonElement>();
+let selectedTable: HTMLButtonElement | null = null;
 
-function updateSummary() {
-  if (!selectedSummary || !selectedTablesList || !selectedTotal) return;
+function clearSelectedTable() {
+  selectedTable?.classList.remove('selected');
+  selectedTable = null;
 
-  if (selectedTables.size === 0) {
-    selectedSummary.hidden = true;
-    if (confirmTableBtn) confirmTableBtn.disabled = true;
-    return;
+  if (selectedTableBadge && tablePlaceholder) {
+    selectedTableBadge.hidden = true;
+    selectedTableBadge.textContent = '';
+    tablePlaceholder.hidden = false;
   }
-
-  selectedSummary.hidden = false;
-  if (confirmTableBtn) confirmTableBtn.disabled = false;
-
-  selectedTablesList.innerHTML = '';
-  let totalSeats = 0;
-
-  selectedTables.forEach((marker) => {
-    const id = marker.dataset.id;
-    const seats = Number(marker.dataset.seats ?? 0);
-    const extraSeat = marker.dataset.extraSeat === '1' ? '+1' : '';
-    totalSeats += seats;
-
-    const chip = document.createElement('div');
-    chip.className = 'selected-chip';
-
-    const label = document.createElement('span');
-    const isVip = marker.classList.contains('vip-table');
-    label.textContent = isVip
-    ? `VIP ${id} · ${seats}${extraSeat} мест`
-      : `${id} столик · ${seats}${extraSeat} мест`;
-
-    const removeBtn = document.createElement('button');
-    removeBtn.type = 'button';
-    removeBtn.className = 'chip-remove';
-    removeBtn.setAttribute('aria-label', 'Убрать столик');
-    removeBtn.textContent = '✕';
-    removeBtn.addEventListener('click', () => deselectTable(marker));
-
-    chip.appendChild(label);
-    chip.appendChild(removeBtn);
-    selectedTablesList.appendChild(chip);
-  });
-
-  selectedTotal.textContent = `Итого: ${selectedTables.size} столов. · ${totalSeats} мест`;
+  if (continueToNameBtn) continueToNameBtn.disabled = true;
 }
 
 function selectTable(marker: HTMLButtonElement) {
-  selectedTables.add(marker);
+  selectedTable?.classList.remove('selected');
+  selectedTable = marker;
   marker.classList.add('selected');
-  updateSummary();
-}
 
-function deselectTable(marker: HTMLButtonElement) {
-  selectedTables.delete(marker);
-  marker.classList.remove('selected');
-  updateSummary();
-}
-
-function toggleTable(marker: HTMLButtonElement) {
-  if (selectedTables.has(marker)) {
-    deselectTable(marker);
-  } else {
-    selectTable(marker);
+  const id = marker.dataset.id ?? '';
+  const isVip = marker.classList.contains('vip-table');
+  if (selectedTableBadge && tablePlaceholder) {
+    selectedTableBadge.textContent = isVip ? `VIP №${id}` : `Столик №${id}`;
+    selectedTableBadge.hidden = false;
+    tablePlaceholder.hidden = true;
   }
+
+  if (continueToNameBtn) continueToNameBtn.disabled = false;
+  closeTableModal();
+  continueToNameBtn?.focus();
 }
 
 function showBlockedPopup(marker?: HTMLButtonElement) {
@@ -565,7 +519,7 @@ async function refreshTableStatuses() {
       tables = await getTables(datetimeValue || undefined);
     } catch (err) {
       console.error('Не удалось загрузить статусы столиков', err);
-      return;
+      return false;
     }
 
   const byId = new Map(tables.map((t) => [String(t.id), t]));
@@ -590,6 +544,7 @@ async function refreshTableStatuses() {
     delete marker.dataset.nextReservationHours;
   }
 });
+  return true;
 }
 
 tableMarkers.forEach((marker) => {
@@ -608,35 +563,8 @@ tableMarkers.forEach((marker) => {
       return;
     }
 
-    toggleTable(marker);
+    selectTable(marker);
   });
-});
-
-refreshTableStatuses();
-
-clearSelectionBtn?.addEventListener('click', () => {
-  selectedTables.forEach((marker) => marker.classList.remove('selected'));
-  selectedTables.clear();
-  updateSummary();
-});
-
-confirmTableBtn?.addEventListener('click', () => {
-  if (selectedTables.size === 0) return;
-
-  const markers = Array.from(selectedTables);
-  const labels = markers.map((m) =>
-    m.classList.contains('vip-table') ? `VIP №${m.dataset.id}` : `№${m.dataset.id}`
-  );
-
-  if (selectedTableBadge && tablePlaceholder) {
-    selectedTableBadge.textContent = labels.length === 1
-      ? `Столик ${labels[0]}`
-      : `Столики ${labels.join(', ')}`;
-    selectedTableBadge.hidden = false;
-    tablePlaceholder.hidden = true;
-  }
-
-  if (overlay) overlay.hidden = true;
 });
 
 const reservationForm = document.getElementById('reservationForm') as HTMLFormElement | null;
@@ -706,13 +634,12 @@ reservationForm?.addEventListener('submit', async (e) => {
   if (!reservationForm) return;
 
   const formData = new FormData(reservationForm);
-  const selectedIds = Array.from(selectedTables).map((marker) => marker.dataset.id ?? '');
 const payload: ReservationPayload = {
   customerName: String(formData.get('name') ?? '').trim(),
   customerPhone: `+${String(formData.get('phone') ?? '').replace(/\D/g, '')}`,
   scheduledAt: String(formData.get('datetime') ?? '').trim(),
-  tablesId: selectedIds.filter(Boolean).join(','),
-  remindBeforeHour: formData.get('remind') === 'on',
+  tablesId: selectedTable?.dataset.id ?? '',
+  remindBeforeHour: true,
   section: getActiveFloorSection(),
 };
   if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || !payload.tablesId) {
@@ -748,15 +675,8 @@ const payload: ReservationPayload = {
 
     refreshTableStatuses();
     reservationForm.reset();
-    selectedTables.forEach((marker) => marker.classList.remove('selected'));
-    selectedTables.clear();
-    updateSummary();
-
-    if (selectedTableBadge && tablePlaceholder) {
-      selectedTableBadge.hidden = true;
-      selectedTableBadge.textContent = '';
-      tablePlaceholder.hidden = false;
-    }
+    clearSelectedTable();
+    await initRestaurantBooking();
   } catch (error) {
     console.error('Reservation submission failed', error);
     const message = error instanceof Error && error.message
@@ -764,19 +684,37 @@ const payload: ReservationPayload = {
       : 'Не удалось отправить бронь. Проверьте подключение к API или попробуйте позже.';
 
     setReservationStatus(message, 'error');
+
+    if (error instanceof ApiError && error.status === 409 && /(ресурс|стол|занят)/i.test(error.message)) {
+      clearSelectedTable();
+      await refreshTableStatuses();
+      if (overlay) {
+        overlay.hidden = false;
+        centerCanvas();
+      }
+    }
   } finally {
     setFormBusy(false);
   }
 });
 
 const datetimeInput = document.getElementById('datetime') as HTMLInputElement | null;
+const dateOptions = document.getElementById('dateOptions') as HTMLElement | null;
+const timeOptions = document.getElementById('timeOptions') as HTMLElement | null;
+const slotStatus = document.getElementById('slotStatus') as HTMLElement | null;
+let slotRequestId = 0;
 
-// Значение datetime-local уходит на бэкенд как "голая" строка без таймзоны и
-// сравнивается там с ReservationDateTime.KazakhstanNow() (Asia/Almaty). Поэтому
-// и минимально допустимое время в самом инпуте нужно считать в таймзоне
-// Алматы, а не в таймзоне устройства пользователя — иначе для гостей/сотрудников
-// из других часовых поясов min либо разрешал бы прошедшее по Казахстану время,
-// либо наоборот блокировал ближайшие реально свободные слоты.
+const bookingSteps = [dateStep, timeStep, tableStep, nameStep, phoneStep];
+
+function showBookingStep(step: HTMLElement | null) {
+  bookingSteps.forEach((bookingStep) => {
+    if (bookingStep) bookingStep.hidden = bookingStep !== step;
+  });
+  setReservationStatus('');
+}
+
+// Date chips are anchored to Kazakhstan calendar dates regardless of the
+// visitor's device timezone. Slot strings remain timezone-free by API design.
 function getAlmatyNowParts(): { year: number; month: number; day: number; hour: number; minute: number } {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Almaty',
@@ -802,27 +740,192 @@ function getAlmatyNowParts(): { year: number; month: number; day: number; hour: 
   };
 }
 
-if (datetimeInput) {
-  const almaty = getAlmatyNowParts();
-  // используем UTC-конструктор просто как календарный калькулятор (без реального
-  // применения UTC-таймзоны), чтобы корректно прибавить 5 минут с переносом через
-  // границы часа/дня/месяца
-  const now = new Date(Date.UTC(almaty.year, almaty.month - 1, almaty.day, almaty.hour, almaty.minute));
-  now.setUTCMinutes(now.getUTCMinutes() + 5);
-
+function toDateValue(date: Date): string {
   const pad = (value: number) => String(value).padStart(2, '0');
-  datetimeInput.min = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}T${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}`;
-
-  datetimeInput.addEventListener('input', () => {
-    refreshTableStatuses();
-    validateSelectedTime(false);
-  });
-
-  datetimeInput.addEventListener('change', () => {
-    refreshTableStatuses();
-    validateSelectedTime(true);
-  });
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`;
 }
+
+function resetAfterDateChange() {
+  if (datetimeInput) datetimeInput.value = '';
+  clearSelectedTable();
+}
+
+async function selectBookingDate(date: string, button: HTMLButtonElement) {
+  const requestId = ++slotRequestId;
+  dateOptions?.querySelectorAll<HTMLButtonElement>('.date-option').forEach((option) => {
+    const isActive = option === button;
+    option.classList.toggle('active', isActive);
+    option.setAttribute('aria-pressed', String(isActive));
+  });
+
+  resetAfterDateChange();
+  if (continueToTableBtn) continueToTableBtn.disabled = true;
+  showBookingStep(timeStep);
+  if (timeOptions) {
+    timeOptions.innerHTML = '';
+    timeOptions.setAttribute('aria-busy', 'true');
+  }
+  if (slotStatus) slotStatus.textContent = 'Загружаем свободное время…';
+
+  try {
+    const slots = await getAvailableSlots(date);
+    if (requestId !== slotRequestId) return;
+    if (!timeOptions || !slotStatus) return;
+    timeOptions.setAttribute('aria-busy', 'false');
+
+    if (slots.length === 0) {
+      slotStatus.textContent = 'На эту дату свободного времени нет. Выберите другой день.';
+      return;
+    }
+
+    slotStatus.textContent = '';
+    slots.forEach((slot) => {
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'time-option';
+      option.textContent = slot.split('T')[1] ?? slot;
+      option.dataset.slot = slot;
+      option.setAttribute('aria-pressed', 'false');
+      option.addEventListener('click', () => {
+        timeOptions.querySelectorAll<HTMLButtonElement>('.time-option').forEach((timeOption) => {
+          const isActive = timeOption === option;
+          timeOption.classList.toggle('active', isActive);
+          timeOption.setAttribute('aria-pressed', String(isActive));
+        });
+        if (datetimeInput) datetimeInput.value = slot;
+        clearSelectedTable();
+        if (continueToTableBtn) continueToTableBtn.disabled = false;
+        continueToTableBtn?.focus();
+      });
+      timeOptions.appendChild(option);
+    });
+  } catch (error) {
+    if (requestId !== slotRequestId) return;
+    console.error('Failed to load reservation slots', error);
+    if (timeOptions) timeOptions.setAttribute('aria-busy', 'false');
+    if (slotStatus) slotStatus.textContent = 'Не удалось загрузить свободное время. Вернитесь назад и попробуйте ещё раз.';
+  }
+}
+
+async function initRestaurantBooking() {
+  if (!dateOptions || !timeOptions || !datetimeInput) return;
+
+  dateOptions.innerHTML = '';
+  timeOptions.innerHTML = '';
+  resetAfterDateChange();
+  if (continueToTimeBtn) continueToTimeBtn.disabled = true;
+  if (continueToTableBtn) continueToTableBtn.disabled = true;
+  showBookingStep(dateStep);
+
+  const almaty = getAlmatyNowParts();
+  const today = new Date(Date.UTC(almaty.year, almaty.month - 1, almaty.day));
+  for (let offset = 0; offset < 7; offset++) {
+    const date = new Date(today);
+    date.setUTCDate(today.getUTCDate() + offset);
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'date-option';
+    button.dataset.date = toDateValue(date);
+    button.setAttribute('aria-pressed', 'false');
+
+    const day = document.createElement('span');
+    day.className = 'date-option-day';
+    day.textContent = offset === 0
+      ? 'Сегодня'
+      : new Intl.DateTimeFormat('ru-RU', { weekday: 'short', timeZone: 'UTC' }).format(date);
+
+    const label = document.createElement('span');
+    label.className = 'date-option-date';
+    label.textContent = new Intl.DateTimeFormat('ru-RU', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'UTC',
+    }).format(date);
+
+    button.append(day, label);
+    button.addEventListener('click', () => {
+      dateOptions.querySelectorAll<HTMLButtonElement>('.date-option').forEach((dateOption) => {
+        const isActive = dateOption === button;
+        dateOption.classList.toggle('active', isActive);
+        dateOption.setAttribute('aria-pressed', String(isActive));
+      });
+      if (continueToTimeBtn) continueToTimeBtn.disabled = false;
+      continueToTimeBtn?.focus();
+    });
+    dateOptions.appendChild(button);
+  }
+}
+
+continueToTimeBtn?.addEventListener('click', () => {
+  const selectedDate = dateOptions?.querySelector<HTMLButtonElement>('.date-option.active');
+  if (!selectedDate?.dataset.date) return;
+  void selectBookingDate(selectedDate.dataset.date, selectedDate);
+});
+
+continueToTableBtn?.addEventListener('click', async () => {
+  if (!datetimeInput?.value) return;
+  continueToTableBtn.disabled = true;
+  const loaded = await refreshTableStatuses();
+  continueToTableBtn.disabled = false;
+  if (!loaded) {
+    setReservationStatus('Не удалось проверить столики. Попробуйте ещё раз.', 'error');
+    return;
+  }
+  showBookingStep(tableStep);
+  openTablePickerBtn?.focus();
+});
+
+continueToNameBtn?.addEventListener('click', () => {
+  if (!selectedTable) return;
+  const resumeAtPhone = Boolean(nameInput?.value.trim() && phoneInput?.value.trim());
+  showBookingStep(resumeAtPhone ? phoneStep : nameStep);
+  (resumeAtPhone ? phoneInput : nameInput)?.focus();
+});
+
+function continueToPhone() {
+  if (!nameInput?.value.trim()) {
+    setReservationStatus('Введите имя, чтобы продолжить.', 'error');
+    nameInput?.focus();
+    return;
+  }
+
+  showBookingStep(phoneStep);
+  phoneInput?.focus();
+}
+
+continueToPhoneBtn?.addEventListener('click', continueToPhone);
+nameInput?.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') return;
+  event.preventDefault();
+  continueToPhone();
+});
+
+document.querySelectorAll<HTMLButtonElement>('[data-booking-back]').forEach((button) => {
+  button.addEventListener('click', () => {
+    switch (button.dataset.bookingBack) {
+      case 'date':
+        slotRequestId++;
+        resetAfterDateChange();
+        showBookingStep(dateStep);
+        dateOptions?.querySelector<HTMLButtonElement>('.date-option.active')?.focus();
+        break;
+      case 'time':
+        clearSelectedTable();
+        showBookingStep(timeStep);
+        timeOptions?.querySelector<HTMLButtonElement>('.time-option.active')?.focus();
+        break;
+      case 'table':
+        showBookingStep(tableStep);
+        openTablePickerBtn?.focus();
+        break;
+      case 'name':
+        showBookingStep(nameStep);
+        nameInput?.focus();
+        break;
+    }
+  });
+});
 
 // переключение вкладок между залами 
 
@@ -840,14 +943,10 @@ floorTabs.forEach((tab) => {
       scene.classList.toggle('active', scene.dataset.scene === targetFloor);
     });
 
-    // сброс зума/пана и выбора при смене зала
+    // Сбрасываем только положение карты; выбранный стол сменится следующим кликом.
     scale = 1;
     centerActiveScene();
     applyTransform();
-
-    selectedTables.forEach((marker) => marker.classList.remove('selected'));
-    selectedTables.clear();
-    updateSummary();
   });
 });
 

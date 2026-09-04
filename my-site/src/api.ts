@@ -49,6 +49,16 @@ export interface ReservationResponse {
   [key: string]: unknown;
 }
 
+export class ApiError extends Error {
+  readonly status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+  }
+}
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
@@ -80,7 +90,7 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       ?? (payload as Record<string, unknown> | null)?.detail as string | undefined
       ?? 'Сервер вернул ошибку';
 
-    throw new Error(message);
+    throw new ApiError(message, response.status);
   }
 
   if (payload && typeof payload === 'object') {
@@ -113,6 +123,10 @@ export async function getRating(): Promise<RatingResponse> {
 export async function getTables(scheduledAt?: string): Promise<TableAvailability[]> {
   const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
   return request<TableAvailability[]>(`/Tables${query}`);
+}
+
+export async function getAvailableSlots(date: string): Promise<string[]> {
+  return request<string[]>(`/Tables/slots?date=${encodeURIComponent(date)}`);
 }
 
 export async function getTableAvailability(tablesId: string, scheduledAt?: string): Promise<TableAvailability> {
