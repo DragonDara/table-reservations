@@ -24,7 +24,12 @@ const ORGANIZATION_ROUTES: Record<string, string> = {
 
 function fromPath(): string | null {
   const path = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
-  return Object.hasOwn(ORGANIZATION_ROUTES, path) ? ORGANIZATION_ROUTES[path] : null;
+  // Object.hasOwn is unavailable in older iOS Safari and some embedded mobile
+  // webviews. Keep tenant selection compatible because this runs before the
+  // query-string fallback.
+  return Object.prototype.hasOwnProperty.call(ORGANIZATION_ROUTES, path)
+    ? ORGANIZATION_ROUTES[path]
+    : null;
 }
 
 function isLocalDevelopmentHost(): boolean {

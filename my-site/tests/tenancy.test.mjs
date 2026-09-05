@@ -54,6 +54,17 @@ test('legacy query links remain supported and remembered', () => {
   }
 });
 
+test('query links do not require Object.hasOwn support from the browser', () => {
+  const nativeHasOwn = Object.hasOwn;
+  try {
+    Object.hasOwn = undefined;
+    visit('/?org=thetochka');
+    assert.equal(resolveOrganizationIdFallback(), 'thetochka');
+  } finally {
+    Object.hasOwn = nativeHasOwn;
+  }
+});
+
 test('routes work when browser storage is unavailable', () => {
   visit('/carwash');
   window.localStorage.getItem = () => { throw new Error('Blocked storage'); };
