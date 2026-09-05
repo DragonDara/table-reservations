@@ -66,6 +66,63 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   const submittingLabel = label(config, 'submitting', 'Отправка…');
   const successLabel = label(config, 'success', 'Запись принята');
   let submitting = false;
+  const steps = [...els.form.querySelectorAll<HTMLFieldSetElement>('[data-carwash-step]')];
+  const back = els.form.querySelector<HTMLButtonElement>('[data-carwash="back"]');
+  const progress = els.form.querySelector<HTMLElement>('[data-carwash="progress"]');
+  let currentStep = 0;
+
+  function showStep(index: number, focus = true): void {
+    currentStep = index;
+    steps.forEach((step, stepIndex) => { step.hidden = stepIndex !== index; });
+    if (progress) progress.textContent = `Шаг ${index + 1} из ${steps.length}`;
+    if (back) back.hidden = index === 0;
+    if (els?.submit) {
+      els.submit.textContent = index === steps.length - 1 ? label(config, 'submit', 'Записаться') : 'Далее';
+    }
+    setStatus(els?.status ?? null, '', false);
+    // Keep the current viewport and avoid opening the mobile keyboard on every step.
+    if (focus) steps[index]?.querySelector<HTMLElement>('legend')?.focus({ preventScroll: true });
+  }
+
+  back?.addEventListener('click', () => {
+    if (!submitting && currentStep > 0) showStep(currentStep - 1);
+  });
+
+  function validateStep(index: number): boolean {
+    const step = steps[index];
+    const input = step.querySelector<HTMLInputElement | HTMLSelectElement>('input:not([type="hidden"]), select');
+    input?.setCustomValidity('');
+    if (step.dataset.carwashStep === 'plate' && !els?.plate?.value.trim()) {
+      input?.setCustomValidity('Укажите гос. номер автомобиля.');
+    }
+    if (step.dataset.carwashStep === 'phone') {
+      const digits = els?.phone?.value.replace(/\D/g, '') ?? '';
+      if (digits.length < 10 || digits.length > 15) {
+        input?.setCustomValidity('Укажите полный номер телефона с кодом страны.');
+      }
+    }
+    if (input && !input.checkValidity()) {
+      showStep(index);
+      input.reportValidity();
+      return false;
+    }
+    if (step.dataset.carwashStep === 'time') {
+      const selected = els?.scheduledAt?.value ?? '';
+      if (!carwashSlots(els?.date?.value ?? '', config.bookingTime).includes(selected)) {
+        renderTimes();
+        showStep(index);
+        setStatus(els?.status ?? null, selected ? 'Выбранное время уже прошло. Выберите время позже.' : 'Выберите время записи.', true);
+        return false;
+      }
+    }
+    return true;
+  }
+
+  els.form.addEventListener('input', (event) => {
+    const target = event.target;
+    if (target instanceof HTMLInputElement || target instanceof HTMLSelectElement) target.setCustomValidity('');
+  });
+  showStep(0, false);
 
   const nav = document.querySelector<HTMLElement>('.nav');
   const navToggle = document.getElementById('navtoggle');
@@ -103,9 +160,10 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
       button.className = 'carwash-service-card';
       button.textContent = service;
       button.addEventListener('click', () => {
+        if (submitting) return;
         if (els.service) els.service.value = service;
+        showStep(1);
         document.getElementById('reservation')?.scrollIntoView({ behavior: 'smooth' });
-        els.plate?.focus({ preventScroll: true });
       });
       serviceList?.appendChild(button);
     });
@@ -147,7 +205,16 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
 
   els.form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (submitting || services.length === 0 || !els.form.reportValidity()) return;
+    if (submitting || services.length === 0) return;
+    if (!validateStep(currentStep)) return;
+    if (currentStep < steps.length - 1) {
+      showStep(currentStep + 1);
+      return;
+    }
+    // Recheck earlier answers before sending, including slots that expired while typing.
+    for (let index = 0; index < steps.length; index++) {
+      if (!validateStep(index)) return;
+    }
 
     const plateNumber = els.plate?.value.trim().toUpperCase() ?? '';
     const customerPhone = els.phone?.value.trim() ?? '';
@@ -161,6 +228,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
 
     if (!carwashSlots(els.date?.value ?? '', config.bookingTime).includes(scheduledAt)) {
       renderTimes();
+      showStep(steps.findIndex((step) => step.dataset.carwashStep === 'time'));
       setStatus(els.status, 'Выбранное время уже прошло. Выберите время позже.', true);
       return;
     }
@@ -183,9 +251,10 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
       washServiceType,
     };
 
-    const previousLabel = els.submit?.textContent ?? '';
     submitting = true;
     els.form.setAttribute('aria-busy', 'true');
+    steps.forEach((step) => { step.disabled = true; });
+    if (back) back.disabled = true;
     if (els.submit) {
       els.submit.disabled = true;
       els.submit.textContent = submittingLabel;
@@ -207,6 +276,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
       els.form.reset();
       if (els.date) els.date.value = kazakhstanDate();
       renderTimes();
+      showStep(0);
       setStatus(els.status, `${successLabel}. ${washServiceType} · ${plateNumber} · ${scheduledAt.replace('T', ' ')}`, false);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось создать запись';
@@ -214,9 +284,11 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     } finally {
       submitting = false;
       els.form.setAttribute('aria-busy', 'false');
+      steps.forEach((step) => { step.disabled = false; });
+      if (back) back.disabled = false;
       if (els.submit) {
         els.submit.disabled = false;
-        els.submit.textContent = previousLabel || label(config, 'submit', 'Записаться');
+        els.submit.textContent = currentStep === steps.length - 1 ? label(config, 'submit', 'Записаться') : 'Далее';
       }
     }
   });

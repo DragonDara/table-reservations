@@ -63,27 +63,40 @@
   <section class="reservation" id="reservation">
     <h2 class="section-title reservation-title">Запишитесь на мойку</h2>
     <p class="reservation-hours">Время работы: <time data-carwash="start-time">—</time>–<time data-carwash="end-time">—</time></p>
-    <form class="reservation-form carwash-form" data-carwash="form">
-      <fieldset class="booking-step">
-        <legend class="booking-step-heading"><span class="booking-step-number">1</span>Услуга и автомобиль</legend>
+    <form class="reservation-form carwash-form" data-carwash="form" novalidate>
+      <p class="carwash-progress" data-carwash="progress" role="status" aria-live="polite">Шаг 1 из 6</p>
+      <div class="carwash-step-panel">
+      <fieldset class="booking-step" data-carwash-step="service">
+        <legend class="booking-step-heading" tabindex="-1">Выберите услугу</legend>
         <div class="field"><label for="wash-service" data-carwash="service-label">Тип мойки</label><select id="wash-service" name="washServiceType" data-carwash="service" required></select></div>
+      </fieldset>
+      <fieldset class="booking-step" data-carwash-step="plate" hidden>
+        <legend class="booking-step-heading" tabindex="-1">Укажите автомобиль</legend>
         <div class="field"><label for="wash-plate" data-carwash="plate-label">Гос. номер</label><input id="wash-plate" name="plateNumber" data-carwash="plate" placeholder="A123BC" autocapitalize="characters" maxlength="20" required></div>
       </fieldset>
-      <fieldset class="booking-step">
-        <legend class="booking-step-heading"><span class="booking-step-number">2</span>Дата и время</legend>
+      <fieldset class="booking-step" data-carwash-step="date" hidden>
+        <legend class="booking-step-heading" tabindex="-1">Выберите дату</legend>
         <div class="field"><label for="wash-date">Дата записи</label><input type="date" id="wash-date" data-carwash="date" required></div>
+      </fieldset>
+      <fieldset class="booking-step" data-carwash-step="time" hidden>
+        <legend class="booking-step-heading" tabindex="-1">Выберите время</legend>
         <div class="time-options" data-carwash="times" role="group" aria-label="Время записи"></div>
         <p class="slot-status" data-carwash="slot-status" role="status" aria-live="polite"></p>
         <p class="field-hint">Время указано по Казахстану.</p>
         <input type="hidden" name="scheduledAt" data-carwash="scheduled-at">
       </fieldset>
-      <fieldset class="booking-step">
-        <legend class="booking-step-heading"><span class="booking-step-number">3</span>Контактные данные</legend>
+      <fieldset class="booking-step" data-carwash-step="name" hidden>
+        <legend class="booking-step-heading" tabindex="-1">Как вас зовут?</legend>
         <div class="field"><label for="wash-name">Имя <span class="field-hint">(необязательно)</span></label><input id="wash-name" name="customerName" data-carwash="name" autocomplete="name" placeholder="Как к вам обращаться?"></div>
+      </fieldset>
+      <fieldset class="booking-step" data-carwash-step="phone" hidden>
+        <legend class="booking-step-heading" tabindex="-1">Как с вами связаться?</legend>
         <div class="field"><label for="wash-phone">Номер телефона</label><input type="tel" id="wash-phone" name="customerPhone" data-carwash="phone" placeholder="+7 700 000 00 00" autocomplete="tel" required></div>
         <label class="carwash-reminder" data-feature="reminder" hidden><input type="checkbox" data-carwash="remind">Напомнить за час до записи</label>
       </fieldset>
-      <button class="btn btn-primary btn-block" type="submit" data-carwash="submit">Записаться</button>
+      </div>
+      <button class="btn btn-primary btn-block" type="submit" data-carwash="submit">Далее</button>
+      <button class="step-back" type="button" data-carwash="back" hidden>← Назад</button>
       <p class="reservation-status" data-carwash="status" role="status" aria-live="polite" hidden></p>
     </form>
   </section>
