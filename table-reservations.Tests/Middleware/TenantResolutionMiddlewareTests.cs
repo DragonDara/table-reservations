@@ -1,6 +1,4 @@
 using Microsoft.AspNetCore.Http;
-using Microsoft.Extensions.FileProviders;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using table_reservations.Configuration;
@@ -31,8 +29,7 @@ public class TenantResolutionMiddlewareTests
         }
     }));
 
-    private static (TenantResolutionMiddleware Middleware, bool[] NextCalled) BuildMiddleware(
-        string environmentName = "Development")
+    private static (TenantResolutionMiddleware Middleware, bool[] NextCalled) BuildMiddleware()
     {
         var nextCalled = new[] { false };
         RequestDelegate next = _ =>
@@ -41,26 +38,15 @@ public class TenantResolutionMiddlewareTests
             return Task.CompletedTask;
         };
 
-        var environment = new FakeHostEnvironment { EnvironmentName = environmentName };
-
         var middleware = new TenantResolutionMiddleware(
             next,
             NullLogger<TenantResolutionMiddleware>.Instance,
-            environment,
             Options.Create(new TenantRoutingOptions
             {
                 BaseDomains = new[] { "bron.cafe" }
             }));
 
         return (middleware, nextCalled);
-    }
-
-    private sealed class FakeHostEnvironment : IHostEnvironment
-    {
-        public string EnvironmentName { get; set; } = "Development";
-        public string ApplicationName { get; set; } = "table-reservations.Tests";
-        public string ContentRootPath { get; set; } = AppContext.BaseDirectory;
-        public IFileProvider ContentRootFileProvider { get; set; } = new NullFileProvider();
     }
 
     private static DefaultHttpContext ApiContext(string host)
@@ -106,7 +92,7 @@ public class TenantResolutionMiddlewareTests
     [InlineData("nested.theveil.bron.cafe")]
     public async Task ApiRequest_UntrustedOrNestedHost_DoesNotResolveTenant(string host)
     {
-        var (middleware, nextCalled) = BuildMiddleware("Production");
+        var (middleware, nextCalled) = BuildMiddleware();
         var context = ApiContext(host);
         var tenant = new TenantContext();
 
@@ -120,7 +106,7 @@ public class TenantResolutionMiddlewareTests
     [Fact]
     public async Task ApiRequest_TrailingDotOnTrustedHost_ResolvesTenant()
     {
-        var (middleware, nextCalled) = BuildMiddleware("Production");
+        var (middleware, nextCalled) = BuildMiddleware();
         var context = ApiContext("theveil.bron.cafe.");
         var tenant = new TenantContext();
 
@@ -161,9 +147,24 @@ public class TenantResolutionMiddlewareTests
     }
 
     [Fact]
-    public async Task ApiRequest_ResolvedByHeader_InDevelopment_PassesThroughAndSetsTenant()
+    public async Task ApiRequest_SubdomainTakesPriorityOverConflictingHeader()
     {
-        var (middleware, nextCalled) = BuildMiddleware("Development");
+        var (middleware, nextCalled) = BuildMiddleware();
+        var context = ApiContext("theveil.bron.cafe");
+        context.Request.Headers["X-Organization-Id"] = "sparkle-wash";
+        var tenant = new TenantContext();
+
+        await middleware.InvokeAsync(context, BuildRegistry(), tenant);
+
+        Assert.True(nextCalled[0]);
+        Assert.Equal("theveil", tenant.OrganizationId);
+        Assert.Equal(BusinessType.Restaurant, tenant.BusinessType);
+    }
+
+    [Fact]
+    public async Task ApiRequest_ResolvedByHeader_OnHostWithoutTenant_PassesThroughAndSetsTenant()
+    {
+        var (middleware, nextCalled) = BuildMiddleware();
         var context = ApiContext("bron.cafe");
         context.Request.Headers["X-Organization-Id"] = "sparkle-wash";
         var tenant = new TenantContext();
@@ -177,18 +178,19 @@ public class TenantResolutionMiddlewareTests
     }
 
     [Fact]
-    public async Task ApiRequest_HeaderIgnored_OutsideDevelopment_Returns400()
+    public async Task ApiRequest_ResolvedByHeader_OnSharedProductionHost_PassesThroughAndSetsTenant()
     {
-        var (middleware, nextCalled) = BuildMiddleware("Production");
-        var context = ApiContext("bron.cafe");
-        context.Request.Headers["X-Organization-Id"] = "sparkle-wash";
+        var (middleware, nextCalled) = BuildMiddleware();
+        var context = ApiContext("the-tochka-bot-clzgj.ondigitalocean.app");
+        context.Request.Headers["X-Organization-Id"] = "theveil";
         var tenant = new TenantContext();
 
         await middleware.InvokeAsync(context, BuildRegistry(), tenant);
 
-        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
-        Assert.False(nextCalled[0]);
-        Assert.False(tenant.IsResolved);
+        Assert.True(nextCalled[0]);
+        Assert.True(tenant.IsResolved);
+        Assert.Equal("theveil", tenant.OrganizationId);
+        Assert.Equal(BusinessType.Restaurant, tenant.BusinessType);
     }
 
     [Fact]

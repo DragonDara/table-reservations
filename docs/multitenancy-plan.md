@@ -178,9 +178,9 @@ restaurant page rather than a tenant-neutral application shell.
 - Deploy **one frontend application** for all organizations; do not clone
   `index.html`, CSS, or TypeScript per tenant.
 - Continue resolving the organization from **subdomain first**. Support an
-  explicit `VITE_ORGANIZATION_ID` or development-only query/local-storage
-  override that is sent as `X-Organization-Id` when a tenant subdomain is not
-  available.
+  explicit `VITE_ORGANIZATION_ID` or query/local-storage override that is sent
+  as `X-Organization-Id` when a tenant subdomain is not available, including on
+  a shared production host.
 - Add a backend endpoint such as `GET /api/tenant/public-config`. The existing
   `TenantResolutionMiddleware` resolves the organization before this endpoint
   returns a strictly allow-listed public DTO.
@@ -263,7 +263,7 @@ public endpoint must not expose `SpreadsheetId`, `CredentialsJson`,
    bundle.
 2. The frontend calls `GET /api/tenant/public-config` on the same origin.
 3. `TenantResolutionMiddleware` resolves the organization from the subdomain
-   (or the fallback header in local/shared-host development).
+   (or the fallback header on a local/shared host).
 4. The endpoint maps `TenantContext.Organization` to the public response DTO.
 5. The frontend applies the organization's theme/assets/content and selects the
    experience using `businessType`.
