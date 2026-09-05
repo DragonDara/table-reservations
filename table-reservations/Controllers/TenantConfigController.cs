@@ -34,6 +34,9 @@ namespace table_reservations.Controllers
             var response = PublicTenantConfigResponse.FromOrganization(_tenant.Organization);
 
             Response.Headers.CacheControl = "public, max-age=60";
+            // Shared-host pages use the same URL with different tenant headers.
+            // Keep their cached branding and booking configuration separate.
+            Response.Headers.Vary = "X-Organization-Id";
 
             return Ok(response);
         }

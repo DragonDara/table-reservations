@@ -5,12 +5,27 @@
 //
 // Local development / shared-host: there is no tenant subdomain, so we allow an
 // explicit organization id via (in priority order):
-//   1. `?org=` / `?organizationId=` query parameter (also persisted to storage)
-//   2. `localStorage["organizationId"]`
-//   3. Vite env `VITE_ORGANIZATION_ID`
+//   1. Explicit tenant path (`/lounge`, `/carwash`, or organization id)
+//   2. `?org=` / `?organizationId=` query parameter (also persisted to storage)
+//   3. `localStorage["organizationId"]`
+//   4. Vite env `VITE_ORGANIZATION_ID`
 // The resolved id is sent as the `X-Organization-Id` header by api.ts.
 
 const STORAGE_KEY = 'organizationId';
+
+// Stable URLs override a previous visit's stored tenant and query fallback.
+// The API's tenant hostname remains authoritative.
+const ORGANIZATION_ROUTES: Record<string, string> = {
+  lounge: 'thetochka',
+  thetochka: 'thetochka',
+  carwash: 'thetochka-carwasher',
+  'thetochka-carwasher': 'thetochka-carwasher',
+};
+
+function fromPath(): string | null {
+  const path = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+  return Object.hasOwn(ORGANIZATION_ROUTES, path) ? ORGANIZATION_ROUTES[path] : null;
+}
 
 function isLocalDevelopmentHost(): boolean {
   return import.meta.env.DEV
@@ -65,6 +80,8 @@ function fromEnv(): string | null {
  * when the backend should resolve the tenant from the host.
  */
 export function resolveOrganizationIdFallback(): string | null {
+  const routeOrganization = fromPath();
+  if (routeOrganization) return routeOrganization;
   const organizationId = fromQuery() ?? fromStorage() ?? fromEnv();
   if (organizationId) {
     reflectOrganizationInLocalUrl(organizationId);

@@ -44,9 +44,33 @@ of GitHub on shared machines, and close the private browsing window.
 
 ## Tenant configuration
 
-Tenant routing accepts only subdomains of the base domains listed under
-`TenantRouting:BaseDomains`. Production requests cannot select a tenant by
-header; `X-Organization-Id` is a localhost/development fallback only.
+Tenant routing resolves subdomains of the base domains listed under
+`TenantRouting:BaseDomains` (and `*.localhost` during local development).
+On shared hosts, the frontend sends an explicit tenant selection through
+`X-Organization-Id`. A recognized tenant hostname always takes precedence.
+
+### Tenant pages and URLs
+
+The same frontend serves both organizations with separate booking pages:
+
+| Organization | Local URL | Shared-host path | Tenant hostname |
+| --- | --- | --- | --- |
+| Lounge | `http://localhost:5173/lounge` | `/lounge` or `/thetochka` | `thetochka.bron.cafe` |
+| Carwash | `http://localhost:5173/carwash` | `/carwash` or `/thetochka-carwasher` | `thetochka-carwasher.bron.cafe` |
+
+Trailing slashes are supported. Explicit paths take precedence over query
+parameters, browser storage, and `VITE_ORGANIZATION_ID`. Existing `/?org=thetochka`
+and `/?org=thetochka-carwasher` links still work. On tenant hostnames, open `/`;
+the API resolves the organization from the host. The carwash page uses the
+configured name, theme, services (`Frontend:BusinessUi:Services`, pipe-separated),
+contact links, and booking hours. Its time choices come from the tenant schedule;
+reservation conflicts are checked by the API when submitting.
+
+For deployment, serve `my-site/dist` with an SPA fallback to `/index.html` for
+frontend paths, and forward `/api/*` to the backend while preserving the original
+host. Build assets use root-relative URLs so direct links and refreshes work on
+nested paths. Custom tenant hostnames require DNS and hosting configuration;
+adding a page does not provision a domain.
 
 Copy `table-reservations/appsettings.Development.example.json` to
 `table-reservations/appsettings.Development.json` and fill in each tenant's
