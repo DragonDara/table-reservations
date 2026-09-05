@@ -1703,7 +1703,18 @@ body {
 .carwash-service-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; max-width: 1050px; margin: 32px auto 0; }
 .carwash-service-card { padding: 32px 20px; border: 1px solid var(--whiteborder); border-radius: var(--radius, 16px); background: var(--panel); color: var(--text); font: inherit; font-weight: 700; cursor: pointer; }
 .carwash-service-card:hover, .carwash-service-card:focus-visible { border-color: var(--accent); color: var(--accent); }
-.carwash-form { max-width: 760px; margin-inline: auto; }
+.carwash-form { max-width: 760px; margin-inline: auto; gap: 16px; }
+.carwash-progress { color: var(--muted); font-size: 13px; }
+.carwash-step-panel { min-height: 260px; }
+.carwash-form .step-back { align-self: center; }
+.carwash-service-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.carwash-service-option { min-height: 54px; padding: 12px; border: 1px solid var(--whiteborder); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-weight: 700; overflow-wrap: anywhere; cursor: pointer; }
+.carwash-service-option:hover { border-color: var(--accent); }
+.carwash-service-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.carwash-service-option.active { border-color: var(--accent); background: var(--accent); color: #111; }
+.carwash-form .time-options { gap: 8px; }
+.carwash-form .time-option { min-height: 44px; padding: 8px; }
+.carwash-form .slot-status:empty { display: none; }
 .carwash-form fieldset { min-width: 0; padding: 24px; border: 1px solid var(--whiteborder); border-radius: var(--radius, 16px); background: var(--panel); }
 .carwash-form legend { padding-inline: 8px; }
 .carwash-form .field { width: 100%; }
@@ -1711,12 +1722,15 @@ body {
 .carwash-reminder { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 14px; }
 .carwash-form [data-state="ok"] { color: var(--accent); }
 .carwash-form [data-state="error"] { color: #ffadad; }
-[data-business-type="CarWash"] .reservation { background-image: none; }
+[data-business-type="CarWash"] .reservation { background-image: none; min-height: 0; padding-block: 32px; }
+[data-business-type="CarWash"] .reservation-title { margin-bottom: 12px; padding-block: 0 12px; }
+[data-business-type="CarWash"] .reservation-hours { margin: 0 0 16px; }
 
 @media (max-width: 900px) {
     .carwash-hero .hero-gallery.carwash-visual { order: 0; min-height: 260px; padding: 24px; gap: 12px; }
     .carwash-car { max-width: 420px; }
     .carwash-form fieldset { padding: 16px; }
+    [data-business-type="CarWash"] .reservation-title { font-size: 24px; }
 }
 
 /* RESPONSIVE */
