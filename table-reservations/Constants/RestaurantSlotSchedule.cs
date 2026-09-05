@@ -1,13 +1,13 @@
+using System.Globalization;
+using table_reservations.Configuration;
+using table_reservations.Services;
+
 namespace table_reservations.Constants
 {
     public static class RestaurantSlotSchedule
     {
         public const int BookingDays = 7;
-        public const int IntervalMinutes = 30;
         public const int MinimumLeadMinutes = 5;
-
-        private static readonly TimeSpan OpensAt = new(12, 0, 0);
-        private static readonly TimeSpan ClosesAt = new(4, 0, 0);
 
         public static bool IsBookableDate(DateOnly date, DateTime now)
         {
@@ -15,7 +15,8 @@ namespace table_reservations.Constants
             return date >= today && date < today.AddDays(BookingDays);
         }
 
-        public static IReadOnlyList<DateTime> GetCandidateSlots(DateOnly date, DateTime now)
+        public static IReadOnlyList<DateTime> GetCandidateSlots(
+            DateOnly date, DateTime now, BookingTimeOptions bookingTime)
         {
             if (!IsBookableDate(date, now))
             {
@@ -23,14 +24,17 @@ namespace table_reservations.Constants
             }
 
             var minimumStart = now.AddMinutes(MinimumLeadMinutes);
-            var startOfDay = date.ToDateTime(TimeOnly.MinValue);
+            var configuredSlots = BookingTimeSchedule.GetAvailableSlots(bookingTime);
+            var opensAt = TimeOnly.ParseExact(bookingTime.StartTime, "HH:mm", CultureInfo.InvariantCulture);
             var slots = new List<DateTime>();
 
-            for (var minutes = 0; minutes < 24 * 60; minutes += IntervalMinutes)
+            foreach (var configuredSlot in configuredSlots)
             {
-                var slot = startOfDay.AddMinutes(minutes);
-                var time = slot.TimeOfDay;
-                if ((time >= OpensAt || time < ClosesAt) && slot >= minimumStart)
+                var time = TimeOnly.ParseExact(configuredSlot, "HH:mm", CultureInfo.InvariantCulture);
+                // The selected date identifies the opening day of the shift.
+                var slotDate = time < opensAt ? date.AddDays(1) : date;
+                var slot = slotDate.ToDateTime(time);
+                if (slot >= minimumStart)
                 {
                     slots.Add(DateTime.SpecifyKind(slot, DateTimeKind.Unspecified));
                 }
