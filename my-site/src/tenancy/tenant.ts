@@ -1,7 +1,7 @@
 // Tenant identity resolution for the frontend.
 //
-// Production: the tenant is resolved by the backend from the request host
-// (subdomain), so no explicit organization id is required.
+// Production tenant domains are resolved by the backend from the request host.
+// A shared production host can instead use the explicit organization fallback.
 //
 // Local development / shared-host: there is no tenant subdomain, so we allow an
 // explicit organization id via (in priority order):
@@ -62,7 +62,7 @@ function fromEnv(): string | null {
 
 /**
  * Returns an explicit organization id for local/shared-host scenarios, or null
- * when the backend should resolve the tenant from the host (production).
+ * when the backend should resolve the tenant from the host.
  */
 export function resolveOrganizationIdFallback(): string | null {
   const organizationId = fromQuery() ?? fromStorage() ?? fromEnv();

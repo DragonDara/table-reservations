@@ -5,8 +5,8 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replac
 
 const ORGANIZATION_ID_HEADER = 'X-Organization-Id';
 
-// Resolved once at module load. On production tenant subdomains this is null and
-// the header is omitted, keeping the host authoritative for tenant resolution.
+// Resolved once at module load. On tenant subdomains without an explicit fallback
+// this is null; on shared hosts, ?org= selects the tenant through this header.
 const organizationIdFallback = resolveOrganizationIdFallback();
 
 function tenantHeaders(): Record<string, string> {

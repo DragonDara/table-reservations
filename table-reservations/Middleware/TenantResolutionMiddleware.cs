@@ -9,8 +9,7 @@ namespace table_reservations.Middleware
     /// scoped <see cref="TenantContext"/>. Resolution order:
     /// <list type="number">
     /// <item>The left-most label of the request Host (subdomain), e.g. "theveil" in "theveil.bron.cafe".</item>
-    /// <item>The <c>X-Organization-Id</c> header as a fallback, honored only when the host has no
-    /// subdomain and the app is running in the Development environment (localhost).</item>
+    /// <item>The <c>X-Organization-Id</c> header as a fallback when the host does not identify a tenant.</item>
     /// </list>
     /// API requests (paths starting with <c>/api</c>) require a resolved tenant and are
     /// short-circuited with <c>400</c> when none can be determined. Non-API requests
@@ -22,18 +21,15 @@ namespace table_reservations.Middleware
 
         private readonly RequestDelegate _next;
         private readonly ILogger<TenantResolutionMiddleware> _logger;
-        private readonly bool _isDevelopment;
         private readonly string[] _baseDomains;
 
         public TenantResolutionMiddleware(
             RequestDelegate next,
             ILogger<TenantResolutionMiddleware> logger,
-            IHostEnvironment environment,
             IOptions<TenantRoutingOptions> routingOptions)
         {
             _next = next;
             _logger = logger;
-            _isDevelopment = environment.IsDevelopment();
             _baseDomains = (routingOptions.Value.BaseDomains ?? Array.Empty<string>())
                 .Select(NormalizeHost)
                 .Where(domain => !string.IsNullOrWhiteSpace(domain))
@@ -51,7 +47,6 @@ namespace table_reservations.Middleware
             var resolution = ResolveOrganization(
                 context,
                 registry,
-                _isDevelopment,
                 _baseDomains,
                 out var organization);
             if (resolution == TenantResolution.Resolved)
@@ -85,7 +80,6 @@ namespace table_reservations.Middleware
         private static TenantResolution ResolveOrganization(
             HttpContext context,
             OrganizationRegistry registry,
-            bool isDevelopment,
             IReadOnlyCollection<string> baseDomains,
             out Configuration.OrganizationOptions organization)
         {
@@ -97,14 +91,9 @@ namespace table_reservations.Middleware
                     : TenantResolution.Unknown;
             }
 
-            // Localhost/dev-only fallback: outside Development the tenant must come from the
-            // subdomain, so the X-Organization-Id header is ignored to keep production strict.
-            if (!isDevelopment)
-            {
-                organization = default!;
-                return TenantResolution.Missing;
-            }
-
+            // Shared production hosts cannot encode the tenant in their hostname. In that case
+            // the frontend's ?org= value is forwarded in this header. A recognized tenant
+            // subdomain above remains authoritative, including when a conflicting header exists.
             var headerId = context.Request.Headers[OrganizationIdHeader].ToString();
             if (string.IsNullOrWhiteSpace(headerId))
             {
@@ -112,7 +101,7 @@ namespace table_reservations.Middleware
                 return TenantResolution.Missing;
             }
 
-            // In development the header may carry either the organization id or one of
+            // The header may carry either the organization id or one of
             // its subdomains (e.g. "thetochka" or "thetochka-carwash"), so try both.
             if (registry.TryGetById(headerId, out organization)
                 || registry.TryGetBySubdomain(headerId, out organization))
