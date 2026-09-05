@@ -158,7 +158,8 @@ namespace table_reservations.Services
             DateTime now,
             CancellationToken ct = default)
         {
-            var candidates = RestaurantSlotSchedule.GetCandidateSlots(date, now);
+            var bookingTime = _tenant.Organization?.BookingTime ?? new BookingTimeOptions();
+            var candidates = RestaurantSlotSchedule.GetCandidateSlots(date, now, bookingTime);
             if (candidates.Count == 0)
             {
                 return Array.Empty<DateTime>();
