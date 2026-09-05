@@ -1,5 +1,4 @@
 using table_reservations.Constants;
-using table_reservations.Configuration;
 using table_reservations.Models;
 using table_reservations.Models.Tenancy;
 
@@ -53,44 +52,36 @@ namespace table_reservations.Services.BusinessTypes
             return ReservationValidationResult.Valid(scheduledAt);
         }
 
-        public IList<object> BuildReservationRow(ReservationInfo request, DateTime scheduledAt)
+        public ReservationRecord BuildRecord(ReservationInfo request, DateTime scheduledAt)
         {
             if (!TryParseTableIds(request.TablesId, out var ids))
             {
                 throw new ArgumentException("Некорректные TablesId.");
             }
 
-            var tablesIdCell = string.Join(",", ids);
-
-            return new List<object>
+            return new ReservationRecord
             {
-                Guid.NewGuid().ToString(),
-                tablesIdCell,
-                request.CustomerName,
-                request.CustomerPhone,
-                scheduledAt.ToString(ReservationDateTime.Format),
-                "",
-                request.RemindBeforeHour ? "Да" : "Нет"
+                TableIds = string.Join(",", ids),
+                CustomerName = request.CustomerName,
+                CustomerPhone = request.CustomerPhone,
+                ScheduledAt = scheduledAt,
+                Status = string.Empty,
+                RemindBeforeHour = request.RemindBeforeHour
             };
         }
 
-        public bool HasConflict(
-            ReservationInfo request,
-            DateTime scheduledAt,
-            IList<object> existingRow,
-            SheetSchemaOptions schema)
+        public bool HasConflict(ReservationInfo request, DateTime scheduledAt, ReservationRecord existing)
         {
             if (!TryParseTableIds(request.TablesId, out var requestedIds) ||
-                !TryParseTableIds(GetCell(existingRow, schema.TableIdsColumn), out var existingIds) ||
-                !ReservationDateTime.TryParse(GetCell(existingRow, schema.ScheduledAtColumn), out var existingStart))
+                !TryParseTableIds(existing.TableIds, out var existingIds))
             {
                 return false;
             }
 
-            var existingEnd = existingStart.AddHours(ReservationDuration.Hours);
+            var existingEnd = existing.ScheduledAt.AddHours(ReservationDuration.Hours);
             var requestedEnd = scheduledAt.AddHours(ReservationDuration.Hours);
             return existingIds.Intersect(requestedIds).Any() &&
-                   existingStart < requestedEnd && existingEnd > scheduledAt;
+                   existing.ScheduledAt < requestedEnd && existingEnd > scheduledAt;
         }
 
         public string BuildNotificationLabel(ReservationInfo request, IReadOnlyList<TableInfo> tables)
@@ -106,39 +97,28 @@ namespace table_reservations.Services.BusinessTypes
                 .Distinct());
         }
 
-        public ReminderCandidate? MapReminderCandidate(
-            IList<object> row,
-            int sheetRowNumber,
-            SheetSchemaOptions schema)
+        public ReminderCandidate? MapReminderCandidate(ReservationRecord record)
         {
-            var tablesId = GetCell(row, schema.TableIdsColumn);
-            var scheduledAt = GetCell(row, schema.ScheduledAtColumn);
-            var remindCell = GetCell(row, schema.RemindBeforeHourColumn);
-            if (string.IsNullOrWhiteSpace(tablesId) &&
-                string.IsNullOrWhiteSpace(scheduledAt) &&
-                string.IsNullOrWhiteSpace(remindCell))
+            if (string.IsNullOrWhiteSpace(record.TableIds) && record.ScheduledAt == default)
             {
                 return null;
             }
 
             return new ReminderCandidate
             {
-                SheetRowNumber = sheetRowNumber,
+                Id = record.Id,
                 Reservation = new ReservationInfo
                 {
-                    TablesId = tablesId,
-                    CustomerName = GetCell(row, schema.CustomerNameColumn),
-                    CustomerPhone = GetCell(row, schema.CustomerPhoneColumn),
-                    ScheduledAt = scheduledAt,
-                    RemindBeforeHour = true
+                    TablesId = record.TableIds,
+                    CustomerName = record.CustomerName,
+                    CustomerPhone = record.CustomerPhone,
+                    ScheduledAt = record.ScheduledAt.ToString(ReservationDateTime.Format),
+                    RemindBeforeHour = record.RemindBeforeHour
                 },
-                RemindBeforeHourCell = remindCell,
-                ReminderSentCell = GetCell(row, schema.ReminderSentColumn)
+                RemindBeforeHour = record.RemindBeforeHour,
+                ReminderSent = record.ReminderSent
             };
         }
-
-        private static string GetCell(IList<object> row, int index) =>
-            index >= 0 && row.Count > index ? row[index]?.ToString()?.Trim() ?? string.Empty : string.Empty;
 
         internal static bool TryParseTableIds(string value, out int[] ids)
         {

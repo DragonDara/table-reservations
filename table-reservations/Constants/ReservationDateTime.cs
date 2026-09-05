@@ -6,6 +6,10 @@ namespace table_reservations.Constants
     public static class ReservationDateTime
     {
         public const string Format = "dd/MM/yyyy HH:mm";
+        // Future bookings use Kazakhstan's nationwide UTC+05:00 (since March 2024).
+        // A fixed zone avoids stale Windows/ICU data reporting Almaty as UTC+06:00.
+        public static readonly TimeZoneInfo KazakhstanZone =
+            TimeZoneInfo.CreateCustomTimeZone("KazakhstanBooking", TimeSpan.FromHours(5), "Kazakhstan", "Kazakhstan");
 
         private static readonly string[] InputFormats =
         {
@@ -19,7 +23,7 @@ namespace table_reservations.Constants
         public static DateTime KazakhstanNow()
         {
             var utcNow = DateTime.UtcNow;
-            return TimeZoneInfo.ConvertTime(utcNow, TimeZoneInfo.FindSystemTimeZoneById("Asia/Almaty"));
+            return TimeZoneInfo.ConvertTimeFromUtc(utcNow, KazakhstanZone);
         }
 
         public static bool TryParse(string value, out DateTime result)

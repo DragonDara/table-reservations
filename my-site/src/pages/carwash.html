@@ -172,11 +172,6 @@
         </div>
     </section>
 
-    <section class="carwash-services" id="services">
-        <h2 class="section-title">Услуги автомойки</h2>
-        <div class="carwash-service-list" data-carwash="services"></div>
-    </section>
-
     <section class="reservation" id="reservation">
         <h2 class="section-title reservation-title">Запишитесь на мойку</h2>
         <p class="reservation-hours">
@@ -196,18 +191,33 @@
                 role="status"
                 aria-live="polite"
             >
-                Шаг 1 из 6
+                Шаг 1 из 7
             </p>
             <div class="carwash-step-panel">
-                <fieldset class="booking-step" data-carwash-step="service">
+                <fieldset class="booking-step" data-carwash-step="category">
                     <legend class="booking-step-heading" tabindex="-1">
-                        Выберите услугу
+                        Выберите автомобиль
+                    </legend>
+                    <div
+                        class="carwash-service-options"
+                        data-carwash="category-options"
+                        role="group"
+                        aria-label="Категория автомобиля"
+                    ></div>
+                </fieldset>
+                <fieldset
+                    class="booking-step"
+                    data-carwash-step="service"
+                    hidden
+                >
+                    <legend class="booking-step-heading" tabindex="-1">
+                        Выберите услуги
                     </legend>
                     <div class="field">
                         <span
                             id="wash-service-label"
                             data-carwash="service-label"
-                            >Тип мойки</span
+                            >Можно выбрать несколько услуг</span
                         >
                         <div
                             class="carwash-service-options"
@@ -322,6 +332,12 @@
                     >
                 </fieldset>
             </div>
+            <p
+                class="carwash-summary"
+                data-carwash="summary"
+                aria-live="polite"
+                hidden
+            ></p>
             <button
                 class="btn btn-primary btn-block"
                 type="submit"
@@ -358,10 +374,9 @@
             ><a href="#reservation" class="footer-link">Записаться</a>
         </div>
         <div class="footer-col">
-            <h2 class="footer-heading">Контакты</h2>
-            <p class="footer-tagline" data-tenant="display-name"></p>
-            <a class="footer-link" data-tenant-link="phone" hidden>Позвонить</a
-            ><a
+            <h2 class="footer-heading">Связаться</h2>
+            <a href="tel:+77751516189" class="footer-link">+7‒775‒151‒61‒89</a>
+            <a
                 class="footer-link"
                 data-tenant-link="map"
                 target="_blank"

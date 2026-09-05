@@ -1,6 +1,8 @@
 using System.Text.Json.Serialization;
 using Scalar.AspNetCore;
 using table_reservations.Configuration;
+using table_reservations.Data;
+using table_reservations.Models;
 using table_reservations.Middleware;
 using table_reservations.Services;
 using table_reservations.Services.BusinessTypes;
@@ -13,7 +15,9 @@ namespace table_reservations
     {
         public static void Main(string[] args)
         {
-            var builder = WebApplication.CreateBuilder(args);
+            var migrate = args.Contains("--migrate");
+            var checkDb = args.Contains("--check-db");
+            var builder = WebApplication.CreateBuilder(args.Where(arg => arg != "--migrate" && arg != "--check-db").ToArray());
 
             // Add services to the container.
             builder.Services.AddControllers()
@@ -42,9 +46,14 @@ namespace table_reservations
 
             #endregion
 
-            builder.Services.AddScoped<IGoogleSheetsService, GoogleSheetsService>();
+            builder.Services.Configure<TursoOptions>(
+                builder.Configuration.GetSection(TursoOptions.SectionName));
+            builder.Services.AddHttpClient<ITursoClient, TursoClient>();
+            builder.Services.AddSingleton<DatabaseInitializer>();
+            builder.Services.AddScoped<IReservationRepository, TursoReservationRepository>();
             builder.Services.AddHttpClient<IWhatsAppNotificationService, WhatsAppNotificationService>();
-            builder.Services.AddHostedService<ReservationReminderService>();
+            if (builder.Configuration.GetValue("ReservationReminders:Enabled", true))
+                builder.Services.AddHostedService<ReservationReminderService>();
             builder.Services.AddHttpClient<DgisRatingService>();
 
             // Allowed CORS origins: static list plus every configured tenant subdomain
@@ -98,8 +107,60 @@ namespace table_reservations
             #endregion
 
             var app = builder.Build();
- 
-           app.UseCors("AllowWebFlow");
+
+            // Создаём/обновляем схему Turso до начала обслуживания запросов.
+            if (migrate)
+            {
+                app.Services.GetRequiredService<DatabaseInitializer>().MigrateAsync().GetAwaiter().GetResult();
+                return;
+            }
+            app.Services.GetRequiredService<DatabaseInitializer>()
+                .InitializeAsync()
+                .GetAwaiter()
+                .GetResult();
+
+            if (checkDb)
+            {
+                foreach (var organization in app.Services.GetRequiredService<OrganizationRegistry>().All)
+                {
+                    using var scope = app.Services.CreateScope();
+                    scope.ServiceProvider.GetRequiredService<TenantContext>().Set(organization);
+                    var repository = scope.ServiceProvider.GetRequiredService<IReservationRepository>();
+                    var now = Constants.ReservationDateTime.KazakhstanNow();
+                    var day = DateOnly.FromDateTime(now).AddDays(1);
+                    if (organization.BusinessType == Models.Tenancy.BusinessType.CarWash)
+                    {
+                        var catalog = repository.GetCarWashCatalogAsync().GetAwaiter().GetResult();
+                        var availability = repository.GetCarWashAvailabilityAsync(day, new("car", ["complex_wash"])).GetAwaiter().GetResult();
+                        app.Logger.LogInformation("{Organization}: {Categories} categories, {Prices} prices, full wash {Minutes} min / {Price} KZT, {Slots} available starts tomorrow.",
+                            organization.Id, catalog.Categories.Count, catalog.Services.Count, availability.Quote.DurationMinutes, availability.Quote.TotalKzt, availability.Slots.Count);
+                    }
+                    else
+                    {
+                        var tables = repository.GetTablesAsync().GetAwaiter().GetResult();
+                        var slots = repository.GetAvailableSlotsAsync(day, now).GetAwaiter().GetResult();
+                        app.Logger.LogInformation("{Organization}: {Tables} tables, {Slots} available starts tomorrow.", organization.Id, tables.Count, slots.Count);
+                    }
+                }
+                return; // Read-only check: never start hosted notification workers.
+            }
+
+            app.UseCors("AllowWebFlow");
+            app.Use(async (context, next) =>
+            {
+                try { await next(context); }
+                catch (BookingException ex)
+                {
+                    context.Response.StatusCode = ex.Status;
+                    await context.Response.WriteAsJsonAsync(new { message = ex.Message, code = ex.Code, existing = ex.Existing });
+                }
+                catch (Exception ex) when ((ex is TursoException or HttpRequestException or TaskCanceledException) && !context.RequestAborted.IsCancellationRequested)
+                {
+                    app.Logger.LogError(ex, "Booking database request failed.");
+                    context.Response.StatusCode = 503;
+                    await context.Response.WriteAsJsonAsync(new { message = "Сервис записи временно недоступен. Попробуйте позже." });
+                }
+            });
 
             // Configure the HTTP request pipeline.
             if (app.Environment.IsDevelopment())

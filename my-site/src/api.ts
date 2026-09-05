@@ -31,6 +31,8 @@ export interface ReservationPayload {
   // Car-wash tenants only; ignored by restaurant tenants.
   plateNumber?: string;
   washServiceType?: string;
+  vehicleCategoryId?: string;
+  serviceIds?: string[];
   overwrite?: boolean;
 }
 
@@ -179,6 +181,28 @@ export async function createReservation(payload: ReservationPayload): Promise<Re
     body: JSON.stringify(payload),
   });
 }
+
+export interface CarWashService {
+  id: string;
+  name: string;
+  isPackage: boolean;
+  vehicleCategoryId: string;
+  priceKzt: number;
+  durationMinutes: number | null;
+}
+export interface CarWashCatalog {
+  categories: { id: string; name: string }[];
+  services: CarWashService[];
+  packageItems: { packageServiceId: string; includedServiceId: string }[];
+}
+export interface CarWashSelection { vehicleCategoryId: string; serviceIds: string[] }
+export interface CarWashQuote { services: CarWashService[]; totalKzt: number; durationMinutes: number }
+export const getCarWashCatalog = () => request<CarWashCatalog>('/carwash/catalog');
+export const getCarWashQuote = (selection: CarWashSelection) =>
+  request<CarWashQuote>('/carwash/quote', { method: 'POST', body: JSON.stringify(selection) });
+export const getCarWashAvailability = (date: string, selection: CarWashSelection) =>
+  request<{ quote: CarWashQuote; slots: string[] }>('/carwash/availability',
+    { method: 'POST', body: JSON.stringify({ date, ...selection }) });
 
 export async function getReservationStatus(reservationId: string): Promise<ReservationResponse> {
   return request<ReservationResponse>(`/Reservations/${encodeURIComponent(reservationId)}`);
