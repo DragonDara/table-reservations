@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>bron-web</title>
+    <title>BRON — онлайн-запись</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
@@ -20,6 +20,14 @@
 
 
   <body> 
+    <div class="tenant-state" data-app-state="loading" role="status">Загружаем страницу…</div>
+    <div class="tenant-state" data-app-state="unavailable" role="alert" hidden>
+      <h1>Страница временно недоступна</h1>
+      <p>Не удалось загрузить организацию. Попробуйте обновить страницу.</p>
+      <button class="btn btn-primary" type="button" onclick="window.location.reload()">Повторить</button>
+    </div>
+    <noscript>Для онлайн-записи включите JavaScript в браузере.</noscript>
+    <div data-app-root hidden>
 
     <svg style="display:none">
   <symbol id="chair-icon" viewBox="0 0 33 26">
@@ -34,7 +42,7 @@
       <nav class="nav">
         <a href="#" class="nav-link active">Главная</a>
         <a href="#reservation" class="nav-link">Забронировать</a>
-        <a href="https://thetochka.qrmenu.bron.cafe/" class="nav-link">Меню</a>
+        <a href="https://thetochka.qrmenu.bron.cafe/" class="nav-link" data-feature="menu-link" data-tenant-link="menu">Меню</a>
         <a href="#foter" class="nav-link">Контакты</a>
         <button class="navtoggle" id=""></button>
       </nav>
@@ -63,10 +71,10 @@
       </p>
 
       <h1 class="hero-title">
-        Забронируйте столик <br/> в <span class="accent">The Tochka</span>
+        <span data-tenant="hero-title">Забронируйте столик</span> <br/> в <span class="accent" data-tenant="hero-accent">The Tochka</span>
       </h1>
 
-      <p class="hero-text">
+      <p class="hero-text" data-tenant="hero-description">
         Легкое и удобное бронирование столиков на комфортное для вас время.
         Быстро и наглядно.
 
@@ -74,8 +82,8 @@
 
 
       <div class="cta-group">
-        <button class="btn btn-primary" id="bookBtn">Забронировать</button>
-        <button class="btn btn-secondary" id="bookBtn2">Как это работает</button>
+        <button class="btn btn-primary" id="bookBtn" data-tenant="primary-cta">Забронировать</button>
+        <button class="btn btn-secondary" id="bookBtn2" data-tenant="secondary-cta" data-feature="how-it-works">Как это работает</button>
 
       </div>
       <ul class="features"> 
@@ -86,9 +94,8 @@
 
         <div class="hero-gallery" style="background-image: url('/src/assets/right.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
   </section>
-  </section>
 
-  <section class="how-it-works">
+  <section class="how-it-works" data-feature="how-it-works">
   <h2 class="section-title">Как забронировать столик?</h2>
 
   <div class="steps">
@@ -368,7 +375,7 @@
   <div class="footer-top">
     <div class="footer-brand">
       <div class="logo">BRON</div>
-      <p class="footer-tagline">Бронирование столиков за 30 секунд</p>
+      <p class="footer-tagline" data-tenant="footer-tagline">Бронирование столиков за 30 секунд</p>
     </div>
 
     <div class="footer-col">
@@ -423,10 +430,11 @@
     </div>
   </div>
 
-  <div class="footer-bottom">
+  <div class="footer-bottom" data-tenant="footer-copyright">
     © 2026 BRON. Все права защищены.
   </div>
 </footer>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

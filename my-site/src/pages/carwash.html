@@ -1,0 +1,100 @@
+<header class="site-header">
+  <a class="logo carwash-logo" href="#" aria-label="Главная">BRON</a>
+  <nav class="nav" id="carwash-nav" aria-label="Основная навигация">
+    <a href="#" class="nav-link active">Главная</a>
+    <a href="#reservation" class="nav-link">Записаться</a>
+    <a href="#services" class="nav-link">Услуги</a>
+    <a href="#contacts" class="nav-link">Контакты</a>
+  </nav>
+  <button class="nav-toggle" id="navtoggle" type="button" aria-label="Открыть меню" aria-controls="carwash-nav" aria-expanded="false">☰</button>
+</header>
+
+<main>
+  <section class="hero carwash-hero">
+    <div class="hero-content">
+      <p class="carwash-eyebrow" data-tenant="hero-eyebrow">автомойка</p>
+      <h1 class="hero-title"><span data-tenant="hero-title">Запишитесь на мойку</span><br><span class="accent" data-tenant="hero-accent"></span></h1>
+      <p class="hero-text" data-tenant="hero-description">Выберите услугу и удобное время. Мы будем ждать ваш автомобиль.</p>
+      <div class="cta-group">
+        <a class="btn btn-primary" href="#reservation" data-tenant="primary-cta">Записаться</a>
+        <a class="btn btn-secondary" href="#how-it-works" data-tenant="secondary-cta" data-feature="how-it-works">Как это работает</a>
+      </div>
+      <ul class="features">
+        <li><span class="dot"></span>Онлайн-запись</li>
+        <li><span class="dot"></span>В удобное время</li>
+      </ul>
+    </div>
+    <div class="hero-gallery carwash-visual" data-tenant="hero-image">
+      <div class="carwash-visual-label">CAR CARE / ONLINE BOOKING</div>
+      <svg class="carwash-car" viewBox="0 0 600 400" fill="none" aria-hidden="true">
+        <defs>
+          <linearGradient id="car-body" x1="130" y1="155" x2="440" y2="325" gradientUnits="userSpaceOnUse"><stop stop-color="#d9e9ef"/><stop offset=".45" stop-color="#789aa9"/><stop offset="1" stop-color="#243c51"/></linearGradient>
+          <linearGradient id="car-glass" x1="240" y1="125" x2="355" y2="222" gradientUnits="userSpaceOnUse"><stop stop-color="#172c41"/><stop offset="1" stop-color="#36586e"/></linearGradient>
+        </defs>
+        <ellipse cx="303" cy="330" rx="218" ry="25" fill="#050b14" opacity=".6"/>
+        <path d="M103 244 138 222 184 157Q198 139 228 139H368Q391 139 408 161L453 222 484 244 496 298Q494 314 477 314H122Q102 314 101 296Z" fill="url(#car-body)" stroke="#c2dce6" stroke-width="2"/>
+        <path d="M199 159H368Q379 159 386 170L416 219H165L194 170Z" fill="url(#car-glass)" stroke="#a0bfce" stroke-width="2"/>
+        <path d="m143 239 116 11m194-11-116 11" stroke="#e1f8ff" stroke-width="9" stroke-linecap="round"/>
+        <path d="M212 278h173l-10 22H225Z" fill="#122435"/><path d="M261 284h72" stroke="#a4c6d8" stroke-width="3"/>
+        <path d="m137 265 37 4-3 24h-38Zm321 0-37 4 3 24h38Z" fill="#1a3144"/>
+        <path d="M121 314v14q0 10 10 10h27q10 0 10-10v-14m262 0v14q0 10 10 10h27q10 0 10-10v-14" fill="#0a1521"/>
+        <path d="m123 212 25 6m288 0 26-6" stroke="#94b5c4" stroke-width="11" stroke-linecap="round"/>
+        <path d="M123 100v30m-15-15h30m319-47v38m-19-19h38M486 167v22m-11-11h22" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+        <path d="m251 63-9 17m105 4-8 16m-161-2-8 17" stroke="currentColor" stroke-width="4" stroke-linecap="round" opacity=".45"/>
+      </svg>
+      <div class="carwash-visual-caption"><span class="dot"></span><span data-tenant="display-name">Автомойка</span></div>
+    </div>
+  </section>
+
+  <section class="how-it-works" id="how-it-works" data-feature="how-it-works">
+    <h2 class="section-title">Как записаться на мойку?</h2>
+    <div class="steps">
+      <div class="step"><div class="step-icon carwash-step-number">01</div><h3 class="step-title">Выберите услугу</h3><p class="step-text">Укажите тип мойки и гос. номер автомобиля</p></div>
+      <div class="step"><div class="step-icon carwash-step-number">02</div><h3 class="step-title">Выберите время</h3><p class="step-text">Удобная дата и время в пределах часов работы</p></div>
+      <div class="step"><div class="step-icon carwash-step-number">03</div><h3 class="step-title">Приезжайте на мойку</h3><p class="step-text">Отправьте запись и получите подтверждение на странице</p></div>
+    </div>
+  </section>
+
+  <section class="carwash-services" id="services">
+    <h2 class="section-title">Услуги автомойки</h2>
+    <div class="carwash-service-list" data-carwash="services"></div>
+  </section>
+
+  <section class="reservation" id="reservation">
+    <h2 class="section-title reservation-title">Запишитесь на мойку</h2>
+    <p class="reservation-hours">Время работы: <time data-carwash="start-time">—</time>–<time data-carwash="end-time">—</time></p>
+    <form class="reservation-form carwash-form" data-carwash="form">
+      <fieldset class="booking-step">
+        <legend class="booking-step-heading"><span class="booking-step-number">1</span>Услуга и автомобиль</legend>
+        <div class="field"><label for="wash-service" data-carwash="service-label">Тип мойки</label><select id="wash-service" name="washServiceType" data-carwash="service" required></select></div>
+        <div class="field"><label for="wash-plate" data-carwash="plate-label">Гос. номер</label><input id="wash-plate" name="plateNumber" data-carwash="plate" placeholder="A123BC" autocapitalize="characters" maxlength="20" required></div>
+      </fieldset>
+      <fieldset class="booking-step">
+        <legend class="booking-step-heading"><span class="booking-step-number">2</span>Дата и время</legend>
+        <div class="field"><label for="wash-date">Дата записи</label><input type="date" id="wash-date" data-carwash="date" required></div>
+        <div class="time-options" data-carwash="times" role="group" aria-label="Время записи"></div>
+        <p class="slot-status" data-carwash="slot-status" role="status" aria-live="polite"></p>
+        <p class="field-hint">Время указано по Казахстану.</p>
+        <input type="hidden" name="scheduledAt" data-carwash="scheduled-at">
+      </fieldset>
+      <fieldset class="booking-step">
+        <legend class="booking-step-heading"><span class="booking-step-number">3</span>Контактные данные</legend>
+        <div class="field"><label for="wash-name">Имя <span class="field-hint">(необязательно)</span></label><input id="wash-name" name="customerName" data-carwash="name" autocomplete="name" placeholder="Как к вам обращаться?"></div>
+        <div class="field"><label for="wash-phone">Номер телефона</label><input type="tel" id="wash-phone" name="customerPhone" data-carwash="phone" placeholder="+7 700 000 00 00" autocomplete="tel" required></div>
+        <label class="carwash-reminder" data-feature="reminder" hidden><input type="checkbox" data-carwash="remind">Напомнить за час до записи</label>
+      </fieldset>
+      <button class="btn btn-primary btn-block" type="submit" data-carwash="submit">Записаться</button>
+      <p class="reservation-status" data-carwash="status" role="status" aria-live="polite" hidden></p>
+    </form>
+  </section>
+</main>
+
+<footer class="site-footer" id="contacts">
+  <div class="footer-top">
+    <div class="footer-brand"><div class="logo">BRON</div><p class="footer-tagline" data-tenant="footer-tagline">Онлайн-запись на мойку</p></div>
+    <div class="footer-col"><h2 class="footer-heading">Навигация</h2><a href="#" class="footer-link">Главная</a><a href="#services" class="footer-link">Услуги</a><a href="#reservation" class="footer-link">Записаться</a></div>
+    <div class="footer-col"><h2 class="footer-heading">Контакты</h2><p class="footer-tagline" data-tenant="display-name"></p><a class="footer-link" data-tenant-link="phone" hidden>Позвонить</a><a class="footer-link" data-tenant-link="map" target="_blank" rel="noopener noreferrer" hidden>Мы на карте</a></div>
+    <div class="footer-col" data-feature="social" hidden><h2 class="footer-heading">Соцсети</h2><a class="footer-link" data-tenant-link="instagram" target="_blank" rel="noopener noreferrer" hidden>Instagram</a><a class="footer-link" data-tenant-link="whatsapp" target="_blank" rel="noopener noreferrer" hidden>WhatsApp</a><a class="footer-link" data-tenant-link="threads" target="_blank" rel="noopener noreferrer" hidden>Threads</a></div>
+  </div>
+  <div class="footer-bottom" data-tenant="footer-copyright">© 2026 BRON.</div>
+</footer>
