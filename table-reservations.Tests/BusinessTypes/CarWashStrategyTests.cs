@@ -18,7 +18,7 @@ public class CarWashStrategyTests
 
     private static ReservationInfo ValidRequest() => new()
     {
-        PlateNumber = "A123BC",
+        PlateNumber = "777GUW06",
         CustomerPhone = "+77010000000",
         WashServiceType = "Комплекс",
         ScheduledAt = FutureAt(9),

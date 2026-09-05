@@ -1707,6 +1707,11 @@ body {
 .carwash-progress { color: var(--muted); font-size: 13px; }
 .carwash-step-panel { min-height: 260px; }
 .carwash-form .step-back { align-self: center; }
+.carwash-service-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.carwash-service-option { min-height: 54px; padding: 12px; border: 1px solid var(--whiteborder); border-radius: 10px; background: var(--bg); color: var(--text); font: inherit; font-weight: 700; overflow-wrap: anywhere; cursor: pointer; }
+.carwash-service-option:hover { border-color: var(--accent); }
+.carwash-service-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.carwash-service-option.active { border-color: var(--accent); background: var(--accent); color: #111; }
 .carwash-form .time-options { gap: 8px; }
 .carwash-form .time-option { min-height: 44px; padding: 8px; }
 .carwash-form .slot-status:empty { display: none; }
