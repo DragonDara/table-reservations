@@ -43,6 +43,17 @@ public async Task<IActionResult> GetTables([FromQuery] string? scheduledAt, Canc
     return Ok(tables);
 }
 
+        [HttpGet("slots")]
+        public async Task<IActionResult> GetSlots([FromQuery] string date, CancellationToken ct)
+        {
+            if (_tenant.BusinessType != BusinessType.Restaurant) return NotFound();
+            if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture,
+                System.Globalization.DateTimeStyles.None, out var day))
+                return BadRequest(new { message = "Укажите дату в формате yyyy-MM-dd." });
+            return Ok((await _reservations.GetAvailableSlotsAsync(day, ReservationDateTime.KazakhstanNow(), ct))
+                .Select(BookingRules.Wire));
+        }
+
         [HttpGet("{tableId}/availability")]
         public async Task<IActionResult> GetTableAvailability(
             int tableId,

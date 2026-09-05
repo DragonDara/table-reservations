@@ -2,6 +2,7 @@ import { getPublicTenantConfig } from '../api';
 import type { PublicTenantConfig } from './types';
 import { applyTenantTheme } from './theme';
 import { applyTenantContent } from './content';
+import carwashPage from '../pages/carwash.html?raw';
 
 // Orchestrates tenant startup: load public config, apply branding/content, and
 // toggle loading/unavailable states. Returns the resolved config so business
@@ -48,10 +49,20 @@ export async function bootstrapTenant(): Promise<PublicTenantConfig | null> {
   }
 
   try {
+    if (config.businessType !== 'Restaurant' && config.businessType !== 'CarWash') {
+      showUnavailable();
+      return null;
+    }
+    if (config.businessType === 'CarWash') {
+      const root = document.querySelector<HTMLElement>(APP_ROOT_SELECTOR);
+      if (root) root.innerHTML = carwashPage;
+    }
     applyTenantTheme(config);
     applyTenantContent(config);
   } catch (err) {
     console.error('Ошибка применения оформления организации', err);
+    showUnavailable();
+    return null;
   }
 
   showApp();

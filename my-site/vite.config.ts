@@ -9,7 +9,7 @@ export default defineConfig({
       // В dev фронт на :5173 проксирует /api на ASP.NET бэкенд
       '/api': {
         target: 'http://localhost:5183',
-        changeOrigin: true,
+        changeOrigin: false,
       },
     },
   },

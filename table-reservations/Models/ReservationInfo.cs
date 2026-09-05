@@ -6,6 +6,8 @@
         public string Section { get; set; } = string.Empty;
         public string? PlateNumber { get; set; }
         public string? WashServiceType { get; set; }
+        public string? VehicleCategoryId { get; set; }
+        public string[] ServiceIds { get; set; } = [];
 
         /// <summary>
         /// Если true — заменить актуальную бронь по этому номеру телефона.

@@ -1,445 +1,231 @@
 using System.Globalization;
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using table_reservations.Configuration;
 using table_reservations.Constants;
 using table_reservations.Data;
 using table_reservations.Models;
-using table_reservations.Services.BusinessTypes;
+using table_reservations.Models.Tenancy;
 using table_reservations.Services.Tenancy;
 
-namespace table_reservations.Services
+namespace table_reservations.Services;
+
+/// <summary>The existing database separates tenants by business table, not organization_id.</summary>
+public sealed class TursoReservationRepository(
+    ITursoClient db, TenantContext tenant, IOptions<TursoOptions> options) : IReservationRepository
 {
-    /// <summary>
-    /// Turso (libSQL) backed reservation store. Every statement is parameterized and
-    /// scoped to the current tenant via <c>organization_id</c>.
-    /// </summary>
-    public sealed class TursoReservationRepository : IReservationRepository
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+    private const string Active = "'pending','confirmed','in_progress'";
+    private bool IsCarWash => tenant.BusinessType == BusinessType.CarWash;
+    private BookingTimeOptions Hours => tenant.Organization!.BookingTime;
+    private void EnsureTenant(bool? carwash = null)
     {
-        // Sortable storage format so range predicates work directly in SQL.
-        private const string StorageFormat = "yyyy-MM-dd HH:mm:ss";
+        var expected = IsCarWash ? options.Value.CarWashOrganizationId : options.Value.RestaurantOrganizationId;
+        if (!string.Equals(tenant.OrganizationId, expected, StringComparison.OrdinalIgnoreCase) ||
+            (carwash.HasValue && IsCarWash != carwash.Value))
+            throw new BookingException("Хранилище этой организации не настроено.", 404);
+    }
 
-        private const string SelectColumns =
-            "id, organization_id, table_ids, customer_name, customer_phone, scheduled_at, status, " +
-            "remind_before_hour, reminder_sent, plate_number, wash_service_type, created_at";
+    public async Task<CarWashCatalog> GetCarWashCatalogAsync(CancellationToken ct = default)
+    {
+        EnsureTenant(true);
+        return await CatalogAsync(db, ct);
+    }
+    private async Task<CarWashCatalog> CatalogAsync(ITursoClient connection, CancellationToken ct)
+    {
+        var results = await connection.QueryBatchAsync([
+            new("SELECT id, name FROM vehicle_categories ORDER BY rowid"),
+            new("""
+                SELECT s.id, s.name, s.is_package, p.vehicle_category_id, p.price_minor, p.duration_minutes
+                FROM carwash_services s JOIN carwash_service_prices p ON p.service_id = s.id
+                WHERE s.is_active = 1 ORDER BY s.rowid
+                """),
+            new("SELECT package_service_id, included_service_id FROM carwash_package_items")
+        ], ct);
+        return new(
+            results[0].Rows.Select(r => new VehicleCategory(r.GetString("id"), r.GetString("name"))).ToArray(),
+            results[1].Rows.Select(r => new CarWashService(r.GetString("id"), r.GetString("name"), r.GetBoolean("is_package"),
+                r.GetString("vehicle_category_id"), PriceKzt(r.GetInt64("price_minor")),
+                r["duration_minutes"] is null ? null : r.GetInt32("duration_minutes"))).ToArray(),
+            results[2].Rows.Select(r => new PackageItem(r.GetString("package_service_id"), r.GetString("included_service_id"))).ToArray());
+    }
+    private long PriceKzt(long price)
+    {
+        if (!options.Value.CatalogPricesAreKzt && price % 100 != 0)
+            throw new BookingException("Цена должна быть указана в целых тенге.", 503);
+        return options.Value.CatalogPricesAreKzt ? price : price / 100;
+    }
 
-        private readonly ITursoClient _db;
-        private readonly TenantContext _tenant;
-        private readonly IBusinessTypeStrategyResolver _strategyResolver;
+    private sealed record Resource(string Id, string Name, string Type, int Capacity);
+    private sealed record Existing(string Id, string ResourceId, string Name, string Phone, string Plate, DateTime Start, DateTime End, bool Remind);
+    private sealed record State(IReadOnlyList<Resource> Resources, IReadOnlyList<Existing> Reservations);
+    private async Task<State> StateAsync(ITursoClient connection, bool carwash, CancellationToken ct)
+    {
+        var results = await connection.QueryBatchAsync([
+            new(carwash ? "SELECT id, name FROM carwash_boxes WHERE is_active = 1 ORDER BY id"
+                : "SELECT id, type, capacity FROM tables WHERE status = 'available' ORDER BY id"),
+            new(carwash
+                ? $"SELECT id, box_id AS resource_id, customer_name, customer_phone, plate_number, scheduled_at AS start_at, ends_at, 0 AS remind_before_hour FROM box_reservations WHERE status IN ({Active})"
+                : $"SELECT id, table_id AS resource_id, customer_name, customer_phone, '' AS plate_number, reserved_at AS start_at, datetime(reserved_at, '+3 hours') AS ends_at, remind_before_hour FROM table_reservations WHERE status IN ({Active})")
+        ], ct);
+        return new(
+            results[0].Rows.Select(r => new Resource(r.GetString("id"), r.GetString("name"), r.GetString("type"), r.GetInt32("capacity"))).ToArray(),
+            results[1].Rows.Select(r => new Existing(r.GetString("id"), r.GetString("resource_id"), r.GetString("customer_name"),
+                NormalizePhone(r.GetString("customer_phone")), r.GetString("plate_number").Trim().ToUpperInvariant(),
+                BookingRules.Read(r.GetString("start_at")), BookingRules.Read(r.GetString("ends_at")), r.GetBoolean("remind_before_hour"))).ToArray());
+    }
+    private static bool Free(State state, string resourceId, DateTime start, DateTime end, string? replacingPhone = null) =>
+        !state.Reservations.Any(r => r.ResourceId == resourceId && r.Phone != replacingPhone && BookingRules.Overlaps(start, end, r.Start, r.End));
 
-        public TursoReservationRepository(
-            ITursoClient db,
-            TenantContext tenant,
-            IBusinessTypeStrategyResolver strategyResolver)
+    public async Task<CarWashAvailability> GetCarWashAvailabilityAsync(DateOnly date, CarWashSelection selection, CancellationToken ct = default)
+    {
+        EnsureTenant(true);
+        var quote = BookingRules.Quote(await CatalogAsync(db, ct), selection.VehicleCategoryId, selection.ServiceIds, options.Value.DefaultCarWashMinutes);
+        var state = await StateAsync(db, true, ct);
+        var slots = BookingRules.Slots(date, Hours, ReservationDateTime.KazakhstanNow())
+            .Where(start => BookingRules.FitsHours(start, quote.DurationMinutes, Hours) &&
+                state.Resources.Any(box => Free(state, box.Id, start, start.AddMinutes(quote.DurationMinutes))))
+            .Select(BookingRules.Wire).ToArray();
+        return new(quote, slots);
+    }
+
+    public async Task<IReadOnlyList<DateTime>> GetAvailableSlotsAsync(DateOnly date, DateTime now, CancellationToken ct = default)
+    {
+        EnsureTenant(false);
+        var state = await StateAsync(db, false, ct);
+        return BookingRules.Slots(date, Hours, now)
+            .Where(start => state.Resources.Any(table => Free(state, table.Id, start, start.AddHours(ReservationDuration.Hours)))).ToArray();
+    }
+    public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default)
+    {
+        EnsureTenant(false);
+        var start = scheduledAt ?? ReservationDateTime.KazakhstanNow();
+        var end = start.AddHours(ReservationDuration.Hours);
+        var state = await StateAsync(db, false, ct);
+        return state.Resources.Select(resource =>
         {
-            _db = db;
-            _tenant = tenant;
-            _strategyResolver = strategyResolver;
-        }
+            var free = Free(state, resource.Id, start, end);
+            var next = state.Reservations.Where(r => r.ResourceId == resource.Id && r.Start >= end).OrderBy(r => r.Start).FirstOrDefault();
+            return new TableInfo {
+                Id = int.Parse(resource.Id, CultureInfo.InvariantCulture), Seats = resource.Capacity,
+                Type = resource.Type.Equals("VIP", StringComparison.OrdinalIgnoreCase) ? TableType.VIP : TableType.Обычный,
+                Status = !free ? TableStatuses.Occupied : next is null ? TableStatuses.Free : TableStatuses.Limited,
+                NextReservationHours = free && next is not null ? (next.Start - start).TotalHours : null
+            };
+        }).ToArray();
+    }
+    public async Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, CancellationToken ct = default)
+    {
+        EnsureTenant(false);
+        var state = await StateAsync(db, false, ct);
+        return !state.Resources.Any(r => r.Id == tableId) || !Free(state, tableId, scheduledAt, scheduledAt.AddHours(ReservationDuration.Hours));
+    }
 
-        private string OrganizationId => _tenant.OrganizationId;
-
-        private IBusinessTypeStrategy Strategy => _strategyResolver.Resolve(_tenant.BusinessType);
-
-        public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(
-            DateTime? scheduledAt = null,
-            CancellationToken ct = default)
+    public async Task<BookingResult> BookAsync(ReservationInfo request, DateTime scheduledAt, CancellationToken ct = default)
+    {
+        EnsureTenant();
+        BookingRules.ValidateStart(scheduledAt, Hours, ReservationDateTime.KazakhstanNow());
+        var phone = NormalizePhone(request.CustomerPhone);
+        if (phone.Length is < 11 or > 16) throw new BookingException("Укажите полный номер телефона.");
+        request.CustomerPhone = phone;
+        // BEGIN IMMEDIATE serializes the complete read/check/write sequence across app instances.
+        return await db.TransactionAsync(async (connection, token) =>
         {
-            var slotStart = scheduledAt ?? ReservationDateTime.KazakhstanNow();
-            var slotEnd = slotStart.AddHours(ReservationDuration.Hours);
-
-            var tablesResult = await _db.QueryAsync(
-                "SELECT table_number, table_type, seats FROM tables WHERE organization_id = ? ORDER BY table_number",
-                new object?[] { OrganizationId },
-                ct);
-
-            var tables = new List<TableInfo>(tablesResult.Rows.Count);
-            foreach (var row in tablesResult.Rows)
+            var carwash = IsCarWash;
+            var quote = carwash ? BookingRules.Quote(await CatalogAsync(connection, token),
+                request.VehicleCategoryId ?? "", request.ServiceIds ?? [], options.Value.DefaultCarWashMinutes) : null;
+            var duration = quote?.DurationMinutes ?? ReservationDuration.Hours * 60;
+            var end = scheduledAt.AddMinutes(duration);
+            if (carwash && !BookingRules.FitsHours(scheduledAt, duration, Hours))
+                throw new BookingException("Для выбранных услуг недостаточно времени до закрытия.");
+            var state = await StateAsync(connection, carwash, token);
+            var previous = state.Reservations.Where(r => r.Phone == phone && r.End > ReservationDateTime.KazakhstanNow()).OrderBy(r => r.Start).ToArray();
+            if (previous.Length > 0 && !request.Overwrite)
             {
-                var id = row.GetInt32("table_number");
-                if (id <= 0)
+                var first = previous[0];
+                throw new BookingException("У вас уже есть актуальная запись. Заменить её?", 409, "EXISTING_RESERVATION",
+                    new ActiveReservationInfo { Id = first.Id, CustomerName = first.Name, CustomerPhone = phone,
+                        TablesId = carwash ? "" : first.ResourceId, ScheduledAt = BookingRules.Wire(first.Start), ScheduledAtValue = first.Start });
+            }
+            var replacingPhone = request.Overwrite ? phone : null;
+            string[] resourceIds;
+            if (carwash)
+            {
+                var plate = request.PlateNumber?.Trim().ToUpperInvariant() ?? "";
+                if (plate.Length is 0 or > 20) throw new BookingException("Укажите корректный гос. номер.");
+                if (state.Reservations.Any(r => r.Plate == plate && r.Phone != replacingPhone && BookingRules.Overlaps(scheduledAt, end, r.Start, r.End)))
+                    throw new BookingException("Автомобиль уже записан на это время.", 409, "SLOT_TAKEN");
+                var box = state.Resources.FirstOrDefault(r => Free(state, r.Id, scheduledAt, end, replacingPhone))
+                    ?? throw new BookingException("На это время свободных боксов уже нет.", 409, "SLOT_TAKEN");
+                resourceIds = [box.Id];
+                request.PlateNumber = plate;
+                request.WashServiceType = string.Join(", ", quote!.Services.Select(s => s.Name));
+            }
+            else
+            {
+                if (!BusinessTypes.RestaurantStrategy.TryParseTableIds(request.TablesId, out var ids) || ids.Length == 0 || ids.Distinct().Count() != ids.Length)
+                    throw new BookingException("Некорректные номера столиков.");
+                resourceIds = ids.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToArray();
+                if (resourceIds.Any(id => !state.Resources.Any(r => r.Id == id) || !Free(state, id, scheduledAt, end, replacingPhone)))
+                    throw new BookingException("Столик уже занят. Выберите другое время.", 409, "TABLE_TAKEN");
+            }
+            var statements = new List<TursoStatement>();
+            foreach (var old in previous)
+                statements.Add(new($"UPDATE {(carwash ? "box_reservations" : "table_reservations")} SET status = 'cancelled' WHERE id = ?", [old.Id]));
+            var reservationId = Guid.NewGuid().ToString();
+            for (var i = 0; i < resourceIds.Length; i++)
+            {
+                var id = i == 0 ? reservationId : Guid.NewGuid().ToString();
+                if (carwash)
                 {
-                    continue;
+                    statements.Add(new("""
+                        INSERT INTO box_reservations
+                        (id,box_id,vehicle_category_id,plate_number,customer_phone,customer_name,scheduled_at,ends_at,status,total_minor,services_json)
+                        VALUES (?,?,?,?,?,?,?,?,'confirmed',?,?)
+                        """, [id, resourceIds[i], request.VehicleCategoryId, request.PlateNumber, phone, request.CustomerName.Trim(),
+                            BookingRules.Store(scheduledAt), BookingRules.Store(end), checked(quote!.TotalKzt * 100),
+                            JsonSerializer.Serialize(quote.Services.Select(s => s.Id).ToArray(), JsonOptions)]));
                 }
-
-                tables.Add(new TableInfo
-                {
-                    Id = id,
-                    Type = ParseTableType(row.GetString("table_type")),
-                    Seats = row.GetInt32("seats"),
-                    Status = TableStatuses.Free
-                });
+                else statements.Add(new("""
+                    INSERT INTO table_reservations (id,table_id,customer_name,customer_phone,reserved_at,status,remind_before_hour)
+                    VALUES (?,?,?,?,?,'confirmed',?)
+                    """, [id, int.Parse(resourceIds[i], CultureInfo.InvariantCulture), request.CustomerName.Trim(), phone,
+                        BookingRules.Store(scheduledAt), request.RemindBeforeHour]));
             }
+            await connection.QueryBatchAsync(statements, token);
+            return new BookingResult(reservationId, previous.Length > 0, carwash ? resourceIds[0] : null, quote?.TotalKzt, quote?.DurationMinutes);
+        }, ct);
+    }
 
-            if (tables.Count == 0)
-            {
-                return tables;
-            }
+    public async Task<IReadOnlyList<ReminderCandidate>> GetReminderCandidatesAsync(CancellationToken ct = default)
+    {
+        EnsureTenant();
+        if (IsCarWash) return []; // This schema/tenant does not enable customer reminders for car washes.
+        var now = ReservationDateTime.KazakhstanNow();
+        var result = await db.QueryAsync("""
+            SELECT r.id,r.table_id,r.customer_name,r.customer_phone,r.reserved_at
+            FROM table_reservations r
+            LEFT JOIN reservation_reminders m ON m.reservation_id = r.id
+            WHERE r.remind_before_hour = 1 AND r.status IN ('pending','confirmed')
+              AND m.reservation_id IS NULL AND r.reserved_at > ? AND r.reserved_at <= ?
+            """, [BookingRules.Store(now), BookingRules.Store(now.AddHours(1))], ct);
+        return result.Rows.Select(r => new ReminderCandidate {
+            Id = r.GetString("id"), RemindBeforeHour = true,
+            Reservation = new ReservationInfo { TablesId = r.GetString("table_id"), CustomerName = r.GetString("customer_name"),
+                CustomerPhone = r.GetString("customer_phone"), ScheduledAt = BookingRules.Wire(BookingRules.Read(r.GetString("reserved_at"))), RemindBeforeHour = true }
+        }).ToArray();
+    }
+    public async Task MarkReminderSentAsync(string reservationId, CancellationToken ct)
+    {
+        EnsureTenant(false);
+        await db.ExecuteAsync("INSERT OR IGNORE INTO reservation_reminders (reservation_id,sent_at) VALUES (?,CURRENT_TIMESTAMP)", [reservationId], ct);
+    }
 
-            // Only reservations that can still overlap or follow the requested slot.
-            var reservations = await LoadAsync(
-                "scheduled_at >= ?",
-                new object?[] { Format(slotStart.AddHours(-ReservationDuration.Hours)) },
-                ct);
-
-            foreach (var table in tables)
-            {
-                DateTime? nextStart = null;
-                var isOccupied = false;
-
-                foreach (var reservation in reservations)
-                {
-                    if (!TryParseTableIds(reservation.TableIds, out var reservationTableIds) ||
-                        !reservationTableIds.Contains(table.Id))
-                    {
-                        continue;
-                    }
-
-                    var reservationStart = reservation.ScheduledAt;
-                    var reservationEnd = reservationStart.AddHours(ReservationDuration.Hours);
-
-                    if (reservationStart < slotEnd && reservationEnd > slotStart)
-                    {
-                        isOccupied = true;
-                        break;
-                    }
-
-                    if (reservationStart >= slotEnd && (nextStart is null || reservationStart < nextStart.Value))
-                    {
-                        nextStart = reservationStart;
-                    }
-                }
-
-                if (isOccupied)
-                {
-                    table.Status = TableStatuses.Occupied;
-                    table.NextReservationHours = null;
-                }
-                else if (nextStart is not null)
-                {
-                    table.NextReservationHours = Math.Round((nextStart.Value - slotStart).TotalHours, 2);
-                    table.Status = TableStatuses.Limited;
-                }
-                else
-                {
-                    table.Status = TableStatuses.Free;
-                    table.NextReservationHours = null;
-                }
-            }
-
-            return tables;
-        }
-
-        public async Task<bool> IsReservationTakenAsync(
-            string tableId,
-            DateTime scheduledAt,
-            long? excludeReservationId = null,
-            CancellationToken ct = default)
-        {
-            if (!TryParseTableIds(tableId, out var requestedIds))
-            {
-                return false;
-            }
-
-            var slotEnd = scheduledAt.AddHours(ReservationDuration.Hours);
-            var overlapping = await LoadOverlappingAsync(scheduledAt, slotEnd, excludeReservationId, ct);
-
-            foreach (var reservation in overlapping)
-            {
-                if (TryParseTableIds(reservation.TableIds, out var existingIds) &&
-                    existingIds.Intersect(requestedIds).Any())
-                {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        public async Task<bool> HasConflictAsync(
-            ReservationInfo reservation,
-            DateTime scheduledAt,
-            long? excludeReservationId = null,
-            CancellationToken ct = default)
-        {
-            var strategy = Strategy;
-            var slotEnd = scheduledAt.AddHours(ReservationDuration.Hours);
-            var candidates = await LoadOverlappingAsync(scheduledAt, slotEnd, excludeReservationId, ct);
-
-            return candidates.Any(existing => strategy.HasConflict(reservation, scheduledAt, existing));
-        }
-
-        public async Task<bool> IsPhoneAlreadyReservedAsync(string customerPhone, CancellationToken ct = default)
-        {
-            if (string.IsNullOrWhiteSpace(customerPhone))
-            {
-                return false;
-            }
-
-            var result = await _db.QueryAsync(
-                "SELECT COUNT(1) AS total FROM reservations WHERE organization_id = ? AND customer_phone = ?",
-                new object?[] { OrganizationId, customerPhone.Trim() },
-                ct);
-
-            return result.Rows.Count > 0 && result.Rows[0].GetInt64("total") > 0;
-        }
-
-        public async Task<bool> HasReservationForPhoneAsync(
-            string customerPhone,
-            DateTime scheduledAt,
-            CancellationToken ct = default)
-        {
-            if (string.IsNullOrWhiteSpace(customerPhone))
-            {
-                return false;
-            }
-
-            var slotEnd = scheduledAt.AddHours(ReservationDuration.Hours);
-
-            var result = await _db.QueryAsync(
-                """
-                SELECT COUNT(1) AS total
-                FROM reservations
-                WHERE organization_id = ?
-                  AND customer_phone = ?
-                  AND scheduled_at < ?
-                  AND datetime(scheduled_at, ?) > ?
-                """,
-                new object?[]
-                {
-                    OrganizationId,
-                    customerPhone.Trim(),
-                    Format(slotEnd),
-                    DurationModifier,
-                    Format(scheduledAt)
-                },
-                ct);
-
-            return result.Rows.Count > 0 && result.Rows[0].GetInt64("total") > 0;
-        }
-
-        public async Task<ActiveReservationInfo?> FindActiveReservationByPhoneAsync(
-            string customerPhone,
-            CancellationToken ct = default)
-        {
-            var all = await FindAllActiveReservationsByPhoneAsync(customerPhone, ct);
-            return all.OrderBy(r => r.ScheduledAtValue).FirstOrDefault();
-        }
-
-        public async Task<IReadOnlyList<ActiveReservationInfo>> FindAllActiveReservationsByPhoneAsync(
-            string customerPhone,
-            CancellationToken ct = default)
-        {
-            if (string.IsNullOrWhiteSpace(customerPhone))
-            {
-                return Array.Empty<ActiveReservationInfo>();
-            }
-
-            var now = ReservationDateTime.KazakhstanNow();
-
-            var records = await LoadAsync(
-                "customer_phone = ? AND datetime(scheduled_at, ?) > ?",
-                new object?[] { customerPhone.Trim(), DurationModifier, Format(now) },
-                ct);
-
-            return records
-                .Select(record => new ActiveReservationInfo
-                {
-                    Id = record.Id,
-                    TablesId = record.TableIds,
-                    CustomerName = record.CustomerName,
-                    CustomerPhone = record.CustomerPhone,
-                    ScheduledAt = record.ScheduledAt.ToString(ReservationDateTime.Format),
-                    ScheduledAtValue = record.ScheduledAt
-                })
-                .OrderBy(r => r.ScheduledAtValue)
-                .ToList();
-        }
-
-        public async Task<long> AppendReservationAsync(
-            ReservationInfo reservation,
-            DateTime scheduledAt,
-            CancellationToken ct = default)
-        {
-            var record = Strategy.BuildRecord(reservation, scheduledAt);
-
-            var result = await _db.QueryAsync(
-                """
-                INSERT INTO reservations
-                    (organization_id, table_ids, customer_name, customer_phone, scheduled_at, status,
-                     remind_before_hour, reminder_sent, plate_number, wash_service_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-                """,
-                new object?[]
-                {
-                    OrganizationId,
-                    record.TableIds,
-                    record.CustomerName,
-                    record.CustomerPhone,
-                    Format(record.ScheduledAt),
-                    record.Status,
-                    record.RemindBeforeHour,
-                    record.PlateNumber,
-                    record.WashServiceType
-                },
-                ct);
-
-            return result.LastInsertRowId;
-        }
-
-        public async Task OverwriteReservationAsync(
-            long reservationId,
-            ReservationInfo reservation,
-            DateTime scheduledAt,
-            CancellationToken ct = default)
-        {
-            var record = Strategy.BuildRecord(reservation, scheduledAt);
-
-            await _db.ExecuteAsync(
-                """
-                UPDATE reservations
-                SET table_ids = ?,
-                    customer_name = ?,
-                    customer_phone = ?,
-                    scheduled_at = ?,
-                    status = ?,
-                    remind_before_hour = ?,
-                    reminder_sent = 0,
-                    plate_number = ?,
-                    wash_service_type = ?
-                WHERE id = ? AND organization_id = ?
-                """,
-                new object?[]
-                {
-                    record.TableIds,
-                    record.CustomerName,
-                    record.CustomerPhone,
-                    Format(record.ScheduledAt),
-                    record.Status,
-                    record.RemindBeforeHour,
-                    record.PlateNumber,
-                    record.WashServiceType,
-                    reservationId,
-                    OrganizationId
-                },
-                ct);
-        }
-
-        public Task DeleteReservationAsync(long reservationId, CancellationToken ct = default) =>
-            _db.ExecuteAsync(
-                "DELETE FROM reservations WHERE id = ? AND organization_id = ?",
-                new object?[] { reservationId, OrganizationId },
-                ct);
-
-        public Task MarkReminderSentAsync(long reservationId, CancellationToken ct) =>
-            _db.ExecuteAsync(
-                "UPDATE reservations SET reminder_sent = 1 WHERE id = ? AND organization_id = ?",
-                new object?[] { reservationId, OrganizationId },
-                ct);
-
-        public async Task<IReadOnlyList<ReminderCandidate>> GetReminderCandidatesAsync(CancellationToken ct = default)
-        {
-            var strategy = Strategy;
-            var records = await LoadAsync("remind_before_hour = 1 AND reminder_sent = 0", null, ct);
-
-            var result = new List<ReminderCandidate>(records.Count);
-            foreach (var record in records)
-            {
-                var candidate = strategy.MapReminderCandidate(record);
-                if (candidate is not null)
-                {
-                    result.Add(candidate);
-                }
-            }
-
-            return result;
-        }
-
-        public bool TryParseTableIds(string value, out int[] ids) =>
-            RestaurantStrategy.TryParseTableIds(value, out ids);
-
-        private static string DurationModifier => $"+{ReservationDuration.Hours} hours";
-
-        private async Task<IReadOnlyList<ReservationRecord>> LoadOverlappingAsync(
-            DateTime slotStart,
-            DateTime slotEnd,
-            long? excludeReservationId,
-            CancellationToken ct)
-        {
-            var predicate = "scheduled_at < ? AND datetime(scheduled_at, ?) > ?";
-            var args = new List<object?> { Format(slotEnd), DurationModifier, Format(slotStart) };
-
-            if (excludeReservationId.HasValue)
-            {
-                predicate += " AND id <> ?";
-                args.Add(excludeReservationId.Value);
-            }
-
-            return await LoadAsync(predicate, args, ct);
-        }
-
-        private async Task<IReadOnlyList<ReservationRecord>> LoadAsync(
-            string? predicate,
-            IReadOnlyList<object?>? predicateArgs,
-            CancellationToken ct)
-        {
-            var args = new List<object?> { OrganizationId };
-            if (predicateArgs is not null)
-            {
-                args.AddRange(predicateArgs);
-            }
-
-            var sql = $"SELECT {SelectColumns} FROM reservations WHERE organization_id = ?";
-            if (!string.IsNullOrWhiteSpace(predicate))
-            {
-                sql += $" AND ({predicate})";
-            }
-
-            sql += " ORDER BY scheduled_at";
-
-            var result = await _db.QueryAsync(sql, args, ct);
-
-            var records = new List<ReservationRecord>(result.Rows.Count);
-            foreach (var row in result.Rows)
-            {
-                records.Add(new ReservationRecord
-                {
-                    Id = row.GetInt64("id"),
-                    OrganizationId = row.GetString("organization_id"),
-                    TableIds = row.GetString("table_ids"),
-                    CustomerName = row.GetString("customer_name"),
-                    CustomerPhone = row.GetString("customer_phone"),
-                    ScheduledAt = ParseStorageDate(row.GetString("scheduled_at")),
-                    Status = row.GetString("status"),
-                    RemindBeforeHour = row.GetBoolean("remind_before_hour"),
-                    ReminderSent = row.GetBoolean("reminder_sent"),
-                    PlateNumber = row.GetString("plate_number"),
-                    WashServiceType = row.GetString("wash_service_type"),
-                    CreatedAt = ParseStorageDate(row.GetString("created_at"))
-                });
-            }
-
-            return records;
-        }
-
-        internal static string Format(DateTime value) =>
-            value.ToString(StorageFormat, CultureInfo.InvariantCulture);
-
-        internal static DateTime ParseStorageDate(string value)
-        {
-            if (DateTime.TryParseExact(
-                    value,
-                    new[] { StorageFormat, "yyyy-MM-dd HH:mm", "yyyy-MM-ddTHH:mm:ss" },
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.None,
-                    out var parsed))
-            {
-                return parsed;
-            }
-
-            return ReservationDateTime.TryParse(value, out var legacy) ? legacy : default;
-        }
-
-        private static TableType ParseTableType(string value) =>
-            string.Equals(value?.Trim(), "VIP", StringComparison.OrdinalIgnoreCase)
-                ? TableType.VIP
-                : TableType.Обычный;
+    public static string NormalizePhone(string phone)
+    {
+        var digits = new string(phone.Where(char.IsAsciiDigit).ToArray());
+        if (digits.Length == 10) digits = "7" + digits;
+        if (digits.Length == 11 && digits[0] == '8') digits = "7" + digits[1..];
+        return "+" + digits;
     }
 }

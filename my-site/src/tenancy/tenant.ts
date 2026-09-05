@@ -1,16 +1,36 @@
 // Tenant identity resolution for the frontend.
 //
-// Production: the tenant is resolved by the backend from the request host
-// (subdomain), so no explicit organization id is required.
+// Production tenant domains are resolved by the backend from the request host.
+// A shared production host can instead use the explicit organization fallback.
 //
 // Local development / shared-host: there is no tenant subdomain, so we allow an
 // explicit organization id via (in priority order):
-//   1. `?org=` / `?organizationId=` query parameter (also persisted to storage)
-//   2. `localStorage["organizationId"]`
-//   3. Vite env `VITE_ORGANIZATION_ID`
+//   1. Explicit tenant path (`/lounge`, `/carwash`, or organization id)
+//   2. `?org=` / `?organizationId=` query parameter (also persisted to storage)
+//   3. `localStorage["organizationId"]`
+//   4. Vite env `VITE_ORGANIZATION_ID`
 // The resolved id is sent as the `X-Organization-Id` header by api.ts.
 
 const STORAGE_KEY = 'organizationId';
+
+// Stable URLs override a previous visit's stored tenant and query fallback.
+// The API's tenant hostname remains authoritative.
+const ORGANIZATION_ROUTES: Record<string, string> = {
+  lounge: 'thetochka',
+  thetochka: 'thetochka',
+  carwash: 'thetochka-carwasher',
+  'thetochka-carwasher': 'thetochka-carwasher',
+};
+
+function fromPath(): string | null {
+  const path = window.location.pathname.replace(/^\/+|\/+$/g, '').toLowerCase();
+  // Object.hasOwn is unavailable in older iOS Safari and some embedded mobile
+  // webviews. Keep tenant selection compatible because this runs before the
+  // query-string fallback.
+  return Object.prototype.hasOwnProperty.call(ORGANIZATION_ROUTES, path)
+    ? ORGANIZATION_ROUTES[path]
+    : null;
+}
 
 function isLocalDevelopmentHost(): boolean {
   return import.meta.env.DEV
@@ -62,10 +82,21 @@ function fromEnv(): string | null {
 
 /**
  * Returns an explicit organization id for local/shared-host scenarios, or null
- * when the backend should resolve the tenant from the host (production).
+ * when the backend should resolve the tenant from the host.
  */
 export function resolveOrganizationIdFallback(): string | null {
-  const organizationId = fromQuery() ?? fromStorage() ?? fromEnv();
+  const routeOrganization = fromPath();
+  if (routeOrganization) return routeOrganization;
+  const queryOrganization = fromQuery();
+  if (queryOrganization) return queryOrganization;
+
+  // The production root URL is a public entry point for The Tochka. Do not let
+  // a previously visited tenant in localStorage silently change that URL's
+  // organization; explicit paths and query parameters above still win.
+  const environmentOrganization = fromEnv();
+  const organizationId = import.meta.env.PROD && environmentOrganization
+    ? environmentOrganization
+    : fromStorage() ?? environmentOrganization;
   if (organizationId) {
     reflectOrganizationInLocalUrl(organizationId);
   }

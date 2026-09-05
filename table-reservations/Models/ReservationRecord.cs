@@ -6,7 +6,7 @@ namespace table_reservations.Models
     /// </summary>
     public sealed class ReservationRecord
     {
-        public long Id { get; set; }
+        public string Id { get; set; } = string.Empty;
         public string OrganizationId { get; set; } = string.Empty;
         public string TableIds { get; set; } = string.Empty;
         public string CustomerName { get; set; } = string.Empty;

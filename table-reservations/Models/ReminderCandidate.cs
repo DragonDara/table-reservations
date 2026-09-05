@@ -2,7 +2,7 @@
 {
     public sealed class ReminderCandidate
     {
-        public long Id { get; init; }
+        public string Id { get; init; } = string.Empty;
         public ReservationInfo Reservation { get; init; } = new();
         public bool RemindBeforeHour { get; init; }
         public bool ReminderSent { get; init; }

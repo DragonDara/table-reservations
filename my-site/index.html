@@ -1,14 +1,13 @@
 <!doctype html>
-<html lang="en">
+<html lang="ru">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>bron-web</title>
+    <title>BRON — онлайн-запись</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -21,6 +20,14 @@
 
 
   <body> 
+    <div class="tenant-state" data-app-state="loading" role="status">Загружаем страницу…</div>
+    <div class="tenant-state" data-app-state="unavailable" role="alert" hidden>
+      <h1>Страница временно недоступна</h1>
+      <p>Не удалось загрузить организацию. Попробуйте обновить страницу.</p>
+      <button class="btn btn-primary" type="button" onclick="window.location.reload()">Повторить</button>
+    </div>
+    <noscript>Для онлайн-записи включите JavaScript в браузере.</noscript>
+    <div data-app-root hidden>
 
     <svg style="display:none">
   <symbol id="chair-icon" viewBox="0 0 33 26">
@@ -35,7 +42,7 @@
       <nav class="nav">
         <a href="#" class="nav-link active">Главная</a>
         <a href="#reservation" class="nav-link">Забронировать</a>
-        <a href="https://thetochka.qrmenu.bron.cafe/" class="nav-link">Меню</a>
+        <a href="https://thetochka.qrmenu.bron.cafe/" class="nav-link" data-feature="menu-link" data-tenant-link="menu">Меню</a>
         <a href="#foter" class="nav-link">Контакты</a>
         <button class="navtoggle" id=""></button>
       </nav>
@@ -64,10 +71,10 @@
       </p>
 
       <h1 class="hero-title">
-        Забронируйте столик <br/> в <span class="accent">The Tochka</span>
+        <span data-tenant="hero-title">Забронируйте столик</span> <br/> в <span class="accent" data-tenant="hero-accent">The Tochka</span>
       </h1>
 
-      <p class="hero-text">
+      <p class="hero-text" data-tenant="hero-description">
         Легкое и удобное бронирование столиков на комфортное для вас время.
         Быстро и наглядно.
 
@@ -75,8 +82,8 @@
 
 
       <div class="cta-group">
-        <button class="btn btn-primary" id="bookBtn">Забронировать</button>
-        <button class="btn btn-secondary" id="bookBtn2">Как это работает</button>
+        <button class="btn btn-primary" id="bookBtn" data-tenant="primary-cta">Забронировать</button>
+        <button class="btn btn-secondary" id="bookBtn2" data-tenant="secondary-cta" data-feature="how-it-works">Как это работает</button>
 
       </div>
       <ul class="features"> 
@@ -87,9 +94,8 @@
 
         <div class="hero-gallery" style="background-image: url('/src/assets/right.png'); background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
   </section>
-  </section>
 
-  <section class="how-it-works">
+  <section class="how-it-works" data-feature="how-it-works">
   <h2 class="section-title">Как забронировать столик?</h2>
 
   <div class="steps">
@@ -136,49 +142,70 @@
   </p>
 
   <form class="reservation-form" id="reservationForm">
-    <div class="field">
-      <label for="name">Имя</label>
-      <input type="text" id="name" name="name" placeholder="Мансур..." />
-    </div>
-
-    <div class="field">
-      <label for="phone">Номер телефона</label>
-      <input type="tel" id="phone" name="phone" placeholder="+7 700 (000) 00 00" inputmode="numeric"/>
-      <span class="field-hint">На этот номер придёт подтверждение брони</span>
-    </div>
-
-    <div class="field">
-      <span class="field-label" id="datetimeLabel">Дата и время</span>
-      <div class="datetime-fields" role="group" aria-labelledby="datetimeLabel">
-        <label class="datetime-field" for="reservationDate">
-          <span>Дата</span>
-          <input type="date" id="reservationDate" required />
-        </label>
-        <label class="datetime-field" for="reservationTime">
-          <span>Время (24 ч)</span>
-          <select id="reservationTime" required disabled>
-            <option value="">Выберите время</option>
-          </select>
-        </label>
+    <div class="booking-step" id="dateStep">
+      <div class="booking-step-heading">
+        <span class="booking-step-number">1</span>
+        <span>Выберите дату</span>
       </div>
-      <input type="hidden" id="datetime" name="datetime" />
-      <span class="field-hint" id="bookingTimeHint">Доступное время зависит от организации</span>
+      <div class="date-options" id="dateOptions" role="group" aria-label="Дата бронирования"></div>
+      <button type="button" class="btn btn-primary btn-block" id="continueToTime" disabled>Далее</button>
     </div>
 
-    <div class="field">
-      <label>Столик</label>
+    <div class="booking-step" id="timeStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">2</span>
+        <span>Выберите время</span>
+      </div>
+      <div class="time-options" id="timeOptions" role="group" aria-label="Время бронирования"></div>
+      <p class="slot-status" id="slotStatus" role="status" aria-live="polite"></p>
+      <button type="button" class="btn btn-primary btn-block" id="continueToTable" disabled>Далее</button>
+      <button type="button" class="step-back" data-booking-back="date">← Изменить дату</button>
+      <input type="hidden" id="datetime" name="datetime" />
+    </div>
+
+    <div class="booking-step" id="tableStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">3</span>
+        <span>Выберите столик</span>
+      </div>
       <button type="button" class="table-picker" id="openTablePicker">
         <span class="table-picker-placeholder">Выбрать столик на карте</span>
         <span class="table-picker-selected" id="selectedTableBadge" hidden></span>
       </button>
+      <button type="button" class="btn btn-primary btn-block" id="continueToName" disabled>Далее</button>
+      <button type="button" class="step-back" data-booking-back="time">← Изменить время</button>
     </div>
 
-    <label class="checkbox-row">
-      <input type="checkbox" name="remind" />
-      Напомнить мне за час до брони
-    </label>
+    <div class="booking-step contact-step" id="nameStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">4</span>
+        <span>Как вас зовут?</span>
+      </div>
 
-    <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
+      <div class="field">
+        <label for="name">Имя</label>
+        <input type="text" id="name" name="name" placeholder="Мансур..." autocomplete="name" required />
+      </div>
+
+      <button type="button" class="btn btn-primary btn-block" id="continueToPhone">Далее</button>
+      <button type="button" class="step-back" data-booking-back="table">← Изменить столик</button>
+    </div>
+
+    <div class="booking-step contact-step" id="phoneStep" hidden>
+      <div class="booking-step-heading">
+        <span class="booking-step-number">5</span>
+        <span>Как с вами связаться?</span>
+      </div>
+
+      <div class="field">
+        <label for="phone">Номер телефона</label>
+        <input type="tel" id="phone" name="phone" placeholder="+7 700 (000) 00 00" inputmode="numeric" autocomplete="tel" required />
+        <span class="field-hint">На этот номер придёт подтверждение и напоминание за час</span>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
+      <button type="button" class="step-back" data-booking-back="name">← Изменить имя</button>
+    </div>
     <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
   </form>
 </section>
@@ -312,33 +339,14 @@
 </div>
     </div>
 
-    <aside class="table-sidebar">
-      <div class="sidebar-header">
-        <h3>Выберите столик</h3>
-        <div class="sidebar-header-actions">
-          <button type="button" class="sidebar-toggle" id="toggleSidebarBtn" aria-label="Свернуть панель" aria-expanded="true">▾</button>
-        </div>
-      </div>
-
-      <div class="selected-summary" id="selectedSummary" hidden>
-  <div class="selected-tables-list" id="selectedTablesList"></div>
-  <div class="selected-total-row">
-    <span class="selected-total" id="selectedTotal"></span>
-    <button type="button" class="clear-selection" id="clearSelectionBtn">Очистить всё</button>
-  </div>
-</div>
-
+    <div class="map-legend" aria-label="Обозначения карты">
       <div class="legend">
         <span class="legend-item"><span class="legend-dot legend-free"></span> Свободно</span>
         <span class="legend-item"><span class="legend-dot legend-selected"></span> Выбрано</span>
         <span class="legend-item"><span class="legend-dot legend-occupied"></span> Занято</span>
         <span class="legend-item"><span class="legend-dot legend-vip"></span> VIP</span>
       </div>
-
-      <div class="sidebar-footer">
-        <button type="button" class="btn btn-primary btn-block" id="confirmTableBtn" disabled>Подтвердить</button>
-      </div>
-    </aside>
+    </div>
   </div>
 </div>
 
@@ -367,7 +375,7 @@
   <div class="footer-top">
     <div class="footer-brand">
       <div class="logo">BRON</div>
-      <p class="footer-tagline">Бронирование столиков за 30 секунд</p>
+      <p class="footer-tagline" data-tenant="footer-tagline">Бронирование столиков за 30 секунд</p>
     </div>
 
     <div class="footer-col">
@@ -422,10 +430,11 @@
     </div>
   </div>
 
-  <div class="footer-bottom">
+  <div class="footer-bottom" data-tenant="footer-copyright">
     © 2026 BRON. Все права защищены.
   </div>
 </footer>
+    </div>
 
     <script type="module" src="/src/main.ts"></script>
   </body>

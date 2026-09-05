@@ -1,25 +1,15 @@
 using table_reservations.Models;
 
-namespace table_reservations.Services
+namespace table_reservations.Services;
+
+public interface IReservationRepository
 {
-    /// <summary>
-    /// Tenant-scoped reservation data access. Backed by Turso (libSQL); replaces the
-    /// previous Google Sheets implementation.
-    /// </summary>
-    public interface IReservationRepository
-    {
-        Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default);
-        Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, long? excludeReservationId = null, CancellationToken ct = default);
-        Task<bool> HasConflictAsync(ReservationInfo reservation, DateTime scheduledAt, long? excludeReservationId = null, CancellationToken ct = default);
-        Task<bool> IsPhoneAlreadyReservedAsync(string customerPhone, CancellationToken ct = default);
-        Task<bool> HasReservationForPhoneAsync(string customerPhone, DateTime scheduledAt, CancellationToken ct = default);
-        Task<ActiveReservationInfo?> FindActiveReservationByPhoneAsync(string customerPhone, CancellationToken ct = default);
-        Task<IReadOnlyList<ActiveReservationInfo>> FindAllActiveReservationsByPhoneAsync(string customerPhone, CancellationToken ct = default);
-        Task<long> AppendReservationAsync(ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default);
-        Task OverwriteReservationAsync(long reservationId, ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default);
-        Task DeleteReservationAsync(long reservationId, CancellationToken ct = default);
-        bool TryParseTableIds(string value, out int[] ids);
-        Task MarkReminderSentAsync(long reservationId, CancellationToken ct);
-        Task<IReadOnlyList<ReminderCandidate>> GetReminderCandidatesAsync(CancellationToken ct = default);
-    }
+    Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default);
+    Task<IReadOnlyList<DateTime>> GetAvailableSlotsAsync(DateOnly date, DateTime now, CancellationToken ct = default);
+    Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, CancellationToken ct = default);
+    Task<CarWashCatalog> GetCarWashCatalogAsync(CancellationToken ct = default);
+    Task<CarWashAvailability> GetCarWashAvailabilityAsync(DateOnly date, CarWashSelection selection, CancellationToken ct = default);
+    Task<BookingResult> BookAsync(ReservationInfo request, DateTime scheduledAt, CancellationToken ct = default);
+    Task<IReadOnlyList<ReminderCandidate>> GetReminderCandidatesAsync(CancellationToken ct = default);
+    Task MarkReminderSentAsync(string reservationId, CancellationToken ct);
 }

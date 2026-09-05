@@ -2,8 +2,7 @@ namespace table_reservations.Configuration
 {
     /// <summary>
     /// Connection settings for the shared Turso (libSQL) database that backs all
-    /// organizations. A single database is used for every tenant; rows are scoped
-    /// by <c>organization_id</c>.
+    /// organizations. This schema maps one lounge and one carwash to separate tables.
     /// </summary>
     public sealed class TursoOptions
     {
@@ -14,6 +13,13 @@ namespace table_reservations.Configuration
         /// <c>libsql://</c> URLs are accepted and normalized to <c>https://</c>.
         /// </summary>
         public string Url { get; set; } = string.Empty;
+        public string DatabaseUrl { get; set; } = string.Empty;
+        public string ConnectionUrl => string.IsNullOrWhiteSpace(DatabaseUrl) ? Url : DatabaseUrl;
+        public string RestaurantOrganizationId { get; set; } = "thetochka";
+        public string CarWashOrganizationId { get; set; } = "thetochka-carwasher";
+        // The current catalog stores whole tenge in its price_minor column.
+        public bool CatalogPricesAreKzt { get; set; } = true;
+        public int? DefaultCarWashMinutes { get; set; } = 60;
 
         /// <summary>Turso database auth token (JWT) used as a bearer token.</summary>
         public string AuthToken { get; set; } = string.Empty;
@@ -22,6 +28,6 @@ namespace table_reservations.Configuration
         public int TimeoutSeconds { get; set; } = 30;
 
         public bool IsConfigured =>
-            !string.IsNullOrWhiteSpace(Url) && !string.IsNullOrWhiteSpace(AuthToken);
+            !string.IsNullOrWhiteSpace(ConnectionUrl) && !string.IsNullOrWhiteSpace(AuthToken);
     }
 }

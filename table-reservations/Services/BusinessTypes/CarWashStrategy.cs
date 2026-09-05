@@ -5,10 +5,8 @@ using table_reservations.Models.Tenancy;
 namespace table_reservations.Services.BusinessTypes
 {
     /// <summary>
-    /// Car-wash reservation rules and sheet mapping. Uses the
-    /// (id, plate number, reservation time, phone number, wash service type) schema
-    /// and its own validation: required plate and wash-service fields plus a minimum
-    /// lead time. Car washes are treated as open all day, so no working-hours check.
+    /// Basic request validation and notification labels. Catalog selection,
+    /// working hours, duration and box conflicts are enforced by the repository.
     /// </summary>
     public sealed class CarWashStrategy : IBusinessTypeStrategy
     {
@@ -20,7 +18,7 @@ namespace table_reservations.Services.BusinessTypes
                 string.IsNullOrWhiteSpace(request.PlateNumber) ||
                 string.IsNullOrWhiteSpace(request.CustomerPhone) ||
                 string.IsNullOrWhiteSpace(request.ScheduledAt) ||
-                string.IsNullOrWhiteSpace(request.WashServiceType))
+                (string.IsNullOrWhiteSpace(request.WashServiceType) && (request.ServiceIds is null || request.ServiceIds.Length == 0)))
             {
                 return ReservationValidationResult.Invalid(
                     "Некорректные данные записи. Укажите гос. номер, телефон, время и тип мойки.");

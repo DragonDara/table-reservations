@@ -6,8 +6,9 @@ import type { PublicTenantConfig } from './types';
 
 function setText(selector: string, value?: string | null): void {
   if (value == null) return;
-  const el = document.querySelector<HTMLElement>(selector);
-  if (el) el.textContent = value;
+  document.querySelectorAll<HTMLElement>(selector).forEach((el) => {
+    el.textContent = value;
+  });
 }
 
 function setLink(selector: string, href?: string | null): void {
@@ -48,6 +49,7 @@ function applyLinks(config: PublicTenantConfig): void {
   setLink('[data-tenant-link="menu"]', l.menu);
   setLink('[data-tenant-link="map"]', l.map);
   setLink('[data-tenant-link="phone"]', l.phone ? `tel:${l.phone}` : null);
+  setText('[data-tenant-link="phone"]', l.phone);
   setLink('[data-tenant-link="whatsapp"]', l.whatsApp);
   setLink('[data-tenant-link="instagram"]', l.instagram);
   setLink('[data-tenant-link="threads"]', l.threads);

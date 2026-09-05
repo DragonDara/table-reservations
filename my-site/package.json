@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "build:static": "tsc && vite build --base=./ --outDir dist",
+    "build:static": "tsc && vite build --outDir dist",
+    "test": "node --test tests/*.test.mjs",
     "clean": "rimraf dist",
     "preview": "vite preview",
     "preview:dist": "vite preview --outDir dist"

@@ -34,6 +34,7 @@ namespace table_reservations.Controllers
             var response = PublicTenantConfigResponse.FromOrganization(_tenant.Organization);
 
             Response.Headers.CacheControl = "public, max-age=60";
+            Response.Headers.Vary = "X-Organization-Id";
 
             return Ok(response);
         }

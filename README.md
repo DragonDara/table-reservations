@@ -1,5 +1,8 @@
 # Table Reservations
 
+For the Turso schema migration, multi-service carwash bookings, pricing units
+and setup commands, see [Turso bookings](docs/turso-bookings.md).
+
 ## Work without installing local runtimes
 
 This repository includes a GitHub Codespaces configuration with .NET 10 and
@@ -35,8 +38,8 @@ the ASP.NET Core API on port `5183`.
 ### Configuration and secrets
 
 Never commit service credentials. Each integration is configured beneath its
-organization entry; there are no shared Google Sheets, WhatsApp, rating, or POS
-credentials. Use the ignored development settings file described below or
+organization entry for WhatsApp, rating, and POS. Turso connection settings are
+shared by the two explicitly mapped tenants. Use the ignored development settings file described below or
 equivalent `Organizations__Items__<index>__...` Codespaces secrets.
 
 When finished, push the feature branch, stop or delete the Codespace, sign out
@@ -50,13 +53,13 @@ header; `X-Organization-Id` is a localhost/development fallback only.
 
 Copy `table-reservations/appsettings.Development.example.json` to
 `table-reservations/appsettings.Development.json` and fill in each tenant's
-Google Sheets, WhatsApp, rating, and POS secrets. The development file and
+Turso, WhatsApp, rating, and POS secrets. The development file and
 service-account JSON files are git-ignored. Do not place secrets in the tracked
 `appsettings.json`.
 
 ASP.NET environment variables can be used instead of the ignored JSON file. For
-example, the first organization's spreadsheet id is
-`Organizations__Items__0__SpreadsheetId`; nested settings follow the same
+example, the shared database credentials are
+`Turso__DatabaseUrl` and `Turso__AuthToken`; nested settings follow the same
 double-underscore convention.
 
 Each organization also defines its own booking window and slot interval:

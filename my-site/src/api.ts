@@ -5,8 +5,8 @@ export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replac
 
 const ORGANIZATION_ID_HEADER = 'X-Organization-Id';
 
-// Resolved once at module load. On production tenant subdomains this is null and
-// the header is omitted, keeping the host authoritative for tenant resolution.
+// Resolved once at module load. On tenant subdomains without an explicit fallback
+// this is null; on shared hosts, a tenant path or ?org= selects it through this header.
 const organizationIdFallback = resolveOrganizationIdFallback();
 
 function tenantHeaders(): Record<string, string> {
@@ -31,6 +31,8 @@ export interface ReservationPayload {
   // Car-wash tenants only; ignored by restaurant tenants.
   plateNumber?: string;
   washServiceType?: string;
+  vehicleCategoryId?: string;
+  serviceIds?: string[];
   overwrite?: boolean;
 }
 
@@ -56,10 +58,10 @@ export interface ReservationResponse {
 }
 
 export class ApiError extends Error {
-  status: number;
+  readonly status: number;
   code?: string;
   existing?: ExistingReservation;
-  body: unknown;
+  readonly body: unknown;
 
   constructor(message: string, status: number, body: unknown = null) {
     super(message);
@@ -100,7 +102,6 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
 
   return fallback;
 }
-
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
 
@@ -165,6 +166,10 @@ export async function getTables(scheduledAt?: string): Promise<TableAvailability
   return request<TableAvailability[]>(`/Tables${query}`);
 }
 
+export async function getAvailableSlots(date: string): Promise<string[]> {
+  return request<string[]>(`/Tables/slots?date=${encodeURIComponent(date)}`);
+}
+
 export async function getTableAvailability(tablesId: string, scheduledAt?: string): Promise<TableAvailability> {
   const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
   return request<TableAvailability>(`/Tables/${encodeURIComponent(tablesId)}/availability${query}`);
@@ -176,6 +181,28 @@ export async function createReservation(payload: ReservationPayload): Promise<Re
     body: JSON.stringify(payload),
   });
 }
+
+export interface CarWashService {
+  id: string;
+  name: string;
+  isPackage: boolean;
+  vehicleCategoryId: string;
+  priceKzt: number;
+  durationMinutes: number | null;
+}
+export interface CarWashCatalog {
+  categories: { id: string; name: string }[];
+  services: CarWashService[];
+  packageItems: { packageServiceId: string; includedServiceId: string }[];
+}
+export interface CarWashSelection { vehicleCategoryId: string; serviceIds: string[] }
+export interface CarWashQuote { services: CarWashService[]; totalKzt: number; durationMinutes: number }
+export const getCarWashCatalog = () => request<CarWashCatalog>('/carwash/catalog');
+export const getCarWashQuote = (selection: CarWashSelection) =>
+  request<CarWashQuote>('/carwash/quote', { method: 'POST', body: JSON.stringify(selection) });
+export const getCarWashAvailability = (date: string, selection: CarWashSelection) =>
+  request<{ quote: CarWashQuote; slots: string[] }>('/carwash/availability',
+    { method: 'POST', body: JSON.stringify({ date, ...selection }) });
 
 export async function getReservationStatus(reservationId: string): Promise<ReservationResponse> {
   return request<ReservationResponse>(`/Reservations/${encodeURIComponent(reservationId)}`);
