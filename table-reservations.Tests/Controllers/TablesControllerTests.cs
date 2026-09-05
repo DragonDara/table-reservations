@@ -1,4 +1,3 @@
-using Google.Apis.Sheets.v4.Data;
 using Microsoft.AspNetCore.Mvc;
 using table_reservations.Configuration;
 using table_reservations.Constants;
@@ -13,9 +12,19 @@ namespace table_reservations.Tests.Controllers;
 public class TablesControllerTests
 {
     [Fact]
+    public void SlotsRoute_IsRegisteredExactlyOnce()
+    {
+        var routes = typeof(TablesController).GetMethods()
+            .SelectMany(method => method.GetCustomAttributes(typeof(HttpGetAttribute), inherit: true))
+            .Cast<HttpGetAttribute>();
+
+        Assert.Single(routes, route => route.Template == "slots");
+    }
+
+    [Fact]
     public async Task GetAvailableSlots_ReturnsNotFoundForNonRestaurantTenant()
     {
-        var controller = CreateController(BusinessType.CarWash, new StubSheetsService());
+        var controller = CreateController(BusinessType.CarWash, new StubReservationRepository());
 
         var result = await controller.GetAvailableSlots("2026-09-04", CancellationToken.None);
 
@@ -25,7 +34,7 @@ public class TablesControllerTests
     [Fact]
     public async Task GetAvailableSlots_RejectsInvalidDateFormat()
     {
-        var controller = CreateController(BusinessType.Restaurant, new StubSheetsService());
+        var controller = CreateController(BusinessType.Restaurant, new StubReservationRepository());
 
         var result = await controller.GetAvailableSlots("04.09.2026", CancellationToken.None);
 
@@ -35,7 +44,7 @@ public class TablesControllerTests
     [Fact]
     public async Task GetAvailableSlots_RejectsDateOutsideSevenDayWindow()
     {
-        var controller = CreateController(BusinessType.Restaurant, new StubSheetsService());
+        var controller = CreateController(BusinessType.Restaurant, new StubReservationRepository());
         var outsideWindow = DateOnly.FromDateTime(ReservationDateTime.KazakhstanNow())
             .AddDays(RestaurantSlotSchedule.BookingDays)
             .ToString("yyyy-MM-dd");
@@ -48,7 +57,7 @@ public class TablesControllerTests
     [Fact]
     public async Task GetAvailableSlots_ReturnsExistingWireFormat()
     {
-        var sheets = new StubSheetsService
+        var reservations = new StubReservationRepository
         {
             AvailableSlots =
             [
@@ -56,7 +65,7 @@ public class TablesControllerTests
                 new DateTime(2026, 9, 4, 18, 30, 0),
             ]
         };
-        var controller = CreateController(BusinessType.Restaurant, sheets);
+        var controller = CreateController(BusinessType.Restaurant, reservations);
         var today = DateOnly.FromDateTime(ReservationDateTime.KazakhstanNow()).ToString("yyyy-MM-dd");
 
         var result = await controller.GetAvailableSlots(today, CancellationToken.None);
@@ -67,14 +76,14 @@ public class TablesControllerTests
             Assert.IsAssignableFrom<IEnumerable<string>>(ok.Value));
     }
 
-    private static TablesController CreateController(BusinessType type, IGoogleSheetsService sheets)
+    private static TablesController CreateController(BusinessType type, IReservationRepository reservations)
     {
         var tenant = new TenantContext();
         tenant.Set(new OrganizationOptions { Id = "test", BusinessType = type });
-        return new TablesController(sheets, tenant);
+        return new TablesController(reservations, tenant);
     }
 
-    private sealed class StubSheetsService : IGoogleSheetsService
+    private sealed class StubReservationRepository : IReservationRepository
     {
         public IReadOnlyList<DateTime> AvailableSlots { get; init; } = Array.Empty<DateTime>();
 
@@ -86,40 +95,19 @@ public class TablesControllerTests
         public Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, int? excludeSheetRowNumber = null, CancellationToken ct = default) =>
+        public Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<bool> HasConflictAsync(ReservationInfo reservation, DateTime scheduledAt, int? excludeSheetRowNumber = null, CancellationToken ct = default) =>
+        public Task<CarWashCatalog> GetCarWashCatalogAsync(CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<bool> IsPhoneAlreadyReservedAsync(string customerPhone, CancellationToken ct = default) =>
+        public Task<CarWashAvailability> GetCarWashAvailabilityAsync(DateOnly date, CarWashSelection selection, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<bool> HasReservationForPhoneAsync(string customerPhone, DateTime scheduledAt, CancellationToken ct = default) =>
+        public Task<BookingResult> BookAsync(ReservationInfo request, DateTime scheduledAt, CancellationToken ct = default) =>
             throw new NotSupportedException();
 
-        public Task<ActiveReservationInfo?> FindActiveReservationByPhoneAsync(string customerPhone, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<IReadOnlyList<ActiveReservationInfo>> FindAllActiveReservationsByPhoneAsync(string customerPhone, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task<AppendValuesResponse> AppendReservationAsync(ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task OverwriteReservationAsync(int sheetRowNumber, ReservationInfo reservation, DateTime scheduledAt, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public Task ClearReservationRowAsync(int sheetRowNumber, CancellationToken ct = default) =>
-            throw new NotSupportedException();
-
-        public bool TryParseTableIds(string value, out int[] ids)
-        {
-            ids = Array.Empty<int>();
-            throw new NotSupportedException();
-        }
-
-        public Task MarkReminderSentAsync(int sheetRowNumber, CancellationToken ct) =>
+        public Task MarkReminderSentAsync(string reservationId, CancellationToken ct) =>
             throw new NotSupportedException();
 
         public Task<IReadOnlyList<ReminderCandidate>> GetReminderCandidatesAsync(CancellationToken ct = default) =>
