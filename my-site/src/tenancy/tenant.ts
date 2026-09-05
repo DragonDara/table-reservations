@@ -87,7 +87,16 @@ function fromEnv(): string | null {
 export function resolveOrganizationIdFallback(): string | null {
   const routeOrganization = fromPath();
   if (routeOrganization) return routeOrganization;
-  const organizationId = fromQuery() ?? fromStorage() ?? fromEnv();
+  const queryOrganization = fromQuery();
+  if (queryOrganization) return queryOrganization;
+
+  // The production root URL is a public entry point for The Tochka. Do not let
+  // a previously visited tenant in localStorage silently change that URL's
+  // organization; explicit paths and query parameters above still win.
+  const environmentOrganization = fromEnv();
+  const organizationId = import.meta.env.PROD && environmentOrganization
+    ? environmentOrganization
+    : fromStorage() ?? environmentOrganization;
   if (organizationId) {
     reflectOrganizationInLocalUrl(organizationId);
   }
