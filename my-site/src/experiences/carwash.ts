@@ -10,6 +10,7 @@ import {
 } from "../api";
 import type { PublicTenantConfig } from "../tenancy/types";
 import { kazakhstanDate } from "./carwash-schedule";
+import { createNavigationGuard, isChoiceStepAnswered } from "./carwash-navigation";
 
 export function initCarWashExperience(config: PublicTenantConfig): void {
   const form = document.querySelector<HTMLFormElement>('[data-carwash="form"]');
@@ -35,11 +36,26 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   let currentStep = 0;
   let busy = false;
   let revision = 0;
+  const acceptNavigation = createNavigationGuard();
   const money = (value: number) => `${value.toLocaleString("ru-KZ")} ₸`;
   const selection = () => ({
     vehicleCategoryId: categoryId,
     serviceIds: [...selected],
   });
+  function syncNavigation() {
+    const step = steps[currentStep]?.dataset.carwashStep;
+    const answered = isChoiceStepAnswered(step, categoryId, selected.size, slots.includes(scheduledAt.value));
+    submit.disabled = busy || !catalog || !answered;
+    back.disabled = busy;
+  }
+  function replaceOptions(container: HTMLElement, buttons: HTMLButtonElement[]) {
+    const focused = document.activeElement;
+    const key = focused instanceof HTMLButtonElement && container.contains(focused)
+      ? focused.dataset.optionId : undefined;
+    container.replaceChildren(...buttons);
+    if (key) buttons.find(button => button.dataset.optionId === key && !button.disabled)
+      ?.focus({ preventScroll: true });
+  }
   function status(message = "", error = false) {
     const element = el<HTMLElement>("status");
     element.textContent = message;
@@ -61,6 +77,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     scheduledAt.value = "";
     times.replaceChildren();
     updateSummary();
+    syncNavigation();
   }
   function showStep(index: number, focus = true) {
     currentStep = index;
@@ -70,8 +87,9 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     el<HTMLElement>("progress").textContent =
       `Шаг ${index + 1} из ${steps.length}`;
     back.hidden = index === 0;
-    submit.textContent = index === steps.length - 1 ? "Записаться" : "Далее";
+    submit.textContent = busy ? "Загрузка…" : index === steps.length - 1 ? "Записаться" : "Далее";
     status();
+    syncNavigation();
     if (focus)
       steps[index]
         ?.querySelector<HTMLElement>("legend")
@@ -83,8 +101,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     steps.forEach((step) => {
       step.disabled = value;
     });
-    back.disabled = value;
-    submit.disabled = value || !catalog;
+    syncNavigation();
     submit.textContent = value
       ? "Загрузка…"
       : currentStep === steps.length - 1
@@ -98,14 +115,15 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", String(active));
     button.textContent = text;
+    button.dataset.optionId = text;
     button.addEventListener("click", () => {
       if (!busy) click();
     });
     return button;
   }
   function renderCategories() {
-    categoryOptions.replaceChildren(
-      ...(catalog?.categories ?? []).map((category) =>
+    replaceOptions(categoryOptions,
+      (catalog?.categories ?? []).map((category) =>
         option(category.name, categoryId === category.id, () => {
           if (categoryId !== category.id) {
             categoryId = category.id;
@@ -125,8 +143,8 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
         .filter((item) => selected.has(item.packageServiceId))
         .map((item) => item.includedServiceId),
     );
-    serviceOptions.replaceChildren(
-      ...(catalog?.services ?? [])
+    replaceOptions(serviceOptions,
+      (catalog?.services ?? [])
         .filter((service) => service.vehicleCategoryId === categoryId)
         .map((service) => {
           const isIncluded = included.has(service.id);
@@ -148,6 +166,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
           );
           button.disabled = isIncluded;
           button.dataset.serviceId = service.id;
+          button.dataset.optionId = service.id;
           return button;
         }),
     );
@@ -180,6 +199,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
                 item.setAttribute("aria-pressed", String(item === button));
               });
               status();
+              syncNavigation();
             },
           );
           button.classList.add("time-option");
@@ -229,7 +249,13 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     return true;
   }
   back.addEventListener("click", () => {
-    if (!busy && currentStep > 0) showStep(currentStep - 1);
+    if (!busy && currentStep > 0 && acceptNavigation()) showStep(currentStep - 1);
+  });
+  document.querySelectorAll<HTMLAnchorElement>('[data-carwash-action="services"]').forEach(link => {
+    link.addEventListener("click", event => {
+      if (busy) { event.preventDefault(); return; }
+      showStep(steps.findIndex(step => step.dataset.carwashStep === (categoryId ? "service" : "category")), false);
+    });
   });
   date.min = kazakhstanDate();
   date.value = date.min;
@@ -244,6 +270,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (busy || !catalog || !validate(currentStep)) return;
+    if (!acceptNavigation()) return;
     setBusy(true);
     try {
       if (currentStep < steps.length - 1) {
@@ -371,17 +398,24 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   const close = () => {
     nav?.classList.remove("nav-open");
     toggle?.setAttribute("aria-expanded", "false");
+    toggle?.setAttribute("aria-label", "Открыть меню");
   };
-  toggle?.addEventListener("click", () =>
-    toggle.setAttribute(
-      "aria-expanded",
-      String(nav?.classList.toggle("nav-open") ?? false),
-    ),
-  );
+  toggle?.addEventListener("click", () => {
+    const open = nav?.classList.toggle("nav-open") ?? false;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.setAttribute("aria-label", open ? "Закрыть меню" : "Открыть меню");
+  });
   nav
     ?.querySelectorAll("a")
     .forEach((link) => link.addEventListener("click", close));
   document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") close();
+    if (event.key === "Escape" && nav?.classList.contains("nav-open")) {
+      close();
+      toggle?.focus({ preventScroll: true });
+    }
+  });
+  document.addEventListener("click", (event) => {
+    if (event.target instanceof Node && !nav?.contains(event.target) && !toggle?.contains(event.target))
+      close();
   });
 }
