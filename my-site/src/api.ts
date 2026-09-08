@@ -183,6 +183,8 @@ export async function createReservation(payload: ReservationPayload): Promise<Re
 }
 
 export interface ReservationListItem {
+  customerName: string;
+  customerPhone: string;
   scheduledAt: string;
   endsAt: string;
   tablesId: string;

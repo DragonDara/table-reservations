@@ -114,7 +114,7 @@ public class ReservationRepositoryTests
     };
 
     [Fact]
-    public async Task ReservationListUsesLocalDayOverlapAndActiveStatusesWithoutCustomerData()
+    public async Task ReservationListUsesLocalDayOverlapAndActiveStatusesWithCustomerDetails()
     {
         using var db = new Database();
         var day = new DateOnly(2026, 9, 8);
@@ -136,7 +136,10 @@ public class ReservationRepositoryTests
         Assert.Equal(["2026-09-07T23:00", "2026-09-08T00:00", "2026-09-08T23:00"], result.Select(r => r.ScheduledAt));
         Assert.Equal(["2026-09-08T02:00", "2026-09-08T03:00", "2026-09-09T02:00"], result.Select(r => r.EndsAt));
         Assert.Equal(["1", "1", "2"], result.Select(r => r.TablesId));
-        Assert.DoesNotContain("Private", JsonSerializer.Serialize(result));
+        Assert.All(result, item => {
+            Assert.Equal("Private name", item.CustomerName);
+            Assert.Equal("Private phone", item.CustomerPhone);
+        });
         Assert.Empty(await Repository(db, carwash: false).GetReservationsAsync(day.AddDays(10)));
         await Assert.ThrowsAsync<BookingException>(() => Repository(db, carwash: false, id: "other").GetReservationsAsync(day));
     }
@@ -165,7 +168,9 @@ public class ReservationRepositoryTests
         Assert.Equal("box_1", item.BoxId);
         Assert.Equal("Exterior, Interior", item.WashServiceType);
         Assert.Empty(item.TablesId);
-        Assert.DoesNotContain("Private", JsonSerializer.Serialize(items));
+        Assert.Equal("Private name", item.CustomerName);
+        Assert.Equal("Private phone", item.CustomerPhone);
+        Assert.DoesNotContain("Private plate", JsonSerializer.Serialize(items));
         Assert.Empty(await Repository(db, carwash: false).GetReservationsAsync(date));
         await Assert.ThrowsAsync<BookingException>(() => Repository(db, id: "other").GetReservationsAsync(date));
     }

@@ -52,7 +52,11 @@ export async function initReservationsPage(config: PublicTenantConfig): Promise<
       const title = document.createElement('h2');
       title.textContent = config.businessType === 'CarWash'
         ? item.washServiceType || 'Мойка автомобиля'
-        : item.tablesId ? `Столики: ${item.tablesId}` : 'Бронирование столика';
+        : item.tablesId ? `Стол № ${item.tablesId}` : 'Стол не указан';
+      const customer = document.createElement('p');
+      customer.textContent = `Клиент: ${item.customerName?.trim() || 'Не указан'}`;
+      const phone = document.createElement('p');
+      phone.textContent = `Телефон: ${item.customerPhone?.trim() || 'Не указан'}`;
       const date = document.createElement('p');
       const startDate = item.scheduledAt.slice(0, 10);
       const endDate = item.endsAt.slice(0, 10);
@@ -60,7 +64,7 @@ export async function initReservationsPage(config: PublicTenantConfig): Promise<
       date.textContent = formatDate(startDate)
         + (startDate !== endDate ? ` — ${formatDate(endDate)}` : '')
         + (item.boxId ? ` · Бокс: ${item.boxId}` : '');
-      details.append(title, date);
+      details.append(title, customer, phone, date);
       row.append(timeRange, details);
       return row;
     });
