@@ -83,10 +83,11 @@ public sealed class TursoReservationRepository(
         var start = date.ToDateTime(TimeOnly.MinValue);
         var end = start.AddDays(1);
         // Compare canonical UTC values; include reservations carried over from the previous day.
-        // Project only public occupancy fields, never customer names, phones or plates.
+        // Include customer contact details for the employee reservation list.
         var result = IsCarWash
             ? await db.QueryAsync($"""
                 SELECT r.scheduled_at AS start_at, r.ends_at, '' AS tables_id, r.box_id,
+                    r.customer_name, r.customer_phone,
                     COALESCE((SELECT group_concat(s.name, ', ')
                         FROM json_each(r.services_json) selected
                         JOIN carwash_services s ON s.id = selected.value), '') AS wash_service_type
@@ -96,7 +97,8 @@ public sealed class TursoReservationRepository(
                 """, [BookingRules.Store(end), BookingRules.Store(start)], ct)
             : await db.QueryAsync($"""
                 SELECT reserved_at AS start_at, datetime(reserved_at, '+3 hours') AS ends_at,
-                    table_id AS tables_id, '' AS box_id, '' AS wash_service_type
+                    table_id AS tables_id, '' AS box_id, '' AS wash_service_type,
+                    customer_name, customer_phone
                 FROM table_reservations
                 WHERE status IN ({Active}) AND reserved_at >= ? AND reserved_at < ?
                     AND datetime(reserved_at, '+3 hours') > ?
@@ -107,7 +109,8 @@ public sealed class TursoReservationRepository(
         return result.Rows.Select(row => new ReservationListItem(
             BookingRules.Wire(BookingRules.Read(row.GetString("start_at"))),
             row.GetString("tables_id"), row.GetString("wash_service_type"),
-            BookingRules.Wire(BookingRules.Read(row.GetString("ends_at"))), row.GetString("box_id"))).ToArray();
+            BookingRules.Wire(BookingRules.Read(row.GetString("ends_at"))), row.GetString("box_id"),
+            row.GetString("customer_name"), row.GetString("customer_phone"))).ToArray();
     }
 
     public async Task<CarWashAvailability> GetCarWashAvailabilityAsync(DateOnly date, CarWashSelection selection, CancellationToken ct = default)

@@ -16,6 +16,7 @@ public class ReservationsController(
     ILogger<ReservationsController> logger) : ControllerBase
 {
     [HttpGet]
+    [ResponseCache(NoStore = true, Location = ResponseCacheLocation.None)]
     public async Task<IActionResult> GetReservations([FromQuery] string? date, CancellationToken ct)
     {
         if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture,
