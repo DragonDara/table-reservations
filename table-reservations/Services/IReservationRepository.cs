@@ -4,6 +4,7 @@ namespace table_reservations.Services;
 
 public interface IReservationRepository
 {
+    Task<IReadOnlyList<ReservationListItem>> GetReservationsAsync(DateOnly date, CancellationToken ct = default);
     Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default);
     Task<IReadOnlyList<DateTime>> GetAvailableSlotsAsync(DateOnly date, DateTime now, CancellationToken ct = default);
     Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, CancellationToken ct = default);

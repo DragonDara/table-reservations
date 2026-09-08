@@ -16,6 +16,8 @@ try {
     "/carwash/",
     "/thetochka",
     "/thetochka-carwasher/",
+    "/reservations",
+    "/reservations/?org=thetochka&date=2026-09-08",
   ]) {
     const response = await fetch(`http://127.0.0.1:4175${route}`);
     assert.equal(response.status, 200, route);

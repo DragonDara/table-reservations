@@ -77,6 +77,39 @@ public sealed class TursoReservationRepository(
     private static bool Free(State state, string resourceId, DateTime start, DateTime end, string? replacingPhone = null) =>
         !state.Reservations.Any(r => r.ResourceId == resourceId && r.Phone != replacingPhone && BookingRules.Overlaps(start, end, r.Start, r.End));
 
+    public async Task<IReadOnlyList<ReservationListItem>> GetReservationsAsync(DateOnly date, CancellationToken ct = default)
+    {
+        EnsureTenant();
+        var start = date.ToDateTime(TimeOnly.MinValue);
+        var end = start.AddDays(1);
+        // Compare canonical UTC values; include reservations carried over from the previous day.
+        // Project only public occupancy fields, never customer names, phones or plates.
+        var result = IsCarWash
+            ? await db.QueryAsync($"""
+                SELECT r.scheduled_at AS start_at, r.ends_at, '' AS tables_id, r.box_id,
+                    COALESCE((SELECT group_concat(s.name, ', ')
+                        FROM json_each(r.services_json) selected
+                        JOIN carwash_services s ON s.id = selected.value), '') AS wash_service_type
+                FROM box_reservations r
+                WHERE r.status IN ({Active}) AND r.scheduled_at < ? AND r.ends_at > ?
+                ORDER BY r.scheduled_at, r.box_id, r.id
+                """, [BookingRules.Store(end), BookingRules.Store(start)], ct)
+            : await db.QueryAsync($"""
+                SELECT reserved_at AS start_at, datetime(reserved_at, '+3 hours') AS ends_at,
+                    table_id AS tables_id, '' AS box_id, '' AS wash_service_type
+                FROM table_reservations
+                WHERE status IN ({Active}) AND reserved_at >= ? AND reserved_at < ?
+                    AND datetime(reserved_at, '+3 hours') > ?
+                ORDER BY reserved_at, table_id, id
+                """, [BookingRules.Store(start.AddHours(-ReservationDuration.Hours)),
+                    BookingRules.Store(end), BookingRules.Store(start)], ct);
+
+        return result.Rows.Select(row => new ReservationListItem(
+            BookingRules.Wire(BookingRules.Read(row.GetString("start_at"))),
+            row.GetString("tables_id"), row.GetString("wash_service_type"),
+            BookingRules.Wire(BookingRules.Read(row.GetString("ends_at"))), row.GetString("box_id"))).ToArray();
+    }
+
     public async Task<CarWashAvailability> GetCarWashAvailabilityAsync(DateOnly date, CarWashSelection selection, CancellationToken ct = default)
     {
         EnsureTenant(true);
