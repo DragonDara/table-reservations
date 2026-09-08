@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using table_reservations.Models;
 using table_reservations.Models.Tenancy;
@@ -14,6 +15,16 @@ public class ReservationsController(
     TenantContext tenant, IBusinessTypeStrategyResolver strategies,
     ILogger<ReservationsController> logger) : ControllerBase
 {
+    [HttpGet]
+    public async Task<IActionResult> GetReservations([FromQuery] string? date, CancellationToken ct)
+    {
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out var day) || day == DateOnly.MinValue || day == DateOnly.MaxValue)
+            return BadRequest(new { message = "Укажите корректную дату в формате yyyy-MM-dd." });
+
+        return Ok(await reservations.GetReservationsAsync(day, ct));
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateReservation([FromBody] ReservationInfo request, CancellationToken ct)
     {

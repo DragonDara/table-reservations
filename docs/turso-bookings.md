@@ -90,6 +90,20 @@ removed from the separate selection to avoid double charging.
 `POST /api/Reservations` receives the category and service-ID array alongside
 the plate, customer details and selected local `scheduledAt`.
 
+`/reservations` displays the current tenant's busy tables or wash boxes with a
+date picker (today by default) and refresh button. Locally, open
+`http://localhost:5173/reservations?org=thetochka` for the lounge or use
+`org=thetochka-carwasher` for the carwash. On a tenant domain, open `/reservations`.
+The selected `date=yyyy-MM-dd` is retained in the URL for sharing/reloading.
+
+`GET /api/Reservations?date=yyyy-MM-dd` reads occupancy directly from Turso.
+It returns pending, confirmed and in-progress reservations overlapping that
+Kazakhstan calendar day, including bookings carried over from the previous
+night, sorted by start time. Cancelled, completed and no-show records are
+excluded. Past dates can be selected; this is an occupancy view, not a history
+of completed visits. The response contains start/end times, table or box IDs
+and carwash service labels, without customer names, phone numbers or plates.
+
 Carwash availability uses active boxes and the entire requested session,
 not just its start time. Adjacent sessions can share a box; overlapping ones
 cannot. Confirmed, pending and in-progress bookings occupy capacity.

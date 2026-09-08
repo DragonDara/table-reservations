@@ -114,6 +114,63 @@ public class ReservationRepositoryTests
     };
 
     [Fact]
+    public async Task ReservationListUsesLocalDayOverlapAndActiveStatusesWithoutCustomerData()
+    {
+        using var db = new Database();
+        var day = new DateOnly(2026, 9, 8);
+        async Task Add(string id, string local, string status = "confirmed", int table = 1) =>
+            await db.ExecuteAsync("""
+                INSERT INTO table_reservations(id,table_id,customer_name,customer_phone,reserved_at,status)
+                VALUES(?,?,'Private name','Private phone',?,?)
+                """, [id, table, BookingRules.Store(DateTime.Parse(local)), status]);
+
+        await Add("late", "2026-09-08T23:00:00", "pending", 2);
+        await Add("midnight", "2026-09-08T00:00:00", "in_progress");
+        await Add("carry", "2026-09-07T23:00:00");
+        await Add("ends-at-midnight", "2026-09-07T21:00:00");
+        await Add("next-day", "2026-09-09T00:00:00");
+        foreach (var status in new[] { "cancelled", "completed", "no_show" })
+            await Add(status, "2026-09-08T12:00:00", status);
+
+        var result = await Repository(db, carwash: false).GetReservationsAsync(day);
+        Assert.Equal(["2026-09-07T23:00", "2026-09-08T00:00", "2026-09-08T23:00"], result.Select(r => r.ScheduledAt));
+        Assert.Equal(["2026-09-08T02:00", "2026-09-08T03:00", "2026-09-09T02:00"], result.Select(r => r.EndsAt));
+        Assert.Equal(["1", "1", "2"], result.Select(r => r.TablesId));
+        Assert.DoesNotContain("Private", JsonSerializer.Serialize(result));
+        Assert.Empty(await Repository(db, carwash: false).GetReservationsAsync(day.AddDays(10)));
+        await Assert.ThrowsAsync<BookingException>(() => Repository(db, carwash: false, id: "other").GetReservationsAsync(day));
+    }
+
+    [Fact]
+    public async Task CarwashReservationListUsesStoredDurationAndServicesAndKeepsTenantsSeparate()
+    {
+        using var db = new Database();
+        await Initializer(db).MigrateAsync();
+        await db.ExecuteAsync("""
+            INSERT INTO box_reservations(id,box_id,vehicle_category_id,plate_number,customer_phone,customer_name,scheduled_at,ends_at,total_minor,services_json,status)
+            VALUES('visit','box_1','car','Private plate','Private phone','Private name',
+                '2026-09-07 18:30:00','2026-09-07 20:00:00',0,'["body_wash","interior_polish"]','confirmed'),
+                ('cancelled','box_1','car','','','',
+                '2026-09-07 18:30:00','2026-09-07 20:00:00',0,'[]','cancelled'),
+                ('ends-at-midnight','box_1','car','','','',
+                '2026-09-07 18:00:00','2026-09-07 19:00:00',0,'[]','confirmed'),
+                ('next-day','box_1','car','','','',
+                '2026-09-08 19:00:00','2026-09-08 20:00:00',0,'[]','confirmed')
+            """);
+        var date = new DateOnly(2026, 9, 8);
+        var items = await Repository(db).GetReservationsAsync(date);
+        var item = Assert.Single(items);
+        Assert.Equal("2026-09-07T23:30", item.ScheduledAt);
+        Assert.Equal("2026-09-08T01:00", item.EndsAt);
+        Assert.Equal("box_1", item.BoxId);
+        Assert.Equal("Exterior, Interior", item.WashServiceType);
+        Assert.Empty(item.TablesId);
+        Assert.DoesNotContain("Private", JsonSerializer.Serialize(items));
+        Assert.Empty(await Repository(db, carwash: false).GetReservationsAsync(date));
+        await Assert.ThrowsAsync<BookingException>(() => Repository(db, id: "other").GetReservationsAsync(date));
+    }
+
+    [Fact]
     public async Task MigrationIsAdditiveAndIdempotent()
     {
         using var db = new Database();

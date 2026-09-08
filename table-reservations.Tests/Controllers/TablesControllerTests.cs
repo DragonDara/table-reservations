@@ -85,6 +85,9 @@ public class TablesControllerTests
 
     private sealed class StubReservationRepository : IReservationRepository
     {
+        public Task<IReadOnlyList<ReservationListItem>> GetReservationsAsync(DateOnly date, CancellationToken ct = default) =>
+            throw new NotSupportedException();
+
         public IReadOnlyList<DateTime> AvailableSlots { get; init; } = Array.Empty<DateTime>();
 
         public Task<IReadOnlyList<DateTime>> GetAvailableSlotsAsync(

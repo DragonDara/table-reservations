@@ -182,6 +182,18 @@ export async function createReservation(payload: ReservationPayload): Promise<Re
   });
 }
 
+export interface ReservationListItem {
+  scheduledAt: string;
+  endsAt: string;
+  tablesId: string;
+  boxId: string;
+  washServiceType: string;
+}
+
+export async function getReservations(date: string): Promise<ReservationListItem[]> {
+  return request<ReservationListItem[]>(`/Reservations?date=${encodeURIComponent(date)}`);
+}
+
 export interface CarWashService {
   id: string;
   name: string;

@@ -5,6 +5,12 @@ async function start(): Promise<void> {
   const config = await bootstrapTenant();
   if (!config) return;
 
+  if (/^\/reservations\/?$/i.test(window.location.pathname)) {
+    const { initReservationsPage } = await import('./experiences/reservations');
+    await initReservationsPage(config);
+    return;
+  }
+
   if (config.businessType === 'CarWash') {
     const { initCarWashExperience } = await import('./experiences/carwash');
     initCarWashExperience(config);
