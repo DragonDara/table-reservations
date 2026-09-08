@@ -101,8 +101,10 @@ It returns pending, confirmed and in-progress reservations overlapping that
 Kazakhstan calendar day, including bookings carried over from the previous
 night, sorted by start time. Cancelled, completed and no-show records are
 excluded. Past dates can be selected; this is an occupancy view, not a history
-of completed visits. The response contains start/end times, table or box IDs
-and carwash service labels, without customer names, phone numbers or plates.
+of completed visits. The employee list contains start/end times, table or box IDs,
+customer names and phone numbers, and carwash service labels. Plates are not returned.
+The list response disables HTTP caching. The application currently has no employee
+authentication on this endpoint; hiding links does not restrict access to the URL.
 
 Carwash availability uses active boxes and the entire requested session,
 not just its start time. Adjacent sessions can share a box; overlapping ones
