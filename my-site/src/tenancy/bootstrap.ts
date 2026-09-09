@@ -3,6 +3,7 @@ import type { PublicTenantConfig } from './types';
 import { applyTenantTheme } from './theme';
 import { applyTenantContent } from './content';
 import carwashPage from '../pages/carwash.html?raw';
+import { reportError, showError } from '../ui/error-notification';
 
 // Orchestrates tenant startup: load public config, apply branding/content, and
 // toggle loading/unavailable states. Returns the resolved config so business
@@ -43,13 +44,14 @@ export async function bootstrapTenant(): Promise<PublicTenantConfig | null> {
   try {
     config = await getPublicTenantConfig();
   } catch (err) {
-    console.error('Не удалось загрузить конфигурацию организации', err);
+    reportError(err, 'Не удалось загрузить организацию. Нажмите «Повторить».');
     showUnavailable();
     return null;
   }
 
   try {
     if (config.businessType !== 'Restaurant' && config.businessType !== 'CarWash') {
+      showError('Страница этой организации пока недоступна. Попробуйте позже.');
       showUnavailable();
       return null;
     }
@@ -60,7 +62,7 @@ export async function bootstrapTenant(): Promise<PublicTenantConfig | null> {
     applyTenantTheme(config);
     applyTenantContent(config);
   } catch (err) {
-    console.error('Ошибка применения оформления организации', err);
+    reportError(err, 'Не удалось отобразить страницу организации. Нажмите «Повторить».');
     showUnavailable();
     return null;
   }
