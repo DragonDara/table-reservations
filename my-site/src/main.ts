@@ -1,10 +1,13 @@
 import './style.css';
 import './ui/error-notification.css';
-import { initErrorNotifications, reportError } from './ui/error-notification';
+import { configureErrorWhatsApp, initErrorNotifications, reportError } from './ui/error-notification';
+import { initialErrorWhatsApp } from './tenancy/error-support';
+import { resolveOrganizationIdFallback } from './tenancy/tenant';
 
 initErrorNotifications();
 
 async function start(): Promise<void> {
+  configureErrorWhatsApp(initialErrorWhatsApp(window.location.hostname, resolveOrganizationIdFallback()));
   const { bootstrapTenant } = await import('./tenancy/bootstrap');
   const config = await bootstrapTenant();
   if (!config) return;
