@@ -2,6 +2,7 @@ import { getReservations, type ReservationListItem } from '../api';
 import type { PublicTenantConfig } from '../tenancy/types';
 import { kazakhstanDate } from './carwash-schedule';
 import './reservations.css';
+import { reportError, showError } from '../ui/error-notification';
 
 export async function initReservationsPage(config: PublicTenantConfig): Promise<void> {
   const root = document.querySelector<HTMLElement>('[data-app-root]');
@@ -77,7 +78,8 @@ export async function initReservationsPage(config: PublicTenantConfig): Promise<
     if (!dateInput.validity.valid || !dateInput.value) {
       refresh.disabled = false;
       list.setAttribute('aria-busy', 'false');
-      status.textContent = 'Выберите дату.';
+      status.textContent = '';
+      showError('Выберите корректную дату.');
       return;
     }
     refresh.disabled = true;
@@ -93,9 +95,10 @@ export async function initReservationsPage(config: PublicTenantConfig): Promise<
       status.textContent = items.length
         ? `Бронирований: ${items.length}`
         : 'На эту дату бронирований пока нет.';
-    } catch {
+    } catch (error) {
       if (currentRequest !== requestId) return;
-      status.textContent = 'Не удалось загрузить бронирования. Нажмите «Обновить», чтобы попробовать снова.';
+      status.textContent = '';
+      reportError(error, 'Не удалось загрузить бронирования. Нажмите «Обновить», чтобы попробовать снова.');
     } finally {
       if (currentRequest === requestId) {
         refresh.disabled = false;

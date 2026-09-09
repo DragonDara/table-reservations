@@ -9,6 +9,7 @@ import {
   type TableAvailability,
 } from '../api';
 import type { PublicTenantConfig } from '../tenancy/types';
+import { reportError, showError } from '../ui/error-notification';
 
 // Imported only after the restaurant page and tenant configuration are ready.
 export async function initRestaurantExperience(config: PublicTenantConfig): Promise<void> {
@@ -71,10 +72,10 @@ async function loadRating() {
     if (reviewsEl) reviewsEl.textContent = Number.isFinite(reviewCount) ? String(reviewCount) : '0';
     if (status) status.textContent = 'Рейтинг 2ГИС загружен';
   } catch (err) {
-    console.error('Не удалось загрузить рейтинг:', err);
+    reportError(err, 'Не удалось загрузить рейтинг. Попробуйте обновить страницу.');
     if (ratingEl) ratingEl.textContent = '—';
     if (reviewsEl) reviewsEl.textContent = '—';
-    if (status) status.textContent = 'Рейтинг 2ГИС временно недоступен';
+    if (status) status.textContent = '';
   } finally {
     block?.setAttribute('aria-busy', 'false');
     if (loader) loader.hidden = true;
@@ -510,7 +511,7 @@ async function refreshTableStatuses() {
       const datetimeValue = (document.getElementById('datetime') as HTMLInputElement | null)?.value;
       tables = await getTables(datetimeValue || undefined);
     } catch (err) {
-      console.error('Не удалось загрузить статусы столиков', err);
+      reportError(err, 'Не удалось проверить столики. Попробуйте ещё раз.');
       return false;
     }
 
@@ -657,6 +658,11 @@ function setFormBusy(isBusy: boolean) {
 }
 
 function setReservationStatus(message: string, type: 'info' | 'success' | 'error' = 'info') {
+  if (type === 'error') {
+    showError(message);
+    if (reservationStatus) reservationStatus.textContent = '';
+    return;
+  }
   if (!reservationStatus) return;
 
   reservationStatus.textContent = message;
@@ -781,12 +787,8 @@ async function submitReservation(payload: ReservationPayload) {
       return;
     }
 
-    console.error('Reservation submission failed', error);
-    const message = error instanceof Error && error.message
-      ? error.message
-      : 'Не удалось отправить бронь. Проверьте подключение к API или попробуйте позже.';
-
-    setReservationStatus(message, 'error');
+    setReservationStatus('');
+    reportError(error, 'Не удалось отправить бронь. Попробуйте ещё раз.');
   } finally {
     setFormBusy(false);
   }
@@ -916,9 +918,9 @@ async function selectBookingDate(date: string, button: HTMLButtonElement) {
     });
   } catch (error) {
     if (requestId !== slotRequestId) return;
-    console.error('Failed to load reservation slots', error);
+    reportError(error, 'Не удалось загрузить свободное время. Вернитесь назад и попробуйте ещё раз.');
     if (timeOptions) timeOptions.setAttribute('aria-busy', 'false');
-    if (slotStatus) slotStatus.textContent = 'Не удалось загрузить свободное время. Вернитесь назад и попробуйте ещё раз.';
+    if (slotStatus) slotStatus.textContent = '';
   }
 }
 
@@ -984,7 +986,6 @@ continueToTableBtn?.addEventListener('click', async () => {
   const loaded = await refreshTableStatuses();
   continueToTableBtn.disabled = false;
   if (!loaded) {
-    setReservationStatus('Не удалось проверить столики. Попробуйте ещё раз.', 'error');
     return;
   }
   showBookingStep(tableStep);

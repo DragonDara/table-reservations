@@ -1,7 +1,11 @@
 import './style.css';
-import { bootstrapTenant } from './tenancy/bootstrap';
+import './ui/error-notification.css';
+import { initErrorNotifications, reportError } from './ui/error-notification';
+
+initErrorNotifications();
 
 async function start(): Promise<void> {
+  const { bootstrapTenant } = await import('./tenancy/bootstrap');
   const config = await bootstrapTenant();
   if (!config) return;
 
@@ -31,4 +35,4 @@ async function start(): Promise<void> {
   }
 }
 
-void start().catch((error) => console.error('Ошибка инициализации приложения', error));
+void start().catch((error) => reportError(error, 'Не удалось открыть страницу. Попробуйте обновить её.'));

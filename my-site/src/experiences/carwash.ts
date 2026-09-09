@@ -11,6 +11,7 @@ import {
 import type { PublicTenantConfig } from "../tenancy/types";
 import { kazakhstanDate } from "./carwash-schedule";
 import { createNavigationGuard, isChoiceStepAnswered } from "./carwash-navigation";
+import { reportError, showError } from '../ui/error-notification';
 
 export function initCarWashExperience(config: PublicTenantConfig): void {
   const form = document.querySelector<HTMLFormElement>('[data-carwash="form"]');
@@ -58,9 +59,10 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   }
   function status(message = "", error = false) {
     const element = el<HTMLElement>("status");
-    element.textContent = message;
-    element.hidden = !message;
-    element.dataset.state = error ? "error" : "ok";
+    element.textContent = error ? '' : message;
+    element.hidden = error || !message;
+    element.dataset.state = "ok";
+    if (error) showError(message);
   }
   function updateSummary() {
     summary.hidden = !selected.size;
@@ -208,8 +210,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
       );
     } catch (error) {
       if (version !== revision) return;
-      el<HTMLElement>("slot-status").textContent =
-        "Не удалось проверить время. Нажмите «Назад» и попробуйте снова.";
+      el<HTMLElement>("slot-status").textContent = '';
       throw error;
     }
   }
@@ -243,7 +244,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     if (error || (input && !input.checkValidity())) {
       showStep(index);
       if (error) status(error, true);
-      else input?.reportValidity();
+      else input?.focus({ preventScroll: true });
       return false;
     }
     return true;
@@ -332,16 +333,15 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
         );
         try {
           await loadTimes();
-        } catch {
-          /* Preserve booking conflict message. */
+        } catch (refreshError) {
+          // The conflict remains the actionable message; retain refresh diagnostics.
+          console.error('Не удалось обновить время после конфликта бронирования', refreshError);
         }
       }
-      status(
-        error instanceof Error
-          ? error.message
-          : "Не удалось выполнить запрос. Попробуйте снова.",
-        true,
-      );
+      status();
+      reportError(error, steps[currentStep].dataset.carwashStep === 'time'
+        ? 'Не удалось проверить время. Нажмите «Назад» и попробуйте снова.'
+        : 'Не удалось выполнить запрос. Попробуйте снова.');
     } finally {
       setBusy(false);
     }
@@ -351,8 +351,11 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   void getCarWashCatalog()
     .then((result) => {
       catalog = result;
-      if (!result.categories.length || !result.services.length)
-        throw new Error("Онлайн-запись пока недоступна: услуги не настроены.");
+      if (!result.categories.length || !result.services.length) {
+        catalog = null;
+        status('Онлайн-запись пока недоступна: услуги не настроены.', true);
+        return;
+      }
       renderCategories();
       renderServices();
       const list = document.querySelector<HTMLElement>(
@@ -375,12 +378,8 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     })
     .catch((error) => {
       catalog = null;
-      status(
-        error instanceof Error
-          ? error.message
-          : "Не удалось загрузить услуги. Обновите страницу.",
-        true,
-      );
+      status();
+      reportError(error, 'Не удалось загрузить услуги. Обновите страницу.');
     })
     .finally(() => setBusy(false));
 
