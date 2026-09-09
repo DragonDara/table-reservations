@@ -1675,10 +1675,6 @@ body {
     }
 }
 
-.carwash-logo {
-    color: var(--text);
-    text-decoration: none;
-}
 .carwash-hero .hero-content {
     background-image: radial-gradient(
         ellipse at bottom left,
@@ -1921,7 +1917,7 @@ body {
     -webkit-tap-highlight-color: transparent;
     transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease, transform 120ms ease;
 }
-[data-business-type="CarWash"] :is(.btn, .step-back, .nav-toggle) {
+[data-business-type="CarWash"] :is(.btn, .step-back) {
     min-height: 48px;
     min-width: 48px;
 }
