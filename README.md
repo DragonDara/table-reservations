@@ -69,6 +69,15 @@ configured name, theme, services (`Frontend:BusinessUi:Services`, pipe-separated
 contact links, and booking hours. Its time choices come from the tenant schedule;
 reservation conflicts are checked by the API when submitting.
 
+For social-media links that should open at the booking form without a `#`, use
+`https://thetochka.bron.cafe/?book=1` or
+`https://thetochka-carwasher.bron.cafe/?book=1`. This also works locally with
+`/lounge?book=1`, `/carwash?book=1`, or `/?org=thetochka&book=1`.
+After the tenant page and booking form initialize, the page scrolls to the form
+once, respecting reduced-motion preferences. The parameter stays in the URL
+for sharing and reloading; organization and tracking parameters are preserved.
+Normal visits and the employee `/reservations` page do not trigger this scroll.
+
 For deployment, serve `my-site/dist` with an SPA fallback to `/index.html` for
 frontend paths, and forward `/api/*` to the backend while preserving the original
 host. Build assets use root-relative URLs so direct links and refreshes work on
