@@ -49,7 +49,8 @@ function applyLinks(config: PublicTenantConfig): void {
   setLink('[data-tenant-link="menu"]', l.menu);
   setLink('[data-tenant-link="map"]', l.map);
   setLink('[data-tenant-link="phone"]', l.phone ? `tel:${l.phone}` : null);
-  setText('[data-tenant-link="phone"]', l.phone);
+  const displayPhone = l.phone?.trim().replace(/^\+7(\d{3})(\d{3})(\d{2})(\d{2})$/, '+7-$1-$2-$3-$4');
+  setText('[data-tenant-link="phone"]', displayPhone);
   setLink('[data-tenant-link="whatsapp"]', l.whatsApp);
   setLink('[data-tenant-link="instagram"]', l.instagram);
   setLink('[data-tenant-link="threads"]', l.threads);
