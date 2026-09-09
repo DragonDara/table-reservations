@@ -3,7 +3,7 @@ import type { PublicTenantConfig } from './types';
 import { applyTenantTheme } from './theme';
 import { applyTenantContent } from './content';
 import carwashPage from '../pages/carwash.html?raw';
-import { reportError, showError } from '../ui/error-notification';
+import { configureErrorWhatsApp, reportError, showError } from '../ui/error-notification';
 
 // Orchestrates tenant startup: load public config, apply branding/content, and
 // toggle loading/unavailable states. Returns the resolved config so business
@@ -50,6 +50,7 @@ export async function bootstrapTenant(): Promise<PublicTenantConfig | null> {
   }
 
   try {
+    configureErrorWhatsApp(config.links?.whatsApp);
     if (config.businessType !== 'Restaurant' && config.businessType !== 'CarWash') {
       showError('Страница этой организации пока недоступна. Попробуйте позже.');
       showUnavailable();

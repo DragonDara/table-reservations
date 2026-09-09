@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { afterEach, beforeEach, mock, test } from 'node:test';
+import { readFile } from 'node:fs/promises';
+import { initialErrorWhatsApp } from '../src/tenancy/error-support.ts';
 
 // Small event/DOM fixture: run the real notification module without a browser
 // dependency. Layout and screen-reader behavior still require browser QA.
@@ -12,6 +14,7 @@ class Element extends EventTarget {
   set textContent(value) { this.text = value; this.textUpdates++; }
   get textContent() { return this.text; }
   setAttribute(key, value) { this.attributes.set(key, value); }
+  removeAttribute(key) { this.attributes.delete(key); if (key === 'href') delete this.href; }
   append(...children) { this.children.push(...children); }
   replaceChildren(...children) { this.children = children; }
   focus(options) { this.focusOptions = options; }
@@ -47,7 +50,7 @@ afterEach(() => {
 
 function elements() {
   const box = document.body.children.at(-1);
-  return { box, message: box.children[0], close: box.children[1] };
+  return { box, message: box.children[0].children[0], whatsApp: box.children[0].children[1], close: box.children[1] };
 }
 function invalid(input) {
   const event = new Event('invalid', { cancelable: true });
@@ -127,6 +130,38 @@ test('runtime failures and rejected promises appear in the same box, without raw
 test('cancelled obsolete requests do not produce an error box', () => {
   notifications.reportError(new DOMException('Cancelled', 'AbortError'));
   assert.equal(document.body.children.length, 0);
+});
+
+test('WhatsApp link survives new errors and switches to the loaded tenant contact without changing the message', () => {
+  notifications.configureErrorWhatsApp('https://wa.me/77751516189');
+  notifications.showError('Не удалось открыть страницу.');
+  const { whatsApp, message } = elements();
+  assert.equal(whatsApp.hidden, false);
+  assert.equal(whatsApp.href, 'https://wa.me/77751516189');
+  assert.equal(whatsApp.textContent, 'Написать в WhatsApp');
+  assert.equal(whatsApp.target, '_blank');
+  assert.equal(whatsApp.rel, 'noopener noreferrer');
+  notifications.configureErrorWhatsApp('https://api.whatsapp.com/send/?phone=77475569530');
+  assert.equal(whatsApp.href, 'https://api.whatsapp.com/send/?phone=77475569530');
+  assert.equal(message.textContent, 'Не удалось открыть страницу.');
+  notifications.showError('Выберите дату.');
+  assert.equal(whatsApp.hidden, false);
+  for (const value of [null, '', 'javascript:alert(1)', 'https://wa.me.evil.example/123']) {
+    notifications.configureErrorWhatsApp(value);
+    assert.equal(whatsApp.hidden, true);
+    assert.equal(whatsApp.href, undefined);
+  }
+});
+
+test('startup chat addresses match public configuration and respect tenant hosts over saved selections', async () => {
+  const settings = JSON.parse(await readFile(new URL('../../table-reservations/appsettings.json', import.meta.url), 'utf8'));
+  for (const org of settings.Organizations.Items) {
+    assert.equal(initialErrorWhatsApp(`${org.Id}.bron.cafe`, 'other'), org.Frontend.Links.WhatsApp);
+    assert.equal(initialErrorWhatsApp(`${org.Id}.localhost`, 'other'), org.Frontend.Links.WhatsApp);
+    assert.equal(initialErrorWhatsApp('localhost', org.Id), org.Frontend.Links.WhatsApp);
+  }
+  assert.equal(initialErrorWhatsApp('unknown.bron.cafe', 'thetochka'), null);
+  assert.equal(initialErrorWhatsApp('localhost', null), null);
 });
 
 test('native validation suppresses bubbles and reports/focuses only the first invalid field per pass', async () => {

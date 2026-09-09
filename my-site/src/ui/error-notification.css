@@ -19,7 +19,25 @@
   font: 500 15px/1.5 system-ui, sans-serif;
 }
 .app-error[hidden] { display: none; }
-.app-error-message { flex: 1; min-width: 0; margin: 0; overflow-wrap: anywhere; }
+.app-error-content { flex: 1; min-width: 0; }
+.app-error-message { margin: 0; overflow-wrap: anywhere; }
+.app-error-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  margin-top: 12px;
+  padding: 8px 14px;
+  border: 1px solid rgb(255 255 255 / 60%);
+  border-radius: 8px;
+  color: #fff;
+  background: rgb(255 255 255 / 10%);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  touch-action: manipulation;
+}
+.app-error-whatsapp[hidden] { display: none; }
+.app-error-whatsapp:hover { background: rgb(255 255 255 / 20%); }
+.app-error-whatsapp:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
 .app-error-close {
   flex: 0 0 44px;
   width: 44px;
