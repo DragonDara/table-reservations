@@ -11,7 +11,7 @@ import {
 import type { PublicTenantConfig } from "../tenancy/types";
 import { kazakhstanDate } from "./carwash-schedule";
 import { createNavigationGuard, isChoiceStepAnswered } from "./carwash-navigation";
-import { reportError, showError } from '../ui/error-notification';
+import { errorMessage, reportError, showError } from '../ui/error-notification';
 
 export function initCarWashExperience(config: PublicTenantConfig): void {
   const form = document.querySelector<HTMLFormElement>('[data-carwash="form"]');
@@ -29,6 +29,41 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   const serviceOptions = el<HTMLElement>("service-options");
   const times = el<HTMLElement>("times");
   const summary = el<HTMLElement>("summary");
+  const resultOverlay = document.querySelector<HTMLElement>('[data-carwash="result-overlay"]')!;
+  const resultIcon = resultOverlay.querySelector<HTMLElement>('[data-carwash="result-icon"]')!;
+  const resultTitle = resultOverlay.querySelector<HTMLElement>('[data-carwash="result-title"]')!;
+  const resultText = resultOverlay.querySelector<HTMLElement>('[data-carwash="result-text"]')!;
+  const resultClose = resultOverlay.querySelector<HTMLButtonElement>('[data-carwash="result-close"]')!;
+  let previousFocus: HTMLElement | null = null;
+  function closeResult() {
+    resultOverlay.hidden = true;
+    previousFocus?.focus({ preventScroll: true });
+    previousFocus = null;
+  }
+  function showResult(message: string, type: 'success' | 'error') {
+    previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    resultTitle.textContent = type === 'success' ? 'Запись подтверждена!' : 'Не удалось записаться';
+    resultText.textContent = message;
+    resultIcon.textContent = type === 'success' ? '✓' : '!';
+    resultIcon.classList.toggle('icon-blocked', type === 'error');
+    resultClose.textContent = type === 'success' ? 'Отлично' : 'Понятно';
+    resultOverlay.hidden = false;
+    resultClose.focus({ preventScroll: true });
+  }
+  resultClose.addEventListener('click', closeResult);
+  resultOverlay.addEventListener('click', (event) => {
+    if (event.target === resultOverlay) closeResult();
+  });
+  resultOverlay.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeResult();
+    }
+    if (event.key === 'Tab') {
+      event.preventDefault();
+      resultClose.focus({ preventScroll: true });
+    }
+  });
   let catalog: CarWashCatalog | null = null;
   let categoryId = "";
   let selected = new Set<string>();
@@ -325,7 +360,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
       renderCategories();
       renderServices();
       showStep(0);
-      status(confirmation);
+      showResult(confirmation, 'success');
     } catch (error) {
       if (error instanceof ApiError && error.code === "SLOT_TAKEN") {
         showStep(
@@ -339,9 +374,14 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
         }
       }
       status();
-      reportError(error, steps[currentStep].dataset.carwashStep === 'time'
-        ? 'Не удалось проверить время. Нажмите «Назад» и попробуйте снова.'
-        : 'Не удалось выполнить запрос. Попробуйте снова.');
+      const fallback = error instanceof ApiError && error.code === 'SLOT_TAKEN'
+        ? 'Выбранное время уже занято. Выберите другое время и попробуйте снова.'
+        : steps[currentStep].dataset.carwashStep === 'time'
+          ? 'Не удалось проверить время. Нажмите «Назад» и попробуйте снова.'
+          : 'Не удалось выполнить запрос. Попробуйте снова.';
+      console.error(fallback, error);
+      showResult(error instanceof ApiError && error.code === 'SLOT_TAKEN'
+        ? fallback : errorMessage(error, fallback), 'error');
     } finally {
       setBusy(false);
     }
