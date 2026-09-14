@@ -63,6 +63,24 @@ public class BookingRulesTests
     }
 
     [Fact]
+    public void CarWashWindow_ClosesAtOneAmOnTheFollowingDay()
+    {
+        var hours = new BookingTimeOptions
+        {
+            StartTime = "09:00", EndTime = "01:00", ReservationDeadline = "01:00", SlotDurationMinutes = 60
+        };
+        var day = new DateOnly(2026, 9, 7);
+        var slots = BookingRules.Slots(day, hours, new DateTime(2026, 9, 7, 8, 0, 0));
+
+        Assert.Equal(new DateTime(2026, 9, 7, 9, 0, 0), slots[0]);
+        Assert.Equal(new DateTime(2026, 9, 8, 0, 0, 0), slots[^1]);
+        Assert.Equal(16, slots.Count);
+        Assert.True(BookingRules.FitsHours(slots[^1], 60, hours));
+        Assert.False(BookingRules.FitsHours(slots[^1], 90, hours));
+        Assert.False(BookingRules.FitsHours(new DateTime(2026, 9, 8, 1, 0, 0), 60, hours));
+    }
+
+    [Fact]
     public void IntervalOverlapIncludesPartialOverlapButNotAdjacentVisits()
     {
         var start = new DateTime(2026, 9, 7, 10, 0, 0);
