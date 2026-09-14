@@ -226,8 +226,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
       times.replaceChildren(
         ...slots.map((slot) => {
           const button = option(
-            slot.slice(11) +
-              (slot.slice(0, 10) !== date.value ? " (+1 день)" : ""),
+            slot.slice(11),
             false,
             () => {
               scheduledAt.value = slot;
