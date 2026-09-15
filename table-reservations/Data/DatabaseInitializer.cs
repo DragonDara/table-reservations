@@ -1,7 +1,11 @@
+using Microsoft.Extensions.Options;
+using table_reservations.Configuration;
+
 namespace table_reservations.Data;
 
 /// <summary>Startup validates only. Run explicitly with --migrate for additive schema changes.</summary>
-public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseInitializer> logger)
+public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseInitializer> logger,
+    IOptions<TelegramOptions>? telegram = null)
 {
     public async Task InitializeAsync(CancellationToken ct = default)
     {
@@ -16,6 +20,11 @@ public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseIni
             new("SELECT service_id,vehicle_category_id,price_minor,duration_minutes FROM carwash_service_prices LIMIT 0"),
             new("SELECT package_service_id,included_service_id FROM carwash_package_items LIMIT 0")
         ], ct);
+        if (telegram?.Value.IsConfigured == true)
+            await client.QueryBatchAsync([
+                new("SELECT organization_id,chat_id,title FROM telegram_groups LIMIT 0"),
+                new("SELECT organization_id,reservation_id,channel FROM notification_deliveries LIMIT 0")
+            ], ct);
         logger.LogInformation("Turso schema validated.");
     }
 
@@ -35,6 +44,7 @@ public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseIni
                 "CREATE INDEX IF NOT EXISTS ix_box_reservations_phone ON box_reservations(customer_phone,status)",
                 "CREATE INDEX IF NOT EXISTS ix_table_reservations_phone ON table_reservations(customer_phone,status)"
             ]);
+            statements.AddRange(Services.TelegramSubscriptionStore.Schema);
             var legacy = await db.QueryAsync("SELECT name FROM sqlite_master WHERE type='table' AND name='box_reservation_services'", ct: token);
             if (legacy.Rows.Count > 0)
                 statements.Add("""

@@ -62,6 +62,8 @@ namespace table_reservations.Configuration
         /// <summary>Tenant-specific WhatsApp delivery settings.</summary>
         public WhatsAppOptions WhatsApp { get; set; } = new();
 
+        public OrganizationTelegramOptions Telegram { get; set; } = new();
+
         /// <summary>Tenant-specific rating provider settings.</summary>
         public RatingOptions Rating { get; set; } = new();
 

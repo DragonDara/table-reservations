@@ -11,7 +11,7 @@ namespace table_reservations.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 public class ReservationsController(
-    IReservationRepository reservations, IWhatsAppNotificationService whatsApp,
+    IReservationRepository reservations, IReservationNotificationService notifications,
     TenantContext tenant, IBusinessTypeStrategyResolver strategies,
     ILogger<ReservationsController> logger) : ControllerBase
 {
@@ -36,12 +36,14 @@ public class ReservationsController(
         // Notification failures must not turn a committed booking into an apparent failure.
         var customerSent = false;
         var adminSent = false;
+        var telegramSent = false;
         try
         {
             IReadOnlyList<TableInfo> tables = tenant.BusinessType == BusinessType.Restaurant
                 ? await reservations.GetTablesAsync(validation.ScheduledAt, ct) : [];
-            (customerSent, adminSent) = await whatsApp.SendReservationNotificationsAsync(
+            var delivery = await notifications.SendReservationNotificationsAsync(
                 request, validation.ScheduledAt, strategy.BuildNotificationLabel(request, tables), ct);
+            (customerSent, adminSent, telegramSent) = delivery;
         }
         catch (Exception ex)
         {
@@ -52,6 +54,7 @@ public class ReservationsController(
             result.BoxId, result.TotalKzt, result.DurationMinutes,
             message = result.Overwritten ? "Бронь перезаписана." : "Бронь создана.",
             whatsAppSent = customerSent, adminWhatsAppSent = adminSent,
+            telegramSent,
             update = new { reservationId = result.Id }
         });
     }

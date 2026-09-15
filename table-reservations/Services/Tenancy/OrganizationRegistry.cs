@@ -39,6 +39,10 @@ namespace table_reservations.Services.Tenancy
 
             foreach (var org in items)
             {
+                org.Telegram ??= new OrganizationTelegramOptions();
+                var code = org.Telegram.ConnectionCode;
+                if (!string.IsNullOrEmpty(code) && (code.Length > 128 || code.Any(char.IsWhiteSpace)))
+                    throw new InvalidOperationException($"Telegram ConnectionCode for organization '{org.Id}' must have 1-128 characters without whitespace.");
                 org.BookingTime ??= new BookingTimeOptions();
                 try
                 {
@@ -51,6 +55,11 @@ namespace table_reservations.Services.Tenancy
                         ex);
                 }
             }
+
+            if (items.Where(o => !string.IsNullOrEmpty(o.Telegram.ConnectionCode))
+                .GroupBy(o => o.Telegram.ConnectionCode, StringComparer.Ordinal)
+                .Any(group => group.Count() > 1))
+                throw new InvalidOperationException("Telegram ConnectionCode must be unique for each organization.");
 
             _byId = items
                 .Where(o => !string.IsNullOrWhiteSpace(o.Id))

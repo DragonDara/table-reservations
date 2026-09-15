@@ -1,8 +1,6 @@
-﻿using System.Net.Http.Json;
+using System.Net.Http.Json;
 using System.Text.Json.Serialization;
-using table_reservations.Constants;
 using table_reservations.Models;
-using table_reservations.Models.Tenancy;
 using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Services
@@ -12,6 +10,7 @@ namespace table_reservations.Services
         private readonly HttpClient _http;
         private readonly ILogger<WhatsAppNotificationService> _logger;
         private readonly TenantContext _tenant;
+        private readonly ReservationNotificationMessages _messages;
 
         public WhatsAppNotificationService(
             HttpClient http,
@@ -21,6 +20,7 @@ namespace table_reservations.Services
             _http = http;
             _logger = logger;
             _tenant = tenant;
+            _messages = new(tenant);
         }
 
         public async Task<(bool CustomerSent, bool AdminSent)> SendReservationNotificationsAsync(
@@ -39,11 +39,11 @@ namespace table_reservations.Services
                 _logger.LogWarning("Некорректный AdminPhone: {Phone}", adminPhone);
 
             var customerTask = customerChatId != null
-                ? SendMessageAsync(customerChatId, BuildCustomerMessage(reservation, dateTime, tableTypeLabel), ct)
+                ? SendMessageAsync(customerChatId, _messages.Customer(reservation, dateTime, tableTypeLabel), ct)
                 : Task.FromResult(false);
 
             var adminTask = adminChatId != null
-                ? SendMessageAsync(adminChatId, BuildAdminMessage(reservation, dateTime, tableTypeLabel), ct)
+                ? SendMessageAsync(adminChatId, _messages.Admin(reservation, dateTime, tableTypeLabel), ct)
                 : Task.FromResult(false);
 
             await Task.WhenAll(customerTask, adminTask);
@@ -71,16 +71,18 @@ namespace table_reservations.Services
             }
             var payload = new GreenApiSendMessageRequest { ChatId = chatId, Message = message };
 
-            using var response = await _http.PostAsJsonAsync(url, payload, ct);
-
-            if (!response.IsSuccessStatusCode)
+            try
             {
-                var body = await response.Content.ReadAsStringAsync(ct);
-                _logger.LogWarning("Green API {StatusCode}: {Body}", (int)response.StatusCode, body);
-                return false;
+                using var response = await _http.PostAsJsonAsync(url, payload, ct);
+                if (response.IsSuccessStatusCode) return true;
+                _logger.LogWarning("Green API failed with HTTP {StatusCode}.", (int)response.StatusCode);
             }
-
-            return true;
+            catch (Exception ex) when (ex is HttpRequestException ||
+                                       ex is OperationCanceledException && !ct.IsCancellationRequested)
+            {
+                _logger.LogWarning("Green API delivery failed ({ErrorType}).", ex.GetType().Name);
+            }
+            return false;
         }
 
         private string? BuildSendMessageUrl()
@@ -94,60 +96,6 @@ namespace table_reservations.Services
             return $"{options.ApiUrl!.TrimEnd('/')}/waInstance{options.IdInstance}/sendMessage/{options.ApiTokenInstance}";
         }
 
-        private string BuildCustomerMessage(ReservationInfo reservation, DateTime dateTime, string typeLabel)
-        {
-            if (_tenant.BusinessType == BusinessType.CarWash)
-            {
-                return $"""
-                    Ваша запись подтверждена:
-                    Автомобиль: {reservation.PlateNumber}
-                    Услуга: {typeLabel}
-                    Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
-
-                    Ждём вас в {_tenant.Organization!.DisplayName}!
-                    """;
-            }
-
-            return $"""
-                Здравствуйте, {reservation.CustomerName}!
-
-                Ваша бронь подтверждена:
-                Стол №{reservation.TablesId}
-                Секция: {reservation.Section}
-                Тип столика: {typeLabel}
-                Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
-
-                Ждём вас!
-                """;
-        }
-
-        private string BuildAdminMessage(ReservationInfo reservation, DateTime dateTime, string typeLabel)
-        {
-            if (_tenant.BusinessType == BusinessType.CarWash)
-            {
-                return $"""
-                    Новая запись на автомойку!
-
-                    Телефон: {reservation.CustomerPhone}
-                    Автомобиль: {reservation.PlateNumber}
-                    Услуга: {typeLabel}
-                    Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
-                    """;
-            }
-
-            return $"""
-                Новая бронь!
-
-                Клиент: {reservation.CustomerName}
-                Телефон: {reservation.CustomerPhone}
-                Стол №{reservation.TablesId}
-                Секция: {reservation.Section}
-                Тип столика: {typeLabel}
-                Дата и время: {dateTime.ToString(ReservationDateTime.Format)}
-                """;
-        }
-
-
         public async Task<bool> SendReminderBeforeHourAsync(
             ReservationInfo reservation,
             DateTime dateTime,
@@ -157,23 +105,7 @@ namespace table_reservations.Services
             var chatId = ToChatId(reservation.CustomerPhone);
             if (chatId == null) return false;
 
-            var organizationName = _tenant.Organization!.DisplayName;
-            var text = _tenant.BusinessType == BusinessType.CarWash
-                ? $"""
-                    Напоминаем о записи в {organizationName} в {dateTime.ToString(ReservationDateTime.Format)}.
-                    Автомобиль: {reservation.PlateNumber}
-                    Услуга: {reservation.WashServiceType}
-
-                    Ждём вас!
-                    """
-                : $"""
-                    Здравствуйте, {reservation.CustomerName}!
-
-                    Напоминаем, что у вас есть бронь в {organizationName} в {dateTime.ToString(ReservationDateTime.Format)}.
-                    Ваш столик №{reservation.TablesId}
-
-                    Ждём вас!
-                    """;
+            var text = _messages.Reminder(reservation, dateTime);
 
             return await SendMessageAsync(chatId, text, ct);
         }
