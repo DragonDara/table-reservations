@@ -52,6 +52,20 @@ namespace table_reservations
             builder.Services.AddSingleton<DatabaseInitializer>();
             builder.Services.AddScoped<IReservationRepository, TursoReservationRepository>();
             builder.Services.AddHttpClient<IWhatsAppNotificationService, WhatsAppNotificationService>();
+            builder.Services.AddOptions<TelegramOptions>()
+                .Bind(builder.Configuration.GetSection(TelegramOptions.SectionName))
+                .Validate(o => !o.IsConfigured ||
+                    (!string.IsNullOrWhiteSpace(o.BotUsername) && !o.BotUsername.Contains('@') &&
+                     o.WebhookSecret is { Length: >= 32 and <= 256 } &&
+                     o.WebhookSecret.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')),
+                    "Telegram requires BotUsername without @ and a WebhookSecret of 32-256 letters, digits, underscores or hyphens.")
+                .ValidateOnStart();
+            // Telegram URLs contain the bot token: disable default request URL logging.
+            builder.Services.AddHttpClient<ITelegramBotClient, TelegramBotClient>(client =>
+                client.Timeout = TimeSpan.FromSeconds(10)).RemoveAllLoggers();
+            builder.Services.AddScoped<TelegramSubscriptionStore>();
+            builder.Services.AddScoped<ReservationNotificationMessages>();
+            builder.Services.AddScoped<IReservationNotificationService, ReservationNotificationService>();
             if (builder.Configuration.GetValue("ReservationReminders:Enabled", true))
                 builder.Services.AddHostedService<ReservationReminderService>();
             builder.Services.AddHttpClient<DgisRatingService>();

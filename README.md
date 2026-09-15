@@ -3,6 +3,9 @@
 For the Turso schema migration, multi-service carwash bookings, pricing units
 and setup commands, see [Turso bookings](docs/turso-bookings.md).
 
+For Telegram group notifications and business self-service connection via a bot,
+see [Telegram notifications](docs/telegram-notifications.md).
+
 ## Work without installing local runtimes
 
 This repository includes a GitHub Codespaces configuration with .NET 10 and

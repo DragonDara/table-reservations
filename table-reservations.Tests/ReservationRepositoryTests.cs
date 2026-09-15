@@ -15,7 +15,7 @@ namespace table_reservations.Tests;
 /// <summary>Runs the production repository SQL and migration against real, isolated SQLite.</summary>
 public class ReservationRepositoryTests
 {
-    private sealed class Database : ITursoClient, IDisposable
+    internal sealed class Database : ITursoClient, IDisposable
     {
         private readonly SqliteConnection connection = new("Data Source=:memory:");
         private readonly SemaphoreSlim gate = new(1);

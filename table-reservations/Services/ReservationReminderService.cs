@@ -73,7 +73,7 @@ namespace table_reservations.Services
             tenant.Set(organization);
 
             var reservations = scope.ServiceProvider.GetRequiredService<IReservationRepository>();
-            var whatsApp = scope.ServiceProvider.GetRequiredService<IWhatsAppNotificationService>();
+            var notifications = scope.ServiceProvider.GetRequiredService<IReservationNotificationService>();
 
             var rows = await reservations.GetReminderCandidatesAsync(ct);
 
@@ -99,7 +99,7 @@ namespace table_reservations.Services
                 if (now < remindAt || now >= dateTime)
                     continue;
 
-                var sent = await whatsApp.SendReminderBeforeHourAsync(item.Reservation, dateTime, ct);
+                var sent = await notifications.SendReminderAsync(item.Id, item.Reservation, dateTime, ct);
                 if (!sent)
                 {
                     _logger.LogWarning("Не удалось отправить напоминание, бронь {Id}", item.Id);
