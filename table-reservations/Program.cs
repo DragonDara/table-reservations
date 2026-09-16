@@ -58,12 +58,16 @@ namespace table_reservations
                     (!string.IsNullOrWhiteSpace(o.BotUsername) &&
                      o.BotUsername.All(c => char.IsAsciiLetterOrDigit(c) || c == '_') &&
                      o.WebhookSecret is { Length: >= 32 and <= 256 } &&
-                     o.WebhookSecret.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-')),
-                    "Telegram requires the bot username (e.g. reservremindbot, without @ or spaces), not its display name, and a WebhookSecret of 32-256 letters, digits, underscores or hyphens.")
+                     o.WebhookSecret.All(c => char.IsAsciiLetterOrDigit(c) || c is '_' or '-') &&
+                     (string.IsNullOrWhiteSpace(o.WebhookUrl) ||
+                      Uri.TryCreate(o.WebhookUrl, UriKind.Absolute, out var webhookUri) &&
+                      webhookUri.Scheme == Uri.UriSchemeHttps)),
+                    "Telegram requires the bot username (e.g. reservremindbot, without @ or spaces), a WebhookSecret of 32-256 letters, digits, underscores or hyphens, and WebhookUrl must be an absolute HTTPS URL when provided.")
                 .ValidateOnStart();
             // Telegram URLs contain the bot token: disable default request URL logging.
             builder.Services.AddHttpClient<ITelegramBotClient, TelegramBotClient>(client =>
                 client.Timeout = TimeSpan.FromSeconds(10)).RemoveAllLoggers();
+            builder.Services.AddHostedService<TelegramWebhookRegistrationService>();
             builder.Services.AddScoped<TelegramSubscriptionStore>();
             builder.Services.AddScoped<ReservationNotificationMessages>();
             builder.Services.AddScoped<IReservationNotificationService, ReservationNotificationService>();

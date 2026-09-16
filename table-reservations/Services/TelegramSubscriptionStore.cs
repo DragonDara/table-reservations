@@ -27,18 +27,8 @@ public sealed class TelegramSubscriptionStore(ITursoClient db)
             return true;
         }, ct);
 
-    public Task<bool> DisconnectAsync(string organizationId, long chatId, CancellationToken ct) =>
-        db.TransactionAsync(async (connection, token) =>
-        {
-            var exists = (await connection.QueryAsync(
-                "SELECT 1 FROM telegram_groups WHERE organization_id = ? AND chat_id = ?",
-                [organizationId, chatId], token)).Rows.Count > 0;
-            if (!exists) return false;
-            await connection.ExecuteAsync(
-                "DELETE FROM telegram_groups WHERE organization_id = ? AND chat_id = ?",
-                [organizationId, chatId], token);
-            return true;
-        }, ct);
+    public Task<long> DisconnectAsync(long chatId, CancellationToken ct) =>
+        db.ExecuteAsync("DELETE FROM telegram_groups WHERE chat_id = ?", [chatId], ct);
 
     public Task<long> MigrateChatAsync(long oldChatId, long newChatId, CancellationToken ct) =>
         db.ExecuteAsync("UPDATE telegram_groups SET chat_id = ? WHERE chat_id = ?", [newChatId, oldChatId], ct);

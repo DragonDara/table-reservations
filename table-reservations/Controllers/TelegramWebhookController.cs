@@ -38,41 +38,36 @@ public sealed class TelegramWebhookController(IOptions<TelegramOptions> options,
             await subscriptions.MigrateChatAsync(message.MigrateFromChatId.Value, chat.Id, ct);
             return Ok();
         }
-        if (message.From is not { Id: > 0, IsBot: false } || message.SenderChat is not null) return Ok();
+        if (message.From is not { Id: > 0, IsBot: false } sender || message.SenderChat is not null) return Ok();
         var parts = (message.Text ?? "").Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries);
         if (parts.Length == 0) return Ok();
         var command = parts[0].Split('@', 2);
         if (command.Length == 2 && !string.Equals(command[1], options.Value.BotUsername, StringComparison.OrdinalIgnoreCase)) return Ok();
         if (command[0] is not ("/connect" or "/disconnect")) return Ok();
+        if (!await bot.IsAdministratorAsync(chat.Id, sender.Id, ct))
+        {
+            await bot.SendMessageAsync(chat.Id, "Подключать и отключать уведомления может только владелец или администратор группы. Бот тоже должен быть администратором.", ct);
+            return Ok();
+        }
+
+        if (command[0] == "/disconnect")
+        {
+            await subscriptions.DisconnectAsync(chat.Id, ct);
+            await bot.SendMessageAsync(chat.Id, "Уведомления отключены. Для повторного подключения отправьте /connect КОД_БИЗНЕСА.", ct);
+            return Ok();
+        }
         if (parts.Length != 2 || parts[1].Length > 128)
         {
-            await bot.SendMessageAsync(chat.Id,
-                $"Используйте {command[0]}@{options.Value.BotUsername} КОД_БИЗНЕСА", ct);
+            await bot.SendMessageAsync(chat.Id, "Для подключения отправьте /connect@" + options.Value.BotUsername + " КОД_БИЗНЕСА", ct);
             return Ok();
         }
         var code = Encoding.UTF8.GetBytes(parts[1]);
         var matches = organizations.All.Where(o => !string.IsNullOrEmpty(o.Telegram.ConnectionCode) &&
             CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(o.Telegram.ConnectionCode), code)).ToArray();
-        if (matches.Length != 1)
-        {
-            await bot.SendMessageAsync(chat.Id, "Неверный код бизнеса.", ct);
-            return Ok();
-        }
-
-        var organization = matches[0];
-        if (command[0] == "/disconnect")
-        {
-            var disconnected = await subscriptions.DisconnectAsync(organization.Id, chat.Id, ct);
-            await bot.SendMessageAsync(chat.Id, disconnected
-                ? $"Уведомления для «{organization.DisplayName}» отключены."
-                : "Эта группа не подключена к указанному бизнесу.", ct);
-            return Ok();
-        }
-
-        var connected = await subscriptions.ConnectAsync(organization.Id, chat.Id, chat.Title ?? "", ct);
+        var connected = matches.Length == 1 && await subscriptions.ConnectAsync(matches[0].Id, chat.Id, chat.Title ?? "", ct);
         await bot.SendMessageAsync(chat.Id, connected
-            ? $"Уведомления для «{organization.DisplayName}» подключены. Сюда будут приходить копии подтверждений, сообщений администратору и напоминаний о бронях. Для отключения используйте /disconnect@{options.Value.BotUsername} КОД_БИЗНЕСА."
-            : "Эта группа уже подключена к другому бизнесу.", ct);
+            ? $"Уведомления для «{matches[0].DisplayName}» подключены. Сюда будут приходить копии подтверждений, сообщений администратору и напоминаний о бронях. Отключить: /disconnect@{options.Value.BotUsername}"
+            : "Неверный код или группа уже подключена к другому бизнесу. Проверьте код у сервиса бронирования.", ct);
         return Ok();
     }
 }

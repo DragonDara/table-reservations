@@ -208,18 +208,4 @@ public class TenantResolutionMiddlewareTests
         Assert.True(nextCalled[0]);
         Assert.False(tenant.IsResolved);
     }
-
-    [Fact]
-    public async Task TelegramWebhook_OnSharedBackendHost_DoesNotRequireTenant()
-    {
-        var (middleware, nextCalled) = BuildMiddleware();
-        var context = ApiContext("backend.example.com");
-        context.Request.Path = "/api/integrations/telegram/webhook";
-        var tenant = new TenantContext();
-
-        await middleware.InvokeAsync(context, BuildRegistry(), tenant);
-
-        Assert.True(nextCalled[0]);
-        Assert.False(tenant.IsResolved);
-    }
 }

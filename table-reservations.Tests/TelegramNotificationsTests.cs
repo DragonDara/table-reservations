@@ -37,10 +37,15 @@ public class TelegramNotificationsTests
     }
     private sealed class Bot : ITelegramBotClient
     {
+        public bool Admin = true;
         public bool Send = true;
+        public int AdminChecks;
         public List<(long ChatId, string Text)> Messages = [];
+        public Task<bool> IsAdministratorAsync(long chatId, long userId, CancellationToken ct)
+        { AdminChecks++; return Task.FromResult(Admin); }
         public Task<bool> SendMessageAsync(long chatId, string text, CancellationToken ct)
         { Messages.Add((chatId, text)); return Task.FromResult(Send); }
+        public Task<bool> SetWebhookAsync(string url, string secret, CancellationToken ct) => Task.FromResult(true);
     }
     private sealed class WhatsApp : IWhatsAppNotificationService
     {
@@ -143,10 +148,9 @@ public class TelegramNotificationsTests
         controller.Request.Headers["X-Telegram-Bot-Api-Secret-Token"] = secret;
         return controller;
     }
-    private static TelegramUpdate Update(string text, string type = "supergroup", long chatId = -1001,
-        bool anonymous = false, bool isBot = false) => new() {
+    private static TelegramUpdate Update(string text, string type = "supergroup", long chatId = -1001, bool anonymous = false) => new() {
         Message = new() { Chat = new() { Id = chatId, Type = type, Title = "Business" },
-            From = new() { Id = 42, IsBot = isBot }, Text = text, SenderChat = anonymous ? new() { Id = chatId } : null }
+            From = new() { Id = 42 }, Text = text, SenderChat = anonymous ? new() { Id = chatId } : null }
     };
 
     [Fact]
@@ -154,11 +158,11 @@ public class TelegramNotificationsTests
     {
         var bot = new Bot();
         Assert.IsType<UnauthorizedResult>(await Controller(null!, bot, "forged").Receive(Update("/connect " + Code), default));
-        Assert.Empty(bot.Messages);
+        Assert.Equal(0, bot.AdminChecks); Assert.Empty(bot.Messages);
     }
 
     [Fact]
-    public async Task MemberWithConfiguredSecretCanReconnectMoveAndDisconnectGroup()
+    public async Task AdministratorCanReuseConfiguredCodeToReconnectAndMoveGroup()
     {
         using var db = new ReservationRepositoryTests.Database(); var store = await Store(db);
         var bot = new Bot(); var controller = Controller(store, bot);
@@ -169,22 +173,23 @@ public class TelegramNotificationsTests
         Assert.Equal(-1001, await store.GetChatIdAsync("one", default));
         await controller.Receive(Update("/connect " + Code, chatId: -1002), default);
         Assert.Equal(-1002, await store.GetChatIdAsync("one", default));
-        await controller.Receive(Update("/disconnect@booking_bot " + Code, chatId: -1002), default);
+        await controller.Receive(Update("/disconnect@booking_bot", chatId: -1002), default);
         Assert.Null(await store.GetChatIdAsync("one", default));
         await controller.Receive(Update("/connect " + Code), default);
         Assert.Equal(-1001, await store.GetChatIdAsync("one", default));
     }
 
     [Theory]
-    [InlineData("private", false, false, "/connect ")]
-    [InlineData("channel", false, false, "/connect ")]
-    [InlineData("supergroup", true, false, "/connect ")]
-    [InlineData("supergroup", false, true, "/connect ")]
-    [InlineData("supergroup", false, false, "/connect@other_bot ")]
-    public async Task UnsupportedMessagesDoNotChangeSubscription(string type, bool anonymous, bool isBot, string command)
+    [InlineData("private", true, false, "/connect ")]
+    [InlineData("channel", true, false, "/connect ")]
+    [InlineData("supergroup", false, false, "/connect ")]
+    [InlineData("supergroup", true, true, "/connect ")]
+    [InlineData("supergroup", true, false, "/connect@other_bot ")]
+    public async Task UnauthorizedConnectionDoesNotChangeSubscription(string type, bool admin, bool anonymous, string command)
     {
         using var db = new ReservationRepositoryTests.Database(); var store = await Store(db);
-        await Controller(store, new()).Receive(Update(command + Code, type, anonymous: anonymous, isBot: isBot), default);
+        var bot = new Bot { Admin = admin };
+        await Controller(store, bot).Receive(Update(command + Code, type, anonymous: anonymous), default);
         Assert.Null(await store.GetChatIdAsync("one", default));
     }
 
@@ -198,7 +203,7 @@ public class TelegramNotificationsTests
         Assert.True(await store.ConnectAsync("one", -1003, "Third", default));
         Assert.Equal(-1003, await store.GetChatIdAsync("one", default));
         Assert.Equal(-1002, await store.GetChatIdAsync("two", default));
-        Assert.False(await store.DisconnectAsync("one", -1001, default));
+        await store.DisconnectAsync(-1001, default);
         Assert.Equal(-1003, await store.GetChatIdAsync("one", default));
     }
 
@@ -258,8 +263,6 @@ public class TelegramNotificationsTests
     [InlineData("/connect TOCHKA-2026")]
     [InlineData("/connect")]
     [InlineData("/connect tochka-2026 extra")]
-    [InlineData("/disconnect wrong-code")]
-    [InlineData("/disconnect")]
     public async Task InvalidCodeCannotChangeExistingGroup(string command)
     {
         using var db = new ReservationRepositoryTests.Database(); var store = await Store(db);

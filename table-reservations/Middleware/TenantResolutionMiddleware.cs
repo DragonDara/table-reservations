@@ -53,7 +53,7 @@ namespace table_reservations.Middleware
             {
                 tenant.Set(organization);
             }
-            else if (IsApiRequest(context.Request.Path) && !IsTenantIndependentApiRequest(context.Request.Path))
+            else if (IsApiRequest(context.Request.Path))
             {
                 _logger.LogWarning(
                     "Could not resolve organization for {Path}. Host: {Host}, Header: {Header}",
@@ -165,11 +165,6 @@ namespace table_reservations.Middleware
 
         private static bool IsApiRequest(PathString path) =>
             path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
-
-        // Telegram authenticates this endpoint with its webhook secret and selects
-        // the organization through /connect CODE, so no tenant header is expected.
-        private static bool IsTenantIndependentApiRequest(PathString path) =>
-            path.Equals("/api/integrations/telegram/webhook", StringComparison.OrdinalIgnoreCase);
 
         private enum TenantResolution
         {
