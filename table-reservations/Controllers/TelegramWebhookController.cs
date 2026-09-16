@@ -9,9 +9,8 @@ using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Controllers;
 
-// Outside /api: Telegram has no tenant header. The secret code selects the business.
 [ApiController]
-[Route("integrations/telegram/webhook")]
+[Route("api/integrations/telegram/webhook")]
 public sealed class TelegramWebhookController(IOptions<TelegramOptions> options,
     OrganizationRegistry organizations, TelegramSubscriptionStore subscriptions,
     ITelegramBotClient bot) : ControllerBase

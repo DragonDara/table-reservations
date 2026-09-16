@@ -45,6 +45,7 @@ public class TelegramNotificationsTests
         { AdminChecks++; return Task.FromResult(Admin); }
         public Task<bool> SendMessageAsync(long chatId, string text, CancellationToken ct)
         { Messages.Add((chatId, text)); return Task.FromResult(Send); }
+        public Task<bool> SetWebhookAsync(string url, string secret, CancellationToken ct) => Task.FromResult(true);
     }
     private sealed class WhatsApp : IWhatsAppNotificationService
     {

@@ -72,14 +72,16 @@
 "Telegram": {
   "BotToken": "ТОКЕН_ВАШЕГО_БОТА",
   "BotUsername": "reservremindbot",
-  "WebhookSecret": "СЛУЧАЙНАЯ_СТРОКА_ДЛЯ_WEBHOOK"
+  "WebhookSecret": "СЛУЧАЙНАЯ_СТРОКА_ДЛЯ_WEBHOOK",
+  "WebhookUrl": "https://thetochka.bron.cafe/api/integrations/telegram/webhook"
 }
 ```
 
 Токен задавайте через секреты окружения `Telegram__BotToken` или игнорируемый файл
 настроек. `BotUsername` указывается без `@`. `WebhookSecret` — отдельный секрет
 для связи Telegram с сервером: 32–256 символов из A–Z, a–z, 0–9, `_` и `-`.
-Клиент его не вводит. При пустом токене интеграция отключена.
+Клиент его не вводит. `WebhookUrl` должен быть публичным HTTPS URL backend.
+При пустом токене интеграция отключена.
 
 Перед первым запуском примените добавочную миграцию к нужной базе:
 
@@ -92,21 +94,9 @@ dotnet run --project table-reservations --no-launch-profile -- --migrate
 Таблица `telegram_used_codes` от предыдущей реализации, если она уже создана,
 не используется и не мешает повторному подключению.
 
-Затем запустите сервер и зарегистрируйте webhook на публичном HTTPS-адресе backend.
-Пример PowerShell, если секреты уже заданы через переменные окружения:
-
-```powershell
-$webhookBody = @{
-    url = 'https://YOUR_BACKEND/integrations/telegram/webhook'
-    secret_token = $env:Telegram__WebhookSecret
-    allowed_updates = @('message')
-    max_connections = 1
-} | ConvertTo-Json
-$telegramEndpoint = 'https://api.telegram.org/bot' + $env:Telegram__BotToken + '/setWebhook'
-Invoke-RestMethod -Method Post -Uri $telegramEndpoint -ContentType 'application/json' -Body $webhookBody
-```
-
-Telegram обращается к `/integrations/telegram/webhook` без заголовка tenant-а.
+При запуске сервер автоматически регистрирует webhook в Telegram. Успех или ошибка
+регистрации записываются в журнал. Telegram обращается к
+`/api/integrations/telegram/webhook`.
 Подлинность запроса проверяется по `X-Telegram-Bot-Api-Secret-Token`.
 Бот должен быть администратором для надёжной проверки прав отправителя:
 [setWebhook](https://core.telegram.org/bots/api#setwebhook),
