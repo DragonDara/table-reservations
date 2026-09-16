@@ -12,6 +12,12 @@ import type { PublicTenantConfig } from "../tenancy/types";
 import { kazakhstanDate } from "./carwash-schedule";
 import { createNavigationGuard, isChoiceStepAnswered } from "./carwash-navigation";
 import { errorMessage, reportError, showError } from '../ui/error-notification';
+import {
+  formatKazakhstanPhone,
+  isKazakhstanMobile,
+  KZ_PHONE_INVALID_MESSAGE,
+  toE164Digits,
+} from '../phone';
 
 export function initCarWashExperience(config: PublicTenantConfig): void {
   const form = document.querySelector<HTMLFormElement>('[data-carwash="form"]');
@@ -269,11 +275,9 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     if (step.dataset.carwashStep === "plate" && !input?.value.trim())
       input?.setCustomValidity("Укажите гос. номер.");
     if (step.dataset.carwashStep === "phone") {
-      const digits = input?.value.replace(/\D/g, "") ?? "";
-      if (digits.length < 10 || digits.length > 15)
-        input?.setCustomValidity(
-          "Укажите полный номер телефона с кодом страны.",
-        );
+      const phone = toE164Digits(input?.value ?? "");
+      if (!isKazakhstanMobile(phone))
+        input?.setCustomValidity(KZ_PHONE_INVALID_MESSAGE);
     }
     if (error || (input && !input.checkValidity())) {
       showStep(index);
@@ -298,8 +302,33 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
   lastDay.setUTCDate(lastDay.getUTCDate() + 6);
   date.max = lastDay.toISOString().slice(0, 10);
   date.addEventListener("change", invalidate);
+  const phoneInput = el<HTMLInputElement>("phone");
+  phoneInput.addEventListener("input", () => {
+    const cursorWasAtEnd = phoneInput.selectionEnd === phoneInput.value.length;
+    phoneInput.value = formatKazakhstanPhone(phoneInput.value);
+    phoneInput.setCustomValidity("");
+    if (cursorWasAtEnd) {
+      phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
+    }
+  });
+  phoneInput.addEventListener("beforeinput", (e) => {
+    if (e.inputType !== "deleteContentBackward") return;
+    if (phoneInput.selectionStart !== phoneInput.selectionEnd) return;
+    const pos = phoneInput.selectionStart ?? 0;
+    if (pos === 0) return;
+    let start = pos - 1;
+    while (start > 0 && !/\d/.test(phoneInput.value[start])) {
+      start -= 1;
+    }
+    if (!/\d/.test(phoneInput.value[start])) return;
+    e.preventDefault();
+    phoneInput.value = formatKazakhstanPhone(
+      phoneInput.value.slice(0, start) + phoneInput.value.slice(pos),
+    );
+    phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
+  });
   form.addEventListener("input", (event) => {
-    if (event.target instanceof HTMLInputElement)
+    if (event.target instanceof HTMLInputElement && event.target !== phoneInput)
       event.target.setCustomValidity("");
   });
   form.addEventListener("submit", async (event) => {
@@ -325,7 +354,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
         ...selection(),
         plateNumber: el<HTMLInputElement>("plate").value.trim().toUpperCase(),
         customerName: el<HTMLInputElement>("name").value.trim(),
-        customerPhone: el<HTMLInputElement>("phone").value.trim(),
+        customerPhone: toE164Digits(el<HTMLInputElement>("phone").value),
         scheduledAt: scheduledAt.value,
         tablesId: "",
         section: "",

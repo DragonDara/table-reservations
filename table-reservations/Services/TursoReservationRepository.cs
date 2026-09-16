@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using table_reservations.Configuration;
 using table_reservations.Constants;
 using table_reservations.Data;
+using table_reservations.Helpers;
 using table_reservations.Models;
 using table_reservations.Models.Tenancy;
 using table_reservations.Services.Tenancy;
@@ -71,7 +72,7 @@ public sealed class TursoReservationRepository(
         return new(
             results[0].Rows.Select(r => new Resource(r.GetString("id"), r.GetString("name"), r.GetString("type"), r.GetInt32("capacity"))).ToArray(),
             results[1].Rows.Select(r => new Existing(r.GetString("id"), r.GetString("resource_id"), r.GetString("customer_name"),
-                NormalizePhone(r.GetString("customer_phone")), r.GetString("plate_number").Trim().ToUpperInvariant(),
+                KazakhstanPhone.Normalize(r.GetString("customer_phone")), r.GetString("plate_number").Trim().ToUpperInvariant(),
                 BookingRules.Read(r.GetString("start_at")), BookingRules.Read(r.GetString("ends_at")), r.GetBoolean("remind_before_hour"))).ToArray());
     }
     private static bool Free(State state, string resourceId, DateTime start, DateTime end, string? replacingPhone = null) =>
@@ -161,8 +162,7 @@ public sealed class TursoReservationRepository(
     {
         EnsureTenant();
         BookingRules.ValidateStart(scheduledAt, Hours, ReservationDateTime.KazakhstanNow());
-        var phone = NormalizePhone(request.CustomerPhone);
-        if (phone.Length is < 11 or > 16) throw new BookingException("Укажите полный номер телефона.");
+        var phone = KazakhstanPhone.NormalizeAndValidate(request.CustomerPhone);
         request.CustomerPhone = phone;
         // BEGIN IMMEDIATE serializes the complete read/check/write sequence across app instances.
         return await db.TransactionAsync(async (connection, token) =>
@@ -255,13 +255,5 @@ public sealed class TursoReservationRepository(
     {
         EnsureTenant(false);
         await db.ExecuteAsync("INSERT OR IGNORE INTO reservation_reminders (reservation_id,sent_at) VALUES (?,CURRENT_TIMESTAMP)", [reservationId], ct);
-    }
-
-    public static string NormalizePhone(string phone)
-    {
-        var digits = new string(phone.Where(char.IsAsciiDigit).ToArray());
-        if (digits.Length == 10) digits = "7" + digits;
-        if (digits.Length == 11 && digits[0] == '8') digits = "7" + digits[1..];
-        return "+" + digits;
     }
 }
