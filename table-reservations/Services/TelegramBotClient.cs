@@ -8,8 +8,6 @@ namespace table_reservations.Services;
 public interface ITelegramBotClient
 {
     Task<bool> SendMessageAsync(long chatId, string text, CancellationToken ct);
-    Task<bool> IsAdministratorAsync(long chatId, long userId, CancellationToken ct);
-    Task<bool> SetWebhookAsync(string url, string secret, CancellationToken ct);
 }
 
 public sealed class TelegramBotClient(HttpClient http, IOptions<TelegramOptions> options,
@@ -27,24 +25,6 @@ public sealed class TelegramBotClient(HttpClient http, IOptions<TelegramOptions>
             offset += length;
         }
         return text.Length > 0;
-    }
-
-    public async Task<bool> IsAdministratorAsync(long chatId, long userId, CancellationToken ct)
-    {
-        var result = await CallAsync("getChatMember", new { chat_id = chatId, user_id = userId }, ct);
-        return result is { } member && member.TryGetProperty("status", out var status)
-            && status.GetString() is "creator" or "administrator";
-    }
-
-    public async Task<bool> SetWebhookAsync(string url, string secret, CancellationToken ct)
-    {
-        var result = await CallAsync("setWebhook", new {
-            url,
-            secret_token = secret,
-            allowed_updates = new[] { "message" },
-            max_connections = 1
-        }, ct);
-        return result is { ValueKind: JsonValueKind.True };
     }
 
     private async Task<JsonElement?> CallAsync(string method, object payload, CancellationToken ct)
@@ -72,27 +52,4 @@ public sealed class TelegramBotClient(HttpClient http, IOptions<TelegramOptions>
         }
         return null;
     }
-}
-
-public sealed class TelegramWebhookRegistrationService(
-    ITelegramBotClient bot,
-    IOptions<TelegramOptions> options,
-    ILogger<TelegramWebhookRegistrationService> logger) : IHostedService
-{
-    public async Task StartAsync(CancellationToken ct)
-    {
-        var telegram = options.Value;
-        if (!telegram.IsConfigured) return;
-        if (string.IsNullOrWhiteSpace(telegram.WebhookUrl))
-        {
-            logger.LogWarning("Telegram is configured but WebhookUrl is missing; commands will not be received.");
-            return;
-        }
-        if (!await bot.SetWebhookAsync(telegram.WebhookUrl!, telegram.WebhookSecret!, ct))
-            logger.LogError("Telegram webhook registration failed. Check Telegram credentials and outbound connectivity.");
-        else
-            logger.LogInformation("Telegram webhook registered successfully.");
-    }
-
-    public Task StopAsync(CancellationToken ct) => Task.CompletedTask;
 }
