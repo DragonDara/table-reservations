@@ -10,6 +10,12 @@ import {
 } from '../api';
 import type { PublicTenantConfig } from '../tenancy/types';
 import { reportError, showError } from '../ui/error-notification';
+import {
+  formatKazakhstanPhone,
+  isKazakhstanMobile,
+  KZ_PHONE_INVALID_MESSAGE,
+  toE164Digits,
+} from '../phone';
 
 // Imported only after the restaurant page and tenant configuration are ready.
 export async function initRestaurantExperience(config: PublicTenantConfig): Promise<void> {
@@ -353,36 +359,12 @@ function formatHoursFromNow(hours: number): string {
   });
 }
 
-function formatPhoneNumber(rawValue: string): string {
-  let digits = rawValue.replace(/\D/g, '');
-
-  // человек часто сам вбивает код страны (7 или 8) — убираем, он и так будет "+7"
-  if (digits.startsWith('7') || digits.startsWith('8')) {
-    digits = digits.slice(1);
-  }
-
-  digits = digits.slice(0, 10); // максимум 10 цифр после кода страны
-
-  const code = digits.slice(0, 3);
-  const part1 = digits.slice(3, 6);
-  const part2 = digits.slice(6, 8);
-  const part3 = digits.slice(8, 10);
-
-  let result = '+7';
-  if (code) result += ` ${code}`;
-  if (part1) result += ` (${part1})`;
-  if (part2) result += ` ${part2}`;
-  if (part3) result += ` ${part3}`;
-
-  return result;
-}
-
 const phoneInput = document.getElementById('phone') as HTMLInputElement | null;
 const nameInput = document.getElementById('name') as HTMLInputElement | null;
 
 phoneInput?.addEventListener('input', () => {
   const cursorWasAtEnd = phoneInput.selectionEnd === phoneInput.value.length;
-  phoneInput.value = formatPhoneNumber(phoneInput.value);
+  phoneInput.value = formatKazakhstanPhone(phoneInput.value);
   if (cursorWasAtEnd) {
     phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
   }
@@ -404,7 +386,7 @@ phoneInput?.addEventListener('beforeinput', (e) => {
   e.preventDefault(); // сами решаем, что удалить, не даём браузеру стереть только скобку
 
   const newRaw = phoneInput.value.slice(0, start) + phoneInput.value.slice(pos);
-  phoneInput.value = formatPhoneNumber(newRaw);
+  phoneInput.value = formatKazakhstanPhone(newRaw);
   phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
 });
 
@@ -806,7 +788,7 @@ reservationForm?.addEventListener('submit', async (e) => {
   const formData = new FormData(reservationForm);
   const payload: ReservationPayload = {
     customerName: String(formData.get('name') ?? '').trim(),
-    customerPhone: `+${String(formData.get('phone') ?? '').replace(/\D/g, '')}`,
+    customerPhone: toE164Digits(String(formData.get('phone') ?? '')),
     scheduledAt: String(formData.get('datetime') ?? '').trim(),
     tablesId: selectedTable?.dataset.id ?? '',
     remindBeforeHour: true,
@@ -821,8 +803,8 @@ reservationForm?.addEventListener('submit', async (e) => {
     return;
   }
 
-  if (!/^\+7\d{10}$/.test(payload.customerPhone)) {
-    setReservationStatus('Пожалуйста, укажите номер телефона полностью: +7 700 (000) 00 00.', 'error');
+  if (!isKazakhstanMobile(payload.customerPhone)) {
+    setReservationStatus(KZ_PHONE_INVALID_MESSAGE, 'error');
     phoneInput?.focus();
     return;
   }
