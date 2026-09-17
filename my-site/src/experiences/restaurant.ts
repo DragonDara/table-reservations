@@ -805,7 +805,6 @@ reservationForm?.addEventListener('submit', async (e) => {
 
   if (!isKazakhstanMobile(payload.customerPhone)) {
     setReservationStatus(KZ_PHONE_INVALID_MESSAGE, 'error');
-    phoneInput?.focus();
     return;
   }
 
@@ -984,7 +983,6 @@ continueToNameBtn?.addEventListener('click', () => {
 function continueToPhone() {
   if (!nameInput?.value.trim()) {
     setReservationStatus('Введите имя, чтобы продолжить.', 'error');
-    nameInput?.focus();
     return;
   }
 

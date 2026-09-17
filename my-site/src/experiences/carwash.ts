@@ -281,8 +281,12 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
     }
     if (error || (input && !input.checkValidity())) {
       showStep(index);
-      if (error) status(error, true);
-      else input?.focus({ preventScroll: true });
+      if (error) {
+          status(error, true);
+        }
+      else if (input) {
+        showError(input.validationMessage || 'Проверьте заполнение поля.');
+      }
       return false;
     }
     return true;
