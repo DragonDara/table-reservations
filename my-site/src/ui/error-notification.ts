@@ -49,6 +49,9 @@ export function showError(text: string): void {
   if (!box!.hidden && message!.textContent === nextMessage) return;
   box!.hidden = false;
   message!.textContent = nextMessage;
+
+  const active = document.activeElement;
+  if (active instanceof HTMLElement) active.blur();
 }
 
 export function reportError(error: unknown, fallback = DEFAULT_MESSAGE): void {
@@ -108,7 +111,6 @@ export function initErrorNotifications(): void {
       const target = firstInvalid!;
       firstInvalid = undefined;
       showError(target.validationMessage || 'Проверьте заполнение поля.');
-      target.focus({ preventScroll: true });
     });
   }, true);
 }
