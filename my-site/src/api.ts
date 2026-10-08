@@ -19,6 +19,8 @@ export interface TableAvailability {
   seats: number;
   status: 'free' | 'occupied' | 'limited';
   nextReservationHours?: number;
+  availabilityCheckedAt?: string | null;
+  availabilityValidUntil?: string | null;
 }
 
 export interface ReservationPayload {
@@ -104,17 +106,16 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
 }
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  const headers = new Headers(init.headers);
+  headers.set('Accept', 'application/json');
+  for (const [name, value] of Object.entries(tenantHeaders())) headers.set(name, value);
+  if (init.body) headers.set('Content-Type', 'application/json');
 
   const response = await fetch(url, {
     method: 'GET',
     credentials: 'include',
-    headers: {
-      Accept: 'application/json',
-      ...tenantHeaders(),
-      ...(init.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(init.headers ?? {}),
-    },
     ...init,
+    headers,
   });
 
   const contentType = response.headers.get('content-type') ?? '';
@@ -161,13 +162,13 @@ export async function getRating(): Promise<RatingResponse> {
   return request<RatingResponse>('/rating');
 }
 
-export async function getTables(scheduledAt?: string): Promise<TableAvailability[]> {
+export async function getTables(scheduledAt?: string, signal?: AbortSignal): Promise<TableAvailability[]> {
   const query = scheduledAt ? `?scheduledAt=${encodeURIComponent(scheduledAt)}` : '';
-  return request<TableAvailability[]>(`/Tables${query}`);
+  return request<TableAvailability[]>(`/Tables${query}`, { signal, cache: 'no-store' });
 }
 
-export async function getAvailableSlots(date: string): Promise<string[]> {
-  return request<string[]>(`/Tables/slots?date=${encodeURIComponent(date)}`);
+export async function getAvailableSlots(date: string, signal?: AbortSignal): Promise<string[]> {
+  return request<string[]>(`/Tables/slots?date=${encodeURIComponent(date)}`, { signal, cache: 'no-store' });
 }
 
 export async function getTableAvailability(tablesId: string, scheduledAt?: string): Promise<TableAvailability> {
@@ -175,9 +176,10 @@ export async function getTableAvailability(tablesId: string, scheduledAt?: strin
   return request<TableAvailability>(`/Tables/${encodeURIComponent(tablesId)}/availability${query}`);
 }
 
-export async function createReservation(payload: ReservationPayload): Promise<ReservationResponse> {
+export async function createReservation(payload: ReservationPayload, idempotencyKey?: string): Promise<ReservationResponse> {
   return request<ReservationResponse>('/Reservations', {
     method: 'POST',
+    headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
     body: JSON.stringify(payload),
   });
 }
@@ -218,6 +220,13 @@ export const getCarWashAvailability = (date: string, selection: CarWashSelection
   request<{ quote: CarWashQuote; slots: string[] }>('/carwash/availability',
     { method: 'POST', body: JSON.stringify({ date, ...selection }) });
 
-export async function getReservationStatus(reservationId: string): Promise<ReservationResponse> {
-  return request<ReservationResponse>(`/Reservations/${encodeURIComponent(reservationId)}`);
+export async function getReservationStatus(reservationId: string, signal?: AbortSignal): Promise<ReservationResponse> {
+  return request<ReservationResponse>(`/Reservations/${encodeURIComponent(reservationId)}`, { signal, cache: 'no-store' });
+}
+
+export async function checkReservationStatus(reservationId: string): Promise<ReservationResponse> {
+  return request<ReservationResponse>(`/Reservations/${encodeURIComponent(reservationId)}/check`, {
+    method: 'POST',
+    cache: 'no-store',
+  });
 }

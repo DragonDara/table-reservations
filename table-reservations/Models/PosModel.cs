@@ -30,13 +30,18 @@ public record CreateReservationRequest(
     CustomerInfo Customer,
     DateTime ReservationTime,
     int GuestsCount,
-    List<string> TableIds // может быть несколько столов в одной брони (например "3,5")
+    List<string> TableIds,
+    int DurationInMinutes = 180,
+    string? ReservationId = null
 );
 
 public record ReservationResult(
     bool Success,
     string? ExternalReservationId,
-    string? ErrorMessage
+    string? ErrorMessage,
+    string State = "Unknown",
+    string? CorrelationId = null,
+    ReservationInfoDto? Reservation = null
 );
 
 public record ReservationInfoDto(

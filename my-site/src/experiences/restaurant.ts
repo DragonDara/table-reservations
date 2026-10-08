@@ -4,6 +4,7 @@ import {
   getAvailableSlots,
   getRating,
   getTables,
+  checkReservationStatus,
   type ExistingReservation,
   type ReservationPayload,
   type TableAvailability,
@@ -22,6 +23,12 @@ export async function initRestaurantExperience(config: PublicTenantConfig): Prom
   configureBookingTime(config);
   if (config.features.showRating) void loadRating();
   await initRestaurantBooking();
+  bookingStorageKey = `restaurant-booking:${config.organizationId}`;
+  try {
+    const saved = JSON.parse(sessionStorage.getItem(bookingStorageKey) ?? 'null');
+    if (saved && typeof saved.key === 'string' && typeof saved.hash === 'string') bookingAttempt = saved;
+    if (bookingAttempt?.id) resumePendingBooking(bookingAttempt.id);
+  } catch {}
 }
 
 const bookBtn = document.getElementById('bookBtn') as HTMLButtonElement | null;
@@ -307,7 +314,7 @@ viewport?.addEventListener('touchend', () => {
 // открытие / закрытие модалки
 openTablePickerBtn?.addEventListener('click', () => {
   if (overlay) overlay.hidden = false;
-  refreshTableStatuses();
+  void refreshTableStatuses();
   scale = 1;
   panX = 0;
   panY = 0;
@@ -330,8 +337,6 @@ overlay?.addEventListener('click', (e) => {
 
 // выбор столика
 // статусы столиков: занято скоро / занято с ограничением / свободно ---
-
-const THRESHOLD_HOURS = 2; // если до следующей брони меньше — стол недоступен вообще
 
 const tablePopup = document.getElementById('tablePopup') as HTMLElement | null;
 const tablePopupIcon = document.getElementById('tablePopupIcon') as HTMLElement | null;
@@ -402,9 +407,11 @@ function clearSelectedTable() {
     tablePlaceholder.hidden = false;
   }
   if (continueToNameBtn) continueToNameBtn.disabled = true;
+  if (submitButton) submitButton.disabled = true;
 }
 
 function selectTable(marker: HTMLButtonElement) {
+  if (!['free', 'limited'].includes(marker.dataset.status ?? '')) return;
   selectedTable?.classList.remove('selected');
   selectedTable = marker;
   marker.classList.add('selected');
@@ -418,6 +425,7 @@ function selectTable(marker: HTMLButtonElement) {
   }
 
   if (continueToNameBtn) continueToNameBtn.disabled = false;
+  if (submitButton) submitButton.disabled = submitting || Boolean(pendingBookingId);
   closeTableModal();
   continueToNameBtn?.focus();
 }
@@ -431,13 +439,13 @@ function showBlockedPopup(marker?: HTMLButtonElement) {
 
   tablePopupIcon.textContent = '✕';
   tablePopupIcon.className = 'table-popup-icon icon-blocked';
-  tablePopupTitle.textContent = 'Столик уже занят';
+  tablePopupTitle.textContent = 'Не свободен';
 
   if (nextReservationHours !== null) {
     const bookedAt = formatHoursFromNow(nextReservationHours);
     tablePopupText.textContent = `Этот столик уже забронирован другими гостями. Бронь уже занята на ${bookedAt}. Выберите другой столик или другое время.`;
   } else {
-    tablePopupText.textContent = 'Этот столик уже забронирован другими гостями. Выберите другой столик или другое время.';
+    tablePopupText.textContent = 'Этот столик занят или забронирован. Выберите другой столик или другое время.';
   }
 
   tablePopupActions.innerHTML = '';
@@ -486,44 +494,80 @@ function showLimitedTimePopup(marker: HTMLButtonElement, gapHours: number) {
 }
 
 const tableMarkers = document.querySelectorAll<HTMLButtonElement>('.table-marker');
+let tableRequestRevision = 0;
+let slotRequestRevision = 0;
+let expiryTimer: ReturnType<typeof setTimeout> | undefined;
+let availabilityErrorShown = false;
+
+function applyTableStatuses(tables: TableAvailability[], preserveKnownOccupied = false) {
+  clearTimeout(expiryTimer);
+  const now = Date.now();
+  let validUntil = now + 30_000;
+  const byId = new Map(tables.map(table => [String(table.id), table]));
+  tableMarkers.forEach(marker => {
+    const info = byId.get(marker.dataset.id ?? '');
+    const expires = info?.availabilityValidUntil ? Date.parse(info.availabilityValidUntil) : now + 30_000;
+    const hasFreshStatus = info && Number.isFinite(expires) && expires > now;
+    const preserveOccupied = !hasFreshStatus && preserveKnownOccupied && marker.dataset.status === 'occupied';
+    const status = hasFreshStatus ? info.status : preserveOccupied ? 'occupied' : 'unknown';
+    if (info) validUntil = Math.min(validUntil, expires);
+    marker.dataset.status = status;
+    marker.disabled = status === 'unknown';
+    marker.setAttribute('aria-disabled', String(status === 'occupied' || status === 'unknown'));
+    const label = preserveOccupied ? 'Не свободен по последней проверке; данные устарели'
+      : status === 'occupied' ? 'Не свободен' : status === 'unknown' ? 'Нет актуальных данных' : 'Свободен';
+    marker.title = `Столик ${marker.dataset.id}: ${label}`;
+    marker.setAttribute('aria-label', marker.title);
+    if (info?.nextReservationHours != null) marker.dataset.nextReservationHours = String(info.nextReservationHours);
+    else delete marker.dataset.nextReservationHours;
+  });
+  if (selectedTable && !['free', 'limited'].includes(selectedTable.dataset.status ?? '') && !submitting && !pendingBookingId) {
+    clearSelectedTable();
+    setReservationStatus('Выбранный столик недоступен. Выберите другой столик.');
+  }
+  if (tables.length) expiryTimer = setTimeout(() => applyTableStatuses([], true), Math.max(0, validUntil - now));
+}
 
 async function refreshTableStatuses() {
-  let tables: TableAvailability[];
-    try {
-      const datetimeValue = (document.getElementById('datetime') as HTMLInputElement | null)?.value;
-      tables = await getTables(datetimeValue || undefined);
-    } catch (err) {
-      reportError(err, 'Не удалось проверить столики. Попробуйте ещё раз.');
-      return false;
-    }
-
-  const byId = new Map(tables.map((t) => [String(t.id), t]));
-
-  tableMarkers.forEach((marker) => {
-  const id = marker.dataset.id;
-  const info = id ? byId.get(id) : undefined;
-  if (!info) return;
-
-  let status = info.status;
-
-  // если до брони меньше порога — бронировать всё равно нельзя, значит визуально это "занято", а не "с предупреждением"
-  if (status === 'limited' && info.nextReservationHours != null && info.nextReservationHours < THRESHOLD_HOURS) {
-    status = 'occupied';
+  const revision = ++tableRequestRevision;
+  const selectedTime = datetimeInput?.value;
+  try {
+    if (revision !== tableRequestRevision || selectedTime !== datetimeInput?.value) return false;
+    const tables = await getTables(selectedTime || undefined);
+    if (!tables || revision !== tableRequestRevision || selectedTime !== datetimeInput?.value || document.hidden) return false;
+    applyTableStatuses(tables);
+    availabilityErrorShown = false;
+    return true;
+  } catch (error) {
+    if (revision !== tableRequestRevision || selectedTime !== datetimeInput?.value || document.hidden) return false;
+    applyTableStatuses([], true);
+    if (!availabilityErrorShown) reportError(error, 'Не удалось проверить столики. Бронирование временно недоступно.');
+    availabilityErrorShown = true;
+    return false;
   }
+}
 
-  marker.dataset.status = status;
-
-  if (info.nextReservationHours != null) {
-    marker.dataset.nextReservationHours = String(info.nextReservationHours);
-  } else {
-    delete marker.dataset.nextReservationHours;
+async function refreshAvailableSlots() {
+  const date = dateOptions?.querySelector<HTMLButtonElement>('.date-option.active')?.dataset.date;
+  if (!date || document.hidden || !timeStep || timeStep.hidden) return false;
+  const revision = ++slotRequestRevision;
+  timeOptions?.setAttribute('aria-busy', 'true');
+  try {
+    const activeDate = dateOptions?.querySelector<HTMLButtonElement>('.date-option.active')?.dataset.date;
+    if (revision !== slotRequestRevision || date !== activeDate || timeStep.hidden) return false;
+    const slots = await getAvailableSlots(date);
+    if (!slots || revision !== slotRequestRevision || document.hidden || timeStep.hidden) return false;
+    applyTimeSlots(slots);
+    return true;
+  } catch {
+    if (revision === slotRequestRevision) expireTimeSlots();
+    return false;
   }
-});
-  return true;
 }
 
 tableMarkers.forEach((marker) => {
   marker.addEventListener('click', () => {
+    if (marker.dataset.status === 'unknown') return;
     if (marker.dataset.status === 'occupied') {
       showBlockedPopup(marker);
       return;
@@ -549,6 +593,7 @@ const datetimeInput = document.getElementById('datetime') as HTMLInputElement | 
 const dateOptions = document.getElementById('dateOptions') as HTMLElement | null;
 const timeOptions = document.getElementById('timeOptions') as HTMLElement | null;
 const slotStatus = document.getElementById('slotStatus') as HTMLElement | null;
+const checkStatusBtn = document.getElementById('checkReservationStatus') as HTMLButtonElement | null;
 const reservationDateInput = document.getElementById('reservationDate') as HTMLInputElement | null;
 const reservationTimeInput = document.getElementById('reservationTime') as HTMLSelectElement | null;
 const bookingTimeHint = document.getElementById('bookingTimeHint');
@@ -556,15 +601,100 @@ const bookingStartTime = document.getElementById('bookingStartTime') as HTMLTime
 const bookingEndTime = document.getElementById('bookingEndTime') as HTMLTimeElement | null;
 let minimumDateTimeValue = '';
 let bookingTimeSlots: string[] = [];
-let slotRequestId = 0;
+let slotExpiryTimer: ReturnType<typeof setTimeout> | undefined;
+let submitting = false;
+let pendingBookingId: string | null = null;
+let bookingStorageKey = '';
+let bookingAttempt: { key: string; hash: string; id?: string } | null = null;
+
+function persistBookingAttempt() {
+  try {
+    if (bookingAttempt) sessionStorage.setItem(bookingStorageKey, JSON.stringify(bookingAttempt));
+    else sessionStorage.removeItem(bookingStorageKey);
+  } catch {}
+}
+
+function bookingConfirmed(message: string) {
+  pendingBookingId = null;
+  bookingAttempt = null;
+  persistBookingAttempt();
+  if (checkStatusBtn) checkStatusBtn.hidden = true;
+  if (successModalOverlay && successModalText) {
+    successModalText.textContent = message;
+    successModalOverlay.hidden = false;
+  }
+  resetReservationFormUi();
+  setReservationStatus(message, 'success');
+}
+
+function resumePendingBooking(id: string) {
+  pendingBookingId = id;
+  if (bookingAttempt) bookingAttempt.id = id;
+  persistBookingAttempt();
+  setFormBusy(false);
+  if (checkStatusBtn) checkStatusBtn.hidden = false;
+  setReservationStatus('Результат отправки неизвестен. Нажмите «Проверить статус».');
+}
+
+let checkingBookingStatus = false;
+
+async function checkPendingBooking() {
+  const id = pendingBookingId;
+  if (!id || checkingBookingStatus || !checkStatusBtn) return;
+  checkingBookingStatus = true;
+  checkStatusBtn.disabled = true;
+  setReservationStatus('Проверяем результат отправки в кассу.');
+  try {
+    const response = await checkReservationStatus(id);
+    if (pendingBookingId !== id) return;
+    if (response.status === 'Confirmed' && response.success === true) {
+      bookingConfirmed('Бронь подтверждена.');
+    } else if (response.status === 'Rejected') {
+      pendingBookingId = null;
+      bookingAttempt = null;
+      persistBookingAttempt();
+      checkStatusBtn.hidden = true;
+      setFormBusy(false);
+      setReservationStatus('Касса отклонила бронь. Выберите другое время.', 'error');
+      void refreshTableStatuses();
+    } else {
+      setReservationStatus('Бронь пока обрабатывается. Проверьте статус позже.');
+    }
+  } catch {
+    if (pendingBookingId === id) setReservationStatus('Не удалось проверить статус. Повторите проверку позже.', 'error');
+  } finally {
+    checkingBookingStatus = false;
+    if (checkStatusBtn) {
+      checkStatusBtn.disabled = false;
+      checkStatusBtn.hidden = !pendingBookingId;
+    }
+  }
+}
+
+checkStatusBtn?.addEventListener('click', () => { void checkPendingBooking(); });
+
+window.addEventListener('pagehide', () => {
+  tableRequestRevision++;
+  slotRequestRevision++;
+  clearTimeout(expiryTimer);
+  clearTimeout(slotExpiryTimer);
+});
+window.addEventListener('pageshow', (event) => {
+  if (!event.persisted) return;
+  applyTableStatuses([], true);
+  expireTimeSlots();
+});
 
 const bookingSteps = [dateStep, timeStep, tableStep, nameStep, phoneStep];
 
 function showBookingStep(step: HTMLElement | null) {
+  clearTimeout(slotExpiryTimer);
+  if (step === timeStep) expireTimeSlots();
   bookingSteps.forEach((bookingStep) => {
     if (bookingStep) bookingStep.hidden = bookingStep !== step;
   });
   setReservationStatus('');
+  if (step === timeStep && !document.hidden && !pendingBookingId) void refreshAvailableSlots();
 }
 
 function configureBookingTime(config: PublicTenantConfig): void {
@@ -633,10 +763,11 @@ function syncDateTimeValue(showMessage = false): boolean {
 }
 
 function setFormBusy(isBusy: boolean) {
+  submitting = isBusy;
   if (!submitButton) return;
 
-  submitButton.disabled = isBusy;
-  submitButton.textContent = isBusy ? 'Отправляем…' : 'Забронировать';
+  submitButton.disabled = isBusy || Boolean(pendingBookingId) || !selectedTable || !['free', 'limited'].includes(selectedTable.dataset.status ?? '');
+  submitButton.textContent = isBusy ? 'Отправляем…' : pendingBookingId ? 'Ожидаем подтверждения…' : 'Забронировать';
 }
 
 function setReservationStatus(message: string, type: 'info' | 'success' | 'error' = 'info') {
@@ -737,24 +868,34 @@ function resetReservationFormUi() {
 }
 
 async function submitReservation(payload: ReservationPayload) {
+  if (pendingBookingId || submitting) return;
   setFormBusy(true);
   setReservationStatus(payload.overwrite ? 'Перезаписываем бронь…' : 'Отправляем бронь…', 'info');
 
   try {
-    const response = await createReservation(payload);
+    const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
+    const hash = Array.from(new Uint8Array(bytes), byte => byte.toString(16).padStart(2, '0')).join('');
+    if (bookingAttempt && bookingAttempt.hash !== hash) {
+      setReservationStatus('Предыдущий запрос ещё не проверен. Повторите его с прежними данными.', 'error');
+      return;
+    }
+    bookingAttempt ??= { key: crypto.randomUUID(), hash };
+    persistBookingAttempt();
+    const response = await createReservation(payload, bookingAttempt!.key);
+    if (response.status === 'Processing' && response.reservationId) {
+      resumePendingBooking(response.reservationId);
+      return;
+    }
+    if (response.success !== true) throw new Error('Бронь пока не подтверждена.');
     const successMessage = response.message
       || (payload.overwrite ? 'Бронь перезаписана.' : 'Бронирование успешно отправлено.');
 
-    setReservationStatus(successMessage, 'success');
-
-    if (successModalOverlay && successModalText) {
-      successModalText.textContent = successMessage;
-      successModalOverlay.hidden = false;
-    }
-
-    refreshTableStatuses();
-    resetReservationFormUi();
+    bookingConfirmed(successMessage);
   } catch (error) {
+    if (error instanceof ApiError && [400, 409].includes(error.status) && error.code !== 'BOOKING_PROCESSING') {
+      bookingAttempt = null;
+      persistBookingAttempt();
+    }
     if (error instanceof ApiError && error.status === 409 && error.code === 'EXISTING_RESERVATION' && error.existing) {
       setFormBusy(false);
       setReservationStatus('Найдена актуальная бронь по этому номеру.', 'info');
@@ -771,6 +912,7 @@ async function submitReservation(payload: ReservationPayload) {
 
     setReservationStatus('');
     reportError(error, 'Не удалось отправить бронь. Попробуйте ещё раз.');
+    void refreshTableStatuses();
   } finally {
     setFormBusy(false);
   }
@@ -779,7 +921,7 @@ async function submitReservation(payload: ReservationPayload) {
 reservationForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
-  if (!reservationForm) return;
+  if (!reservationForm || submitting || pendingBookingId) return;
 
   if (!syncDateTimeValue(true)) {
     return;
@@ -791,7 +933,7 @@ reservationForm?.addEventListener('submit', async (e) => {
     customerPhone: toE164Digits(String(formData.get('phone') ?? '')),
     scheduledAt: String(formData.get('datetime') ?? '').trim(),
     tablesId: selectedTable?.dataset.id ?? '',
-    remindBeforeHour: true,
+    remindBeforeHour: false,
     section: getActiveFloorSection(),
   };
   if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || !payload.tablesId) {
@@ -844,12 +986,67 @@ function toDateValue(date: Date): string {
 }
 
 function resetAfterDateChange() {
+  tableRequestRevision++;
+  slotRequestRevision++;
+  applyTableStatuses([]);
   if (datetimeInput) datetimeInput.value = '';
   clearSelectedTable();
 }
 
-async function selectBookingDate(date: string, button: HTMLButtonElement) {
-  const requestId = ++slotRequestId;
+function expireTimeSlots() {
+  clearTimeout(slotExpiryTimer);
+  timeOptions?.setAttribute('aria-busy', 'false');
+  timeOptions?.querySelectorAll<HTMLButtonElement>('.time-option').forEach(option => { option.disabled = true; });
+  if (continueToTableBtn) continueToTableBtn.disabled = true;
+  if (slotStatus) slotStatus.textContent = 'Нет актуальных данных о свободном времени.';
+}
+
+function applyTimeSlots(slots: string[]) {
+  if (!timeOptions) return;
+  clearTimeout(slotExpiryTimer);
+  timeOptions.setAttribute('aria-busy', 'false');
+  if (datetimeInput?.value && !slots.includes(datetimeInput.value)) {
+    datetimeInput.value = '';
+    clearSelectedTable();
+  }
+  timeOptions.querySelectorAll<HTMLButtonElement>('.time-option').forEach(option => {
+    if (!slots.includes(option.dataset.slot ?? '')) option.remove();
+  });
+  for (const slot of slots) {
+    let option = Array.from(timeOptions.querySelectorAll<HTMLButtonElement>('.time-option')).find(item => item.dataset.slot === slot);
+    if (!option) {
+      option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'time-option';
+      option.textContent = slot.split('T')[1] ?? slot;
+      option.dataset.slot = slot;
+      option.addEventListener('click', () => {
+        timeOptions.querySelectorAll<HTMLButtonElement>('.time-option').forEach(timeOption => {
+          const isActive = timeOption.dataset.slot === slot;
+          timeOption.classList.toggle('active', isActive);
+          timeOption.setAttribute('aria-pressed', String(isActive));
+        });
+        if (datetimeInput) datetimeInput.value = slot;
+        tableRequestRevision++;
+        applyTableStatuses([]);
+        clearSelectedTable();
+        if (continueToTableBtn) continueToTableBtn.disabled = false;
+        continueToTableBtn?.focus();
+      });
+      const following = Array.from(timeOptions.children).find(child => (child as HTMLElement).dataset.slot! > slot);
+      timeOptions.insertBefore(option, following ?? null);
+    }
+    option.disabled = false;
+    option.classList.toggle('active', datetimeInput?.value === slot);
+    option.setAttribute('aria-pressed', String(datetimeInput?.value === slot));
+  }
+  if (continueToTableBtn) continueToTableBtn.disabled = !datetimeInput?.value;
+  if (slotStatus) slotStatus.textContent = slots.length ? '' : 'На эту дату свободного времени нет. Выберите другой день.';
+  slotExpiryTimer = setTimeout(expireTimeSlots, 30_000);
+}
+
+async function selectBookingDate(_date: string, button: HTMLButtonElement) {
+  clearTimeout(slotExpiryTimer);
   dateOptions?.querySelectorAll<HTMLButtonElement>('.date-option').forEach((option) => {
     const isActive = option === button;
     option.classList.toggle('active', isActive);
@@ -864,45 +1061,6 @@ async function selectBookingDate(date: string, button: HTMLButtonElement) {
     timeOptions.setAttribute('aria-busy', 'true');
   }
   if (slotStatus) slotStatus.textContent = 'Загружаем свободное время…';
-
-  try {
-    const slots = await getAvailableSlots(date);
-    if (requestId !== slotRequestId) return;
-    if (!timeOptions || !slotStatus) return;
-    timeOptions.setAttribute('aria-busy', 'false');
-
-    if (slots.length === 0) {
-      slotStatus.textContent = 'На эту дату свободного времени нет. Выберите другой день.';
-      return;
-    }
-
-    slotStatus.textContent = '';
-    slots.forEach((slot) => {
-      const option = document.createElement('button');
-      option.type = 'button';
-      option.className = 'time-option';
-      option.textContent = slot.split('T')[1] ?? slot;
-      option.dataset.slot = slot;
-      option.setAttribute('aria-pressed', 'false');
-      option.addEventListener('click', () => {
-        timeOptions.querySelectorAll<HTMLButtonElement>('.time-option').forEach((timeOption) => {
-          const isActive = timeOption === option;
-          timeOption.classList.toggle('active', isActive);
-          timeOption.setAttribute('aria-pressed', String(isActive));
-        });
-        if (datetimeInput) datetimeInput.value = slot;
-        clearSelectedTable();
-        if (continueToTableBtn) continueToTableBtn.disabled = false;
-        continueToTableBtn?.focus();
-      });
-      timeOptions.appendChild(option);
-    });
-  } catch (error) {
-    if (requestId !== slotRequestId) return;
-    reportError(error, 'Не удалось загрузить свободное время. Вернитесь назад и попробуйте ещё раз.');
-    if (timeOptions) timeOptions.setAttribute('aria-busy', 'false');
-    if (slotStatus) slotStatus.textContent = '';
-  }
 }
 
 async function initRestaurantBooking() {
@@ -961,14 +1119,8 @@ continueToTimeBtn?.addEventListener('click', () => {
   void selectBookingDate(selectedDate.dataset.date, selectedDate);
 });
 
-continueToTableBtn?.addEventListener('click', async () => {
-  if (!datetimeInput?.value) return;
-  continueToTableBtn.disabled = true;
-  const loaded = await refreshTableStatuses();
-  continueToTableBtn.disabled = false;
-  if (!loaded) {
-    return;
-  }
+continueToTableBtn?.addEventListener('click', () => {
+  if (!datetimeInput?.value || continueToTableBtn.disabled) return;
   showBookingStep(tableStep);
   openTablePickerBtn?.focus();
 });
@@ -1001,7 +1153,7 @@ document.querySelectorAll<HTMLButtonElement>('[data-booking-back]').forEach((but
   button.addEventListener('click', () => {
     switch (button.dataset.bookingBack) {
       case 'date':
-        slotRequestId++;
+        clearTimeout(slotExpiryTimer);
         resetAfterDateChange();
         showBookingStep(dateStep);
         dateOptions?.querySelector<HTMLButtonElement>('.date-option.active')?.focus();

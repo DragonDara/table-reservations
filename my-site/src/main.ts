@@ -21,7 +21,7 @@ async function start(): Promise<void> {
   if (config.businessType === 'CarWash') {
     const { initCarWashExperience } = await import('./experiences/carwash');
     initCarWashExperience(config);
-  } else {
+  } else if (config.businessType === 'Restaurant') {
     const { initRestaurantExperience } = await import('./experiences/restaurant');
     await initRestaurantExperience(config);
   }

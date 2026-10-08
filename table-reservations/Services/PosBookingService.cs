@@ -35,7 +35,9 @@ public class PosBookingService
         }
 
         if (!Uri.TryCreate(options.BaseUrl, UriKind.Absolute, out var baseUri)
-            || string.IsNullOrWhiteSpace(options.ApiLogin)
+            || !Guid.TryParse(options.AppId, out var appId) || appId == Guid.Empty
+            || string.IsNullOrWhiteSpace(options.ClientSecret)
+            || string.IsNullOrWhiteSpace(options.ApiKey)
             || string.IsNullOrWhiteSpace(options.OrganizationId))
         {
             throw new InvalidOperationException(
@@ -45,7 +47,8 @@ public class PosBookingService
         var http = httpClientFactory.CreateClient("TenantPos");
         http.BaseAddress = baseUri;
         _pos = new AuthenticatingPosAdapter(
-            new IikoAdapter(http, options.ApiLogin, options.OrganizationId));
+            new IikoAdapter(http, options.AppId!, options.ClientSecret, options.ApiKey,
+                options.OrganizationId, options.TerminalGroupId));
         _restaurantId = options.OrganizationId;
     }
 

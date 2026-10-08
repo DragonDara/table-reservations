@@ -200,10 +200,11 @@
       <div class="field">
         <label for="phone">Номер телефона</label>
         <input type="tel" id="phone" name="phone" placeholder="+7 700 (000) 00 00" inputmode="numeric" autocomplete="tel" required />
-        <span class="field-hint">На этот номер придёт подтверждение и напоминание за час</span>
+        <span class="field-hint">На этот номер придёт подтверждение брони</span>
       </div>
 
       <button type="submit" class="btn btn-primary btn-block">Забронировать</button>
+      <button type="button" class="btn btn-primary btn-block" id="checkReservationStatus" hidden>Проверить статус</button>
       <button type="button" class="step-back" data-booking-back="name">← Изменить имя</button>
     </div>
     <p class="reservation-status" id="reservationStatus" role="status" aria-live="polite"></p>
@@ -343,7 +344,7 @@
       <div class="legend">
         <span class="legend-item"><span class="legend-dot legend-free"></span> Свободно</span>
         <span class="legend-item"><span class="legend-dot legend-selected"></span> Выбрано</span>
-        <span class="legend-item"><span class="legend-dot legend-occupied"></span> Занято</span>
+        <span class="legend-item"><span class="legend-dot legend-occupied"></span> Не свободен</span>
         <span class="legend-item"><span class="legend-dot legend-vip"></span> VIP</span>
       </div>
     </div>

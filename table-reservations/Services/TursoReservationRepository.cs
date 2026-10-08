@@ -12,12 +12,16 @@ using table_reservations.Services.Tenancy;
 namespace table_reservations.Services;
 
 /// <summary>The existing database separates tenants by business table, not organization_id.</summary>
-public sealed class TursoReservationRepository(
-    ITursoClient db, TenantContext tenant, IOptions<TursoOptions> options) : IReservationRepository
+public sealed partial class TursoReservationRepository(
+    ITursoClient db, TenantContext tenant, IOptions<TursoOptions> options,
+    table_reservations.Pos.IRestaurantPosClient? pos = null) : IReservationRepository
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     private const string Active = "'pending','confirmed','in_progress'";
     private bool IsCarWash => tenant.BusinessType == BusinessType.CarWash;
+    private bool UsesPos => tenant.BusinessType == BusinessType.Restaurant && tenant.Organization!.Pos.Enabled;
+    private table_reservations.Pos.IRestaurantPosClient Pos => pos
+        ?? throw new BookingException("Связь с кассой не настроена.", 503, "POS_UNAVAILABLE");
     private BookingTimeOptions Hours => tenant.Organization!.BookingTime;
     private void EnsureTenant(bool? carwash = null)
     {
@@ -59,7 +63,7 @@ public sealed class TursoReservationRepository(
 
     private sealed record Resource(string Id, string Name, string Type, int Capacity);
     private sealed record Existing(string Id, string ResourceId, string Name, string Phone, string Plate, DateTime Start, DateTime End, bool Remind);
-    private sealed record State(IReadOnlyList<Resource> Resources, IReadOnlyList<Existing> Reservations);
+    private sealed record State(IReadOnlyList<Resource> Resources, IReadOnlyList<Existing> Reservations, DateTimeOffset? CheckedAt = null);
     private async Task<State> StateAsync(ITursoClient connection, bool carwash, CancellationToken ct)
     {
         var results = await connection.QueryBatchAsync([
@@ -67,7 +71,7 @@ public sealed class TursoReservationRepository(
                 : "SELECT id, type, capacity FROM tables WHERE status = 'available' ORDER BY id"),
             new(carwash
                 ? $"SELECT id, box_id AS resource_id, customer_name, customer_phone, plate_number, scheduled_at AS start_at, ends_at, 0 AS remind_before_hour FROM box_reservations WHERE status IN ({Active})"
-                : $"SELECT id, table_id AS resource_id, customer_name, customer_phone, '' AS plate_number, reserved_at AS start_at, datetime(reserved_at, '+3 hours') AS ends_at, remind_before_hour FROM table_reservations WHERE status IN ({Active})")
+                : $"SELECT id, table_id AS resource_id, customer_name, customer_phone, '' AS plate_number, reserved_at AS start_at, {(UsesPos ? "COALESCE(ends_at, datetime(reserved_at, '+3 hours'))" : "datetime(reserved_at, '+3 hours')")} AS ends_at, remind_before_hour FROM table_reservations WHERE status IN ({Active})")
         ], ct);
         return new(
             results[0].Rows.Select(r => new Resource(r.GetString("id"), r.GetString("name"), r.GetString("type"), r.GetInt32("capacity"))).ToArray(),
@@ -97,14 +101,14 @@ public sealed class TursoReservationRepository(
                 ORDER BY r.scheduled_at, r.box_id, r.id
                 """, [BookingRules.Store(end), BookingRules.Store(start)], ct)
             : await db.QueryAsync($"""
-                SELECT reserved_at AS start_at, datetime(reserved_at, '+3 hours') AS ends_at,
+                SELECT reserved_at AS start_at, {(UsesPos ? "COALESCE(ends_at, datetime(reserved_at, '+3 hours'))" : "datetime(reserved_at, '+3 hours')")} AS ends_at,
                     table_id AS tables_id, '' AS box_id, '' AS wash_service_type,
                     customer_name, customer_phone
                 FROM table_reservations
                 WHERE status IN ({Active}) AND reserved_at >= ? AND reserved_at < ?
-                    AND datetime(reserved_at, '+3 hours') > ?
+                    AND {(UsesPos ? "COALESCE(ends_at, datetime(reserved_at, '+3 hours'))" : "datetime(reserved_at, '+3 hours')")} > ?
                 ORDER BY reserved_at, table_id, id
-                """, [BookingRules.Store(start.AddHours(-ReservationDuration.Hours)),
+                """, [BookingRules.Store(UsesPos ? start.AddDays(-90) : start.AddHours(-ReservationDuration.Hours)),
                     BookingRules.Store(end), BookingRules.Store(start)], ct);
 
         return result.Rows.Select(row => new ReservationListItem(
@@ -129,7 +133,7 @@ public sealed class TursoReservationRepository(
     public async Task<IReadOnlyList<DateTime>> GetAvailableSlotsAsync(DateOnly date, DateTime now, CancellationToken ct = default)
     {
         EnsureTenant(false);
-        var state = await StateAsync(db, false, ct);
+        var state = await AvailabilityStateAsync(ct);
         return BookingRules.Slots(date, Hours, now)
             .Where(start => state.Resources.Any(table => Free(state, table.Id, start, start.AddHours(ReservationDuration.Hours)))).ToArray();
     }
@@ -138,7 +142,7 @@ public sealed class TursoReservationRepository(
         EnsureTenant(false);
         var start = scheduledAt ?? ReservationDateTime.KazakhstanNow();
         var end = start.AddHours(ReservationDuration.Hours);
-        var state = await StateAsync(db, false, ct);
+        var state = await AvailabilityStateAsync(ct);
         return state.Resources.Select(resource =>
         {
             var free = Free(state, resource.Id, start, end);
@@ -147,6 +151,8 @@ public sealed class TursoReservationRepository(
                 Id = int.Parse(resource.Id, CultureInfo.InvariantCulture), Seats = resource.Capacity,
                 Type = resource.Type.Equals("VIP", StringComparison.OrdinalIgnoreCase) ? TableType.VIP : TableType.Обычный,
                 Status = !free ? TableStatuses.Occupied : next is null ? TableStatuses.Free : TableStatuses.Limited,
+                AvailabilityCheckedAt = state.CheckedAt,
+                AvailabilityValidUntil = state.CheckedAt?.AddSeconds(30),
                 NextReservationHours = free && next is not null ? (next.Start - start).TotalHours : null
             };
         }).ToArray();
@@ -154,13 +160,14 @@ public sealed class TursoReservationRepository(
     public async Task<bool> IsReservationTakenAsync(string tableId, DateTime scheduledAt, CancellationToken ct = default)
     {
         EnsureTenant(false);
-        var state = await StateAsync(db, false, ct);
+        var state = await AvailabilityStateAsync(ct);
         return !state.Resources.Any(r => r.Id == tableId) || !Free(state, tableId, scheduledAt, scheduledAt.AddHours(ReservationDuration.Hours));
     }
 
     public async Task<BookingResult> BookAsync(ReservationInfo request, DateTime scheduledAt, CancellationToken ct = default)
     {
         EnsureTenant();
+        if (UsesPos) throw new BookingException("Требуется ключ запроса бронирования.", 400, "IDEMPOTENCY_KEY_REQUIRED");
         BookingRules.ValidateStart(scheduledAt, Hours, ReservationDateTime.KazakhstanNow());
         var phone = KazakhstanPhone.NormalizeAndValidate(request.CustomerPhone);
         request.CustomerPhone = phone;
@@ -238,12 +245,13 @@ public sealed class TursoReservationRepository(
         EnsureTenant();
         if (IsCarWash) return []; // This schema/tenant does not enable customer reminders for car washes.
         var now = ReservationDateTime.KazakhstanNow();
-        var result = await db.QueryAsync("""
+        var result = await db.QueryAsync($"""
             SELECT r.id,r.table_id,r.customer_name,r.customer_phone,r.reserved_at
             FROM table_reservations r
             LEFT JOIN reservation_reminders m ON m.reservation_id = r.id
             WHERE r.remind_before_hour = 1 AND r.status IN ('pending','confirmed')
               AND m.reservation_id IS NULL AND r.reserved_at > ? AND r.reserved_at <= ?
+              {(UsesPos ? "AND (r.status = 'confirmed' OR NOT EXISTS (SELECT 1 FROM restaurant_booking_rows link WHERE link.reservation_id = r.id))" : "")}
             """, [BookingRules.Store(now), BookingRules.Store(now.AddHours(1))], ct);
         return result.Rows.Select(r => new ReminderCandidate {
             Id = r.GetString("id"), RemindBeforeHour = true,

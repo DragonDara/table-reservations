@@ -5,7 +5,7 @@ namespace table_reservations.Data;
 
 /// <summary>Startup validates only. Run explicitly with --migrate for additive schema changes.</summary>
 public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseInitializer> logger,
-    IOptions<TelegramOptions>? telegram = null)
+    IOptions<TelegramOptions>? telegram = null, IOptions<OrganizationsOptions>? organizations = null)
 {
     public async Task InitializeAsync(CancellationToken ct = default)
     {
@@ -25,6 +25,12 @@ public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseIni
                 new("SELECT organization_id,chat_id,title FROM telegram_groups LIMIT 0"),
                 new("SELECT organization_id,reservation_id,channel FROM notification_deliveries LIMIT 0")
             ], ct);
+        if (organizations?.Value.Items.Any(organization => organization.BusinessType == Models.Tenancy.BusinessType.Restaurant && organization.Pos.Enabled) == true)
+            await client.QueryBatchAsync([
+                new("SELECT id,state,lease_token,next_attempt_at FROM restaurant_booking_operations LIMIT 0"),
+                new("SELECT operation_id,reservation_id FROM restaurant_booking_rows LIMIT 0"),
+                new("SELECT ends_at FROM table_reservations LIMIT 0")
+            ], ct);
         logger.LogInformation("Turso schema validated.");
     }
 
@@ -37,6 +43,9 @@ public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseIni
             var statements = new List<string>();
             if (!columns.Rows.Any(r => r.GetString("name") == "services_json"))
                 statements.Add("ALTER TABLE box_reservations ADD COLUMN services_json TEXT NOT NULL DEFAULT '[]' CHECK (json_valid(services_json) AND json_type(services_json) = 'array')");
+            var restaurantColumns = await db.QueryAsync("PRAGMA table_info(table_reservations)", ct: token);
+            if (!restaurantColumns.Rows.Any(row => row.GetString("name") == "ends_at"))
+                statements.Add("ALTER TABLE table_reservations ADD COLUMN ends_at TEXT");
             statements.AddRange([
                 "CREATE TABLE IF NOT EXISTS reservation_reminders (reservation_id TEXT PRIMARY KEY REFERENCES table_reservations(id) ON DELETE CASCADE, sent_at TEXT NOT NULL)",
                 "CREATE INDEX IF NOT EXISTS ix_box_reservations_window ON box_reservations(box_id,status,scheduled_at,ends_at)",
@@ -45,6 +54,7 @@ public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseIni
                 "CREATE INDEX IF NOT EXISTS ix_table_reservations_phone ON table_reservations(customer_phone,status)"
             ]);
             statements.AddRange(Services.TelegramSubscriptionStore.Schema);
+            statements.AddRange(RestaurantBookingSchema.Statements);
             var legacy = await db.QueryAsync("SELECT name FROM sqlite_master WHERE type='table' AND name='box_reservation_services'", ct: token);
             if (legacy.Rows.Count > 0)
                 statements.Add("""

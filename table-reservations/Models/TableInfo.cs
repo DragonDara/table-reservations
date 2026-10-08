@@ -9,5 +9,7 @@ namespace table_reservations.Models
         public int Seats { get; set; }
         public string Status { get; set; } = TableStatuses.Free;
         public double? NextReservationHours { get; set; }
+        public DateTimeOffset? AvailabilityCheckedAt { get; set; }
+        public DateTimeOffset? AvailabilityValidUntil { get; set; }
     }
 }

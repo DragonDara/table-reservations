@@ -1,6 +1,37 @@
 @table_reservations_HostAddress = http://localhost:5183
+@organizationId = thetochka
+@date = 2026-10-09
+@scheduledAt = 2026-10-09T18:00
+@idempotencyKey = 44444444-4444-4444-4444-444444444444
+@reservationId = 33333333-3333-3333-3333-333333333333
 
-GET {{table_reservations_HostAddress}}/weatherforecast/
+### Development tenant header; production uses the tenant hostname.
+GET {{table_reservations_HostAddress}}/api/Tables?scheduledAt={{scheduledAt}}
 Accept: application/json
+X-Organization-Id: {{organizationId}}
 
 ###
+GET {{table_reservations_HostAddress}}/api/Tables/slots?date={{date}}
+Accept: application/json
+X-Organization-Id: {{organizationId}}
+
+### MUTATION: use only an authorized test terminal and test customer.
+### Set a bookable date and a new UUID per booking; retain the key for exact retries.
+POST {{table_reservations_HostAddress}}/api/Reservations
+Content-Type: application/json
+X-Organization-Id: {{organizationId}}
+Idempotency-Key: {{idempotencyKey}}
+
+{
+	"customerName": "Test Guest",
+	"customerPhone": "+77010000001",
+	"scheduledAt": "{{scheduledAt}}",
+	"tablesId": "1",
+	"section": "Main hall",
+	"remindBeforeHour": false
+}
+
+### Use reservationId returned by POST; 202 is not confirmation.
+GET {{table_reservations_HostAddress}}/api/Reservations/{{reservationId}}
+Accept: application/json
+X-Organization-Id: {{organizationId}}

@@ -1,386 +1,219 @@
-﻿using table_reservations.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.Globalization;
 using System.Net.Http.Headers;
-using System.Text.Json.Serialization;
-using System.Threading;
-using System.Threading.Tasks;
-using static System.Net.WebRequestMethods;
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using table_reservations.Constants;
+using table_reservations.Models;
 
 namespace table_reservations.Pos;
 
-public class IikoAdapter : ApiClient, IPosAdapter
+public class IikoAdapter(HttpClient http, string appId, string clientSecret, string apiKey,
+    string organizationId, string? terminalGroupId = null)
+    : ApiClient(http), IPosAdapter
 {
-    private readonly string _apiLogin;
-    private readonly string _organizationId;
-
     public string ProviderName => "iiko";
+    private const string DateFormat = "yyyy-MM-dd HH:mm:ss.fff";
 
-    public IikoAdapter(HttpClient http, string apiLogin, string organizationId)
-        : base(http)
+    private async Task<JsonNode> SendAsync(string path, object payload, CancellationToken ct)
     {
-        _apiLogin = apiLogin;
-        _organizationId = organizationId;
+        using var response = await Http.PostAsJsonAsync(path, payload, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            var error = new HttpRequestException($"iiko POST /{path} returned HTTP {(int)response.StatusCode} ({response.StatusCode}).",
+                null, response.StatusCode);
+            error.Data["IikoEndpoint"] = path;
+            throw error;
+        }
+        return await response.Content.ReadFromJsonAsync<JsonNode>(cancellationToken: ct)
+            ?? throw new JsonException("Empty iiko response.");
     }
+
+    private static string Text(JsonNode node, string property) =>
+        node[property]?.GetValue<string>() ?? throw new JsonException($"Missing iiko field: {property}.");
+
+    private static JsonArray Array(JsonNode node, string property) =>
+        node[property] as JsonArray ?? throw new JsonException($"Missing iiko array: {property}.");
+
+    private string TerminalGroup => Guid.TryParse(terminalGroupId, out var id) && id != Guid.Empty
+        ? id.ToString() : throw new InvalidOperationException("An iiko terminal group must be configured.");
 
     public async Task AuthenticateAsync(CancellationToken ct = default)
     {
-        var request = new IikoTokenRequest(_apiLogin);
-        var (success, data, error) = await PostAsync<IikoTokenRequest, IikoTokenResponse>("api/1/access_token", request, ct);
-
-        if (!success || data is null)
-        {
-            throw new InvalidOperationException($"Не удалось авторизоваться в iiko: {error}");
-        }
-
-        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", data.Token);
-    }
-    public async Task<List<PosTable>> GetTablesAsync(CancellationToken ct = default)
-    {
-        var payload = new
-        {
-            organizationIds = new[] { _organizationId },
-            terminalGroupIds = new[] { "cc57c04a-7727-c9c0-019b-bfef90f80066" }
-        };
-
-        var (success, data, error) = await PostAsync<object, System.Text.Json.Nodes.JsonNode>(
-            "api/1/reserve/available_restaurant_sections",
-            payload,
-            ct);
-
-        if (!success || data is null)
-        {
-            Console.WriteLine($"[iiko Error] {error}");
-            return new List<PosTable>();
-        }
-
-        var resultList = new List<PosTable>();
-
-        var sections = data["restaurantSections"]?.AsArray();
-        if (sections == null) return resultList;
-
-        foreach (var section in sections)
-        {
-            if (section == null) continue;
-
-            string sectionName = section["name"]?.ToString() ?? "Без зала";
-            var tables = section["tables"]?.AsArray();
-
-            if (tables == null) continue;
-
-            foreach (var t in tables)
-            {
-                if (t == null) continue;
-                if (t["isDeleted"]?.GetValue<bool>() == true) continue;
-
-                int number = t["number"]?.GetValue<int>() ?? 0;
-                string rawName = t["name"]?.ToString() ?? "";
-
-                string tableName = string.IsNullOrWhiteSpace(rawName)
-                    ? $"Стол №{number}"
-                    : rawName;
-
-                resultList.Add(new PosTable(
-                    Id: t["id"]?.ToString() ?? "",
-                    Name: tableName,
-                    Seats: t["seatingCapacity"]?.GetValue<int>() ?? 0,
-                    IsAvailable: true,
-                    Number: number,
-                    SectionName: sectionName
-                ));
-            }
-        }
-
-        return resultList;
-    }
-    public async Task<OrderResult> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct = default)
-    {
-        var payload = new
-        {
-            organizationId = _organizationId,
-            order = new
-            {
-                tableIds = request.TableId is not null ? new[] { request.TableId } : Array.Empty<string>(),
-                phone = request.Customer.Phone,
-                items = request.Items.Select(i => new { productId = i.ExternalProductId, amount = i.Quantity })
-            }
-        };
-
-        var (success, data, error) = await PostAsync<object, IikoOrderResponse>("api/1/order/create", payload, ct);
-
-        return success && data is not null
-           ? new OrderResult(Success: true, ExternalOrderId: data.OrderId, Total: null, ErrorMessage: null)
-           : new OrderResult(Success: false, ExternalOrderId: null, Total: null, ErrorMessage: error);
+        var data = await SendAsync("api/v2/access_token", new { appId, clientSecret, apiKey }, ct);
+        var token = Text(data, "token");
+        if (string.IsNullOrWhiteSpace(token)) throw new JsonException("Empty iiko token.");
+        Http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
     }
 
-    public async Task<OrderStatusResult> GetOrderStatusAsync(string externalOrderId, CancellationToken ct = default)
+    private async Task<JsonArray> SectionsAsync(CancellationToken ct)
     {
-        var payload = new
-        {
-            organizationId = _organizationId,
-            orderIds = new[] { externalOrderId }
-        };
-
-        // Используем POST api/1/order/by_id  (iiko Cloud API)
-        var (success, data, error) = await PostAsync<object, System.Text.Json.Nodes.JsonNode>(
-            "api/1/order/by_id",
-            payload,
-            ct);
-
-        if (!success || data is null)
-        {
-            return new OrderStatusResult(false, "Unknown", error);
-        }
-
-        // В ответе iiko возвращается массив "orders"
-        var ordersArray = data["orders"]?.AsArray();
-        if (ordersArray is null || ordersArray.Count == 0)
-        {
-            return new OrderStatusResult(false, "NotFound", "Заказ не найден");
-        }
-
-        var order = ordersArray.FirstOrDefault();
-        if (order is null)
-        {
-            return new OrderStatusResult(false, "NotFound", "Заказ не найден");
-        }
-
-        // Статус заказа в iiko (например: "New", "Bill", "Closed", "Deleted")
-        string status = order["status"]?.ToString() ?? "Unknown";
-
-        return new OrderStatusResult(true, status, null);
+        var data = await SendAsync("api/1/reserve/available_restaurant_sections",
+            new { terminalGroupIds = new[] { TerminalGroup }, returnSchema = false }, ct);
+        var sections = Array(data, "restaurantSections");
+        if (sections.Any(section => section is null || Text(section, "terminalGroupId") != TerminalGroup))
+            throw new JsonException("Unexpected iiko terminal group.");
+        return sections;
     }
 
-    /// <summary>
-    /// Получить список всех активных (незакрытых) заказов организации.
-    /// Используется для определения занятых столов и статусов открытых чеков.
-    /// </summary>
-    public async Task<List<ActiveOrderDto>> GetActiveOrdersAsync(CancellationToken ct = default)
+    private static List<PosTable> ReadTables(JsonArray sections) => sections.SelectMany(section =>
+        Array(section!, "tables").Select(table => table ?? throw new JsonException("Invalid iiko table."))
+            .Where(table => table["isDeleted"]?.GetValue<bool>() == false)
+            .Select(table => new PosTable(Text(table, "id"), table["name"]?.GetValue<string>() ?? "",
+                table["seatingCapacity"]!.GetValue<int>(), true, table["number"]!.GetValue<int>(), Text(section!, "name"))))
+        .ToList();
+
+    public async Task<List<PosTable>> GetTablesAsync(CancellationToken ct = default) => ReadTables(await SectionsAsync(ct));
+
+    private async Task EnsureOnlineAsync(CancellationToken ct)
     {
-        var tables = await GetTablesAsync(ct);
-        var tableIds = tables.Select(t => t.Id).ToArray();
-
-        if (tableIds.Length == 0)
-        {
-            return new List<ActiveOrderDto>();
-        }
-
-
-        var payload = new
-        {
-            organizationIds = new[] { _organizationId },
-            tableIds = tableIds
-        };
-
-
-
-        // Эндпоинт iiko для получения всех открытых/активных заказов
-        var (success, data, error) = await PostAsync<object, System.Text.Json.Nodes.JsonNode>(
-            "api/1/order/by_table",
-            payload,
-            ct);
-
-        var activeOrders = new List<ActiveOrderDto>();
-
-        if (!success || data is null)
-        {
-            Console.WriteLine($"[iiko Error] Ошибка получения активных заказов: {error}");
-            return activeOrders;
-        }
-
-        var ordersArray = data["orders"]?.AsArray();
-        if (ordersArray == null) return activeOrders;
-
-        foreach (var o in ordersArray)
-        {
-            if (o == null) continue;
-
-            string orderId = o["id"]?.ToString() ?? "";
-            string status = o["status"]?.ToString() ?? "";
-
-            if (status != "New" && status != "InProgress" && status != "Bill")
-            {
-                // Пропускаем заказы, которые уже закрыты или удалены
-                continue;
-            }
-
-            activeOrders.Add(new ActiveOrderDto(
-                OrderId: o["id"]?.ToString() ?? "",
-                Status: status,
-                TableIds: o["tableIds"]?.AsArray()?.Select(t => t?.ToString() ?? "").ToList() ?? new(),
-                Sum: o["sum"]?.GetValue<decimal>() ?? 0m
-            ));
-        }
-
-        return activeOrders;
+        var data = await SendAsync("api/1/terminal_groups/is_alive",
+            new { organizationIds = new[] { organizationId }, terminalGroupIds = new[] { TerminalGroup } }, ct);
+        var terminal = Array(data, "isAliveStatus").SingleOrDefault(item => item?["terminalGroupId"]?.GetValue<string>() == TerminalGroup
+            && item?["organizationId"]?.GetValue<string>() == organizationId);
+        if (terminal?["isAlive"]?.GetValue<bool>() != true)
+            throw new HttpRequestException("iiko terminal is unavailable.");
     }
 
-    public async Task<OrderResult> CancelOrderAsync(string externalOrderId, CancellationToken ct = default)
+    private async Task<List<ActiveOrderDto>> OrdersAsync(IReadOnlyList<PosTable> tables, CancellationToken ct)
     {
-        var payload = new
+        var initialized = await SendAsync("api/1/order/init_by_table", new {
+            organizationId, terminalGroupId = TerminalGroup, tableIds = tables.Select(table => table.Id).ToArray()
+        }, ct);
+        if (string.IsNullOrWhiteSpace(Text(initialized, "correlationId")))
+            throw new JsonException("Missing iiko initialization correlation ID.");
+        var data = await SendAsync("api/1/order/by_table", new {
+            organizationIds = new[] { organizationId }, tableIds = tables.Select(table => table.Id).ToArray(),
+            statuses = new[] { "New", "Bill" }
+        }, ct);
+        var result = new List<ActiveOrderDto>();
+        foreach (var info in Array(data, "orders"))
         {
-            organizationId = _organizationId,
-            orderId = externalOrderId
-            // возможно, ещё понадобится terminalGroupId или paymentInfo 
-        };
-
-        var (success, data, error) = await PostAsync<object, System.Text.Json.Nodes.JsonNode>(
-            "api/1/order/close",
-            payload,
-            ct);
-
-        return new OrderResult(
-            Success: success,
-            ExternalOrderId: externalOrderId,
-            Total: null,
-            ErrorMessage: success ? null : error);
-    }
-    private async Task<List<string>> GetRestaurantSectionIdsAsync(CancellationToken ct)
-    {
-        var payload = new
-        {
-            organizationIds = new[] { _organizationId },
-            terminalGroupIds = new[] { "cc57c04a-7727-c9c0-019b-bfef90f80066" }
-        };
-
-        var (success, data, error) = await PostAsync<object, System.Text.Json.Nodes.JsonNode>(
-            "api/1/reserve/available_restaurant_sections",
-            payload,
-            ct);
-
-        var ids = new List<string>();
-        if (!success || data is null) return ids;
-
-        var sections = data["restaurantSections"]?.AsArray();
-        if (sections == null) return ids;
-
-        foreach (var s in sections)
-        {
-            var id = s?["id"]?.ToString();
-            if (!string.IsNullOrEmpty(id)) ids.Add(id);
+            if (info is null || Text(info, "organizationId") != organizationId || Text(info, "creationStatus") != "Success"
+                || info["errorInfo"] is not null || info["order"] is not JsonNode order)
+                throw new JsonException("Incomplete iiko order state.");
+            var status = Text(order, "status");
+            if (status is "Closed" or "Deleted") continue;
+            if (status is not ("New" or "Bill")) throw new JsonException("Unknown iiko order status.");
+            result.Add(new(Text(info, "id"), status, Array(order, "tableIds").Select(item => item!.GetValue<string>()).ToList(), 0));
         }
-
-        return ids;
-    }
-    public async Task<List<ReservationInfoDto>> GetReservationsAsync(CancellationToken ct = default)
-    {
-        var sectionIds = await GetRestaurantSectionIdsAsync(ct);
-        if (sectionIds.Count == 0)
-        {
-            Console.WriteLine("[iiko] Не удалось получить restaurantSectionIds");
-            return new List<ReservationInfoDto>();
-        }
-
-        var today = DateTime.Today;
-
-        var payload = new
-        {
-            organizationIds = new[] { _organizationId },
-            restaurantSectionIds = sectionIds,
-            dateFrom = today.ToString("yyyy-MM-ddTHH:mm:ss"),
-            dateTo = today.AddDays(1).ToString("yyyy-MM-ddTHH:mm:ss")
-        };
-
-        var (success, data, error) = await PostAsync<object, System.Text.Json.Nodes.JsonNode>(
-            "api/1/reserve/restaurant_sections_workload",
-            payload,
-            ct);
-
-        var result = new List<ReservationInfoDto>();
-
-        if (!success || data is null)
-        {
-            Console.WriteLine($"[iiko Error] Ошибка получения броней: {error}");
-            return result;
-        }
-
-        var reservesArray = data["reserves"]?.AsArray();
-        if (reservesArray == null) return result;
-
-        foreach (var r in reservesArray)
-        {
-            if (r == null) continue;
-
-            result.Add(new ReservationInfoDto(
-                ReservationId: r["id"]?.ToString() ?? "",
-                TableIds: r["tableIds"]?.AsArray()?.Select(t => t?.ToString() ?? "").ToList() ?? new(),
-                CustomerName: r["customer"]?["name"]?.ToString() ?? "",
-                CustomerPhone: r["phone"]?.ToString() ?? "",
-                EstimatedStartTime: DateTime.TryParse(r["estimatedStartTime"]?.ToString(), out var dt) ? dt : DateTime.MinValue,
-                DurationInMinutes: r["durationInMinutes"]?.GetValue<int>() ?? 0,
-                GuestsCount: r["guestsCount"]?.GetValue<int>() ?? 0
-            ));
-        }
-
         return result;
     }
+
+    public async Task<List<ActiveOrderDto>> GetActiveOrdersAsync(CancellationToken ct = default)
+    {
+        await EnsureOnlineAsync(ct);
+        return await OrdersAsync(await GetTablesAsync(ct), ct);
+    }
+
+    private async Task<List<ReservationInfoDto>> WorkloadAsync(JsonArray sections, DateTime from, DateTime until, CancellationToken ct)
+    {
+        var data = await SendAsync("api/1/reserve/restaurant_sections_workload", new {
+            restaurantSectionIds = sections.Select(section => Text(section!, "id")).ToArray(),
+            dateFrom = from.ToString(DateFormat, CultureInfo.InvariantCulture),
+            dateTo = until.ToString(DateFormat, CultureInfo.InvariantCulture)
+        }, ct);
+        return Array(data, "reserves").Select(item => {
+            if (item is null) throw new JsonException("Invalid iiko reserve.");
+            return new ReservationInfoDto(Text(item, "id"), Array(item, "tableIds").Select(id => id!.GetValue<string>()).ToList(), "", "",
+                DateTime.ParseExact(Text(item, "estimatedStartTime"), DateFormat, CultureInfo.InvariantCulture),
+                item["durationInMinutes"]!.GetValue<int>(), item["guestsCount"]!.GetValue<int>());
+        }).ToList();
+    }
+
+    public async Task<List<ReservationInfoDto>> GetReservationsAsync(CancellationToken ct = default)
+    {
+        var today = ReservationDateTime.KazakhstanNow().Date;
+        return await WorkloadAsync(await SectionsAsync(ct), today.AddDays(-1), today.AddDays(2), ct);
+    }
+
+    public async Task<PosAvailabilitySnapshot> GetAvailabilityAsync(DateTime from, DateTime until, CancellationToken ct = default)
+    {
+        var checkedAt = DateTimeOffset.UtcNow;
+        await EnsureOnlineAsync(ct);
+        var sections = await SectionsAsync(ct);
+        var tables = ReadTables(sections);
+        if (tables.Count == 0) throw new JsonException("No iiko tables are configured.");
+        var orders = await OrdersAsync(tables, ct);
+        var reserves = await WorkloadAsync(sections, from, until, ct);
+        return new(checkedAt, tables, reserves, orders.SelectMany(order => order.TableIds).ToHashSet(StringComparer.OrdinalIgnoreCase));
+    }
+
+    private static ReservationResult ReadReserve(JsonNode info, string? correlationId)
+    {
+        var id = Text(info, "id");
+        var creationStatus = Text(info, "creationStatus");
+        if (creationStatus == "Error") return new(false, id, "POS_REJECTED", "Rejected", correlationId);
+        if (creationStatus == "InProgress") return new(false, id, null, "Processing", correlationId);
+        if (creationStatus != "Success" || info["errorInfo"] is not null)
+            throw new JsonException("Unknown iiko creation state.");
+        if (info["isDeleted"] is null) throw new JsonException("Missing iiko deletion state.");
+        if (info["isDeleted"]!.GetValue<bool>()) return new(false, id, null, "Cancelled", correlationId);
+        var reserve = info["reserve"] ?? throw new JsonException("Missing iiko reserve.");
+        if (reserve["cancelReason"] is not null) return new(false, id, null, "Cancelled", correlationId);
+        var details = new ReservationInfoDto(id, Array(reserve, "tableIds").Select(table => table!.GetValue<string>()).ToList(), "", "",
+            DateTime.ParseExact(Text(reserve, "estimatedStartTime"), DateFormat, CultureInfo.InvariantCulture),
+            reserve["durationInMinutes"]!.GetValue<int>(), reserve["guestsCount"]!.GetValue<int>());
+        return Text(reserve, "status") switch {
+            "New" or "Started" => new(true, id, null, "Confirmed", correlationId, details),
+            "Closed" => new(false, id, null, "Closed", correlationId),
+            _ => throw new JsonException("Unknown iiko reserve status.")
+        };
+    }
+
     public async Task<ReservationResult> ReserveTableAsync(CreateReservationRequest request, CancellationToken ct = default)
     {
+        if (!Guid.TryParse(request.ReservationId, out var id) || id == Guid.Empty)
+            throw new ArgumentException("A durable reservation ID is required.");
+        var data = await SendAsync("api/1/reserve/create", new {
+            organizationId, terminalGroupId = TerminalGroup, id,
+            customer = new { type = "regular", name = request.Customer.Name }, phone = request.Customer.Phone,
+            tableIds = request.TableIds, guestsCount = request.GuestsCount, shouldRemind = false,
+            durationInMinutes = request.DurationInMinutes,
+            estimatedStartTime = request.ReservationTime.ToString(DateFormat, CultureInfo.InvariantCulture)
+        }, ct);
+        var info = data["reserveInfo"] ?? throw new JsonException("Missing reserveInfo.");
+        if (Text(info, "id") != id.ToString() || Text(info, "organizationId") != organizationId)
+            throw new JsonException("Unexpected iiko reservation identity.");
+        return ReadReserve(info, Text(data, "correlationId"));
+    }
 
-        var payload = new
-        {
-            organizationId = _organizationId,
-            terminalGroupId = "cc57c04a-7727-c9c0-019b-bfef90f80066",
-            tableIds = request.TableIds,
-            customer = new { name = request.Customer.Name },
-            phone = request.Customer.Phone,
-            estimatedStartTime = request.ReservationTime.ToString("yyyy-MM-ddTHH:mm:ss"),
-            durationInMinutes = 120,
-            guestsCount = request.GuestsCount,
-            shouldRemind = false
-        };
-
-        var (success, data, error) = await PostAsync<object, IikoReservationResponse>("api/1/reserve/create", payload, ct);
-
-        return success && data is not null
-            ? new ReservationResult(true, data.ReservationId, null)
-            : new ReservationResult(false, null, error);
+    public async Task<ReservationResult> GetReservationAsync(string externalReservationId, CancellationToken ct = default)
+    {
+        var data = await SendAsync("api/1/reserve/status_by_id", new { organizationId, reserveIds = new[] { externalReservationId } }, ct);
+        var reserves = Array(data, "reserves");
+        if (reserves.Any(info => info is null || Text(info, "organizationId") != organizationId))
+            throw new JsonException("Unexpected iiko reservation organization.");
+        var info = reserves.SingleOrDefault(item => item?["id"]?.GetValue<string>() == externalReservationId);
+        return info is null ? new ReservationResult(false, externalReservationId, null, "Unknown") : ReadReserve(info, null);
     }
 
     public async Task<ReservationResult> CancelReservationAsync(string externalReservationId, CancellationToken ct = default)
     {
-        var (success, _, error) = await PostAsync<IikoCancelRequest, object>($"api/1/reserve/{externalReservationId}/cancel", new IikoCancelRequest(), ct);
-        return new ReservationResult(success, externalReservationId, success ? null : error);
+        var data = await SendAsync("api/1/reserve/cancel", new { organizationId, reserveId = externalReservationId, cancelReason = "Other" }, ct);
+        return new(false, externalReservationId, null, "Processing", Text(data, "correlationId"));
+    }
+
+    public async Task<OrderResult> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct = default)
+    {
+        var (success, data, error) = await PostAsync<object, JsonNode>("api/1/order/create", new { organizationId, order = new {
+            tableIds = request.TableId is null ? System.Array.Empty<string>() : new[] { request.TableId },
+            phone = request.Customer.Phone, items = request.Items.Select(item => new { productId = item.ExternalProductId, amount = item.Quantity })
+        } }, ct);
+        return success && data is not null ? new(true, data["orderId"]?.GetValue<string>(), null, null) : new(false, null, null, error);
+    }
+
+    public async Task<OrderStatusResult> GetOrderStatusAsync(string externalOrderId, CancellationToken ct = default)
+    {
+        var (success, data, error) = await PostAsync<object, JsonNode>("api/1/order/by_id", new { organizationId, orderIds = new[] { externalOrderId } }, ct);
+        if (!success || data is null) return new(false, "Unknown", error);
+        var info = data["orders"]?.AsArray().FirstOrDefault();
+        return info is null ? new(false, "NotFound", "Заказ не найден") : new(true, info["status"]?.ToString() ?? "Unknown", null);
+    }
+
+    public async Task<OrderResult> CancelOrderAsync(string externalOrderId, CancellationToken ct = default)
+    {
+        var (success, _, error) = await PostAsync<object, JsonNode>("api/1/order/close", new { organizationId, orderId = externalOrderId }, ct);
+        return new(success, externalOrderId, null, success ? null : error);
     }
 }
-
-// ==========================================
-// DTOs (Внутренние контракты iiko)
-// ==========================================
-
-// 1. Авторизация
-internal record IikoTokenRequest([property: JsonPropertyName("apiLogin")] string ApiLogin);
-internal record IikoTokenResponse([property: JsonPropertyName("token")] string Token);
-
-// 2. Столы (Терминальные группы)
-internal record IikoTerminalGroupsResponse(
-    [property: JsonPropertyName("terminalGroups")] List<IikoTerminalGroup>? TerminalGroups
-);
-
-internal record IikoTerminalGroup(
-    [property: JsonPropertyName("items")] List<IikoTerminalGroupItem>? Items
-);
-
-internal record IikoTerminalGroupItem(
-    [property: JsonPropertyName("restaurantSections")] List<IikoRestaurantSection>? RestaurantSections
-);
-
-internal record IikoRestaurantSection(
-    [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("tables")] List<IikoTable>? Tables
-);
-
-internal record IikoTable(
-    [property: JsonPropertyName("id")] string Id,
-    [property: JsonPropertyName("name")] string Name,
-    [property: JsonPropertyName("number")] int Number,
-    [property: JsonPropertyName("capacity")] int Capacity
-);
-
-// 3. Заказы и бронь
-internal record IikoOrderResponse([property: JsonPropertyName("orderId")] string OrderId);
-internal record IikoOrderStatusResponse([property: JsonPropertyName("status")] string Status);
-internal record IikoReservationResponse([property: JsonPropertyName("reservationId")] string ReservationId);
-internal record IikoCancelRequest;

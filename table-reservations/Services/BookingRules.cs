@@ -14,6 +14,15 @@ public static class BookingRules
     public static string Wire(DateTime local) => local.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
     public static bool Overlaps(DateTime start, DateTime end, DateTime otherStart, DateTime otherEnd) => start < otherEnd && otherStart < end;
 
+    public static DateTime BusinessDayClosing(DateTime now, BookingTimeOptions hours)
+    {
+        var opening = TimeOnly.ParseExact(hours.StartTime, "HH:mm", CultureInfo.InvariantCulture);
+        var closing = TimeOnly.ParseExact(hours.EndTime, "HH:mm", CultureInfo.InvariantCulture);
+        var day = DateOnly.FromDateTime(now);
+        if (closing <= opening && TimeOnly.FromDateTime(now) < closing) day = day.AddDays(-1);
+        return day.AddDays(closing <= opening ? 1 : 0).ToDateTime(closing);
+    }
+
     public static IReadOnlyList<DateTime> Slots(DateOnly date, BookingTimeOptions hours, DateTime now)
     {
         var today = DateOnly.FromDateTime(now);

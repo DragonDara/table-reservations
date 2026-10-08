@@ -940,6 +940,12 @@ body {
     border-color: #a33;
 }
 
+.table-marker[data-status="unknown"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+    filter: grayscale(1);
+}
+
 .table-marker[data-status="limited"] {
     background: #4a3a12;
     border-color: var(--warning);

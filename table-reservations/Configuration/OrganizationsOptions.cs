@@ -125,8 +125,12 @@ namespace table_reservations.Configuration
         public bool Enabled { get; set; }
         public string Provider { get; set; } = "iiko";
         public string? BaseUrl { get; set; }
-        public string? ApiLogin { get; set; }
+        public string? AppId { get; set; }
+        public string? ClientSecret { get; set; }
+        public string? ApiKey { get; set; }
         public string? OrganizationId { get; set; }
+        public string? TerminalGroupId { get; set; }
+        public Dictionary<int, string> TableMappings { get; set; } = new();
     }
 
     /// <summary>

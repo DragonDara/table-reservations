@@ -36,6 +36,9 @@ The command exits without starting the web server or reminder worker. It adds:
 - `box_reservations.services_json`: non-null TEXT containing a JSON array,
   with an array-validity constraint and default `[]`.
 - `reservation_reminders`: lounge reminder delivery receipts.
+- `restaurant_booking_operations` and `restaurant_booking_rows`: durable iiko
+  requests and their local table holds; nullable `table_reservations.ends_at`
+  preserves staff-adjusted reservation duration. See [iiko setup](iiko-reservations.md).
 - Availability and phone lookup indexes.
 
 Existing junction-table service IDs are backfilled only for reservations with
@@ -126,10 +129,9 @@ stale Windows time-zone data; this is intended for current/future bookings,
 not historical pre-March-2024 dates. Existing non-UTC reservation data must be
 converted before use (the inspected database had no bookings at migration time).
 
-Disable `ReservationReminders:Enabled` for local checks; enable it when
-WhatsApp is configured. The reminder worker currently supports lounge bookings
-only. Run one reminder worker instance to avoid duplicate sends across replicas.
-Booking notifications run after commit; notification failure does not undo a booking.
+Automatic reservation reminders are currently disabled because the scheduled
+reminder worker has been removed. Booking notifications run after commit;
+notification failure does not undo a booking.
 
 ## Verification
 

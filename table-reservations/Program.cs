@@ -71,8 +71,6 @@ namespace table_reservations
             builder.Services.AddScoped<TelegramSubscriptionStore>();
             builder.Services.AddScoped<ReservationNotificationMessages>();
             builder.Services.AddScoped<IReservationNotificationService, ReservationNotificationService>();
-            if (builder.Configuration.GetValue("ReservationReminders:Enabled", true))
-                builder.Services.AddHostedService<ReservationReminderService>();
             builder.Services.AddHttpClient<DgisRatingService>();
 
             // Allowed CORS origins: static list plus every configured tenant subdomain
@@ -122,6 +120,8 @@ namespace table_reservations
                 client.Timeout = TimeSpan.FromSeconds(15);
             });
             builder.Services.AddScoped<table_reservations.Pos.PosBookingService>();
+            builder.Services.AddSingleton<table_reservations.Pos.RestaurantPosSessions>();
+            builder.Services.AddScoped<table_reservations.Pos.IRestaurantPosClient, table_reservations.Pos.RestaurantPosClient>();
 
             #endregion
 
