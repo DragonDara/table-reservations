@@ -7,7 +7,7 @@ public sealed record CarWashCatalog(IReadOnlyList<VehicleCategory> Categories, I
 public sealed record CarWashSelection(string VehicleCategoryId, string[] ServiceIds);
 public sealed record CarWashQuote(IReadOnlyList<CarWashService> Services, long TotalKzt, int DurationMinutes);
 public sealed record CarWashAvailability(CarWashQuote Quote, IReadOnlyList<string> Slots);
-public sealed record BookingResult(string Id, bool Overwritten, string? BoxId = null, long? TotalKzt = null, int? DurationMinutes = null,
+public sealed record BookingResult(string Id, string? BoxId = null, long? TotalKzt = null, int? DurationMinutes = null,
     string Status = "Confirmed", bool PosManaged = false);
 public sealed class BookingException(string message, int status = 400, string? code = null, ActiveReservationInfo? existing = null) : Exception(message)
 {

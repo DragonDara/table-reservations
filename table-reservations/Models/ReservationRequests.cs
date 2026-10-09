@@ -1,6 +1,6 @@
 namespace table_reservations.Models
 {
-    public sealed record RestaurantBookingResponse(string ReservationId, string Status, bool Success, bool Overwritten, string? Message = null);
+    public sealed record RestaurantBookingResponse(string ReservationId, string Status, bool Success, string? Message = null);
 
     public abstract class ReservationRequestBase
     {

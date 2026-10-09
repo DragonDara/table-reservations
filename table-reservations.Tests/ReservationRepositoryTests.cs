@@ -267,34 +267,18 @@ public class ReservationRepositoryTests
     }
 
     [Fact]
-    public async Task FailedReplacementRollsBackCancellation()
+    public async Task ExistingReservationCannotBeReplaced()
     {
         using var db = new Database();
         await Initializer(db).MigrateAsync();
         var repo = Repository(db);
         var first = await repo.BookAsync(Request(), Start());
-        await db.ExecuteAsync("CREATE TRIGGER fail_booking BEFORE INSERT ON box_reservations BEGIN SELECT RAISE(ABORT,'test failure'); END");
-        var replacement = Request();
-        replacement.Overwrite = true;
-        await Assert.ThrowsAsync<SqliteException>(() => repo.BookAsync(replacement, Start(12)));
+        var replacement = Request("8 (701) 000-00-01");
+        var error = await Assert.ThrowsAsync<BookingException>(() => repo.BookAsync(replacement, Start(12)));
+        Assert.Equal("EXISTING_RESERVATION", error.Code);
         var row = Assert.Single((await db.QueryAsync("SELECT * FROM box_reservations")).Rows);
         Assert.Equal(first.Id, row.GetString("id"));
         Assert.Equal("confirmed", row.GetString("status"));
-    }
-
-    [Fact]
-    public async Task ReplacementPreservesHistoryAndNormalizesPhone()
-    {
-        using var db = new Database();
-        await Initializer(db).MigrateAsync();
-        var repo = Repository(db);
-        await repo.BookAsync(Request("+77010000001"), Start());
-        var replacement = Request("8 (701) 000-00-01");
-        Assert.Equal("EXISTING_RESERVATION", (await Assert.ThrowsAsync<BookingException>(() => repo.BookAsync(replacement, Start(12)))).Code);
-        replacement.Overwrite = true;
-        Assert.True((await repo.BookAsync(replacement, Start(12))).Overwritten);
-        Assert.Single((await db.QueryAsync("SELECT * FROM box_reservations WHERE status='confirmed'")).Rows);
-        Assert.Single((await db.QueryAsync("SELECT * FROM box_reservations WHERE status='cancelled'")).Rows);
     }
 
     [Fact]

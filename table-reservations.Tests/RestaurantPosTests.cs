@@ -58,7 +58,7 @@ public class RestaurantPosTests
     }
 
     [Fact]
-    public async Task StaffCancellationDoesNotPollAndChangeLocalBooking()
+    public async Task AvailabilityDoesNotReadReservationStatusOrChangeLocalBooking()
     {
         using var db = new ReservationRepositoryTests.Database();
         await MigrateAsync(db);
@@ -66,9 +66,9 @@ public class RestaurantPosTests
         var repo = Repository(db, pos);
         var start = ReservationDateTime.KazakhstanNow().Date.AddDays(2).AddHours(18);
         await repo.BookWithIdempotencyAsync(new() { CustomerName = "Guest", CustomerPhone = "+77010000001", TablesId = "1" }, start, Guid.NewGuid().ToString());
-        pos.Result = new(false, null, null, "Cancelled");
         Assert.Equal("occupied", (await repo.GetTablesAsync(start))[0].Status);
         Assert.Single((await db.QueryAsync("SELECT id FROM table_reservations WHERE status = 'confirmed'")).Rows);
+        Assert.Equal(0, pos.StatusReads);
     }
 
     private sealed class Notifications : IReservationNotificationService
@@ -145,7 +145,7 @@ public class RestaurantPosTests
     }
 
     [Fact]
-    public async Task OverwriteWaitsForOldCancellationBeforeConfirmingAndDoesNotCancelTwice()
+    public async Task ExistingReservationCannotBeReplaced()
     {
         using var db = new ReservationRepositoryTests.Database();
         await MigrateAsync(db);
@@ -153,20 +153,11 @@ public class RestaurantPosTests
         var repo = Repository(db, pos);
         var start = ReservationDateTime.KazakhstanNow().Date.AddDays(2).AddHours(18);
         var original = await repo.BookWithIdempotencyAsync(new() { CustomerName = "Guest", CustomerPhone = "+77010000001", TablesId = "1" }, start, Guid.NewGuid().ToString());
-        var replacement = await repo.BookWithIdempotencyAsync(new() { CustomerName = "Guest", CustomerPhone = "+77010000001", TablesId = "2", Overwrite = true }, start.AddDays(1), Guid.NewGuid().ToString());
-        Assert.Equal("Processing", replacement.Status);
-        Assert.Equal(1, pos.Cancels);
+        var error = await Assert.ThrowsAsync<BookingException>(() => repo.BookWithIdempotencyAsync(
+            new() { CustomerName = "Guest", CustomerPhone = "+77010000001", TablesId = "2" }, start.AddDays(1), Guid.NewGuid().ToString()));
+        Assert.Equal("EXISTING_RESERVATION", error.Code);
         Assert.Equal("Confirmed", (await repo.GetBookingStatusAsync(original.Id))!.Status);
-        await repo.CheckPosBookingAsync(replacement.Id);
-        Assert.Equal("Processing", (await repo.GetBookingStatusAsync(replacement.Id))!.Status);
-        Assert.Equal(1, pos.Cancels);
-        pos.Cancelled.Add(original.Id);
-        await repo.CheckPosBookingAsync(replacement.Id);
-        Assert.Equal("Confirmed", (await repo.GetBookingStatusAsync(replacement.Id))!.Status);
-        Assert.Equal("Rejected", (await repo.GetBookingStatusAsync(original.Id))!.Status);
-        Assert.Equal(2, pos.Creates);
-        Assert.Equal(1, pos.Cancels);
-        Assert.Equal("free", (await repo.GetTablesAsync(start))[0].Status);
+        Assert.Equal(1, pos.Creates);
     }
 
     [Fact]
@@ -187,7 +178,7 @@ public class RestaurantPosTests
     }
 
     [Fact]
-    public async Task AvailabilityDoesNotAutomaticallyReconcileStaffMove()
+    public async Task AvailabilityUsesLocalBookingAndLiveOrderState()
     {
         using var db = new ReservationRepositoryTests.Database();
         await MigrateAsync(db);
@@ -195,7 +186,7 @@ public class RestaurantPosTests
         var repo = Repository(db, pos);
         var start = ReservationDateTime.KazakhstanNow().Date.AddDays(2).AddHours(18);
         var result = await repo.BookWithIdempotencyAsync(new() { CustomerName = "Guest", CustomerPhone = "+77010000001", TablesId = "1" }, start, Guid.NewGuid().ToString());
-        pos.Result = pos.Result with { Reservation = new(result.Id, ["two"], "", "", start.AddHours(1), 240, 4) };
+        pos.Snapshot = pos.Snapshot with { OccupiedTableIds = new HashSet<string> { "two" } };
         var tables = await repo.GetTablesAsync(start.AddHours(2));
         Assert.Equal("occupied", tables[0].Status);
         Assert.Equal("free", tables[1].Status);
@@ -205,14 +196,11 @@ public class RestaurantPosTests
     }
     internal sealed class FakePos : IRestaurantPosClient
     {
-        public PosAvailabilitySnapshot Snapshot { get; set; } = new(DateTimeOffset.UtcNow,
-            [new("one", "One", 4, true, 1, "Hall"), new("two", "Two", 6, true, 2, "Hall")], [], new HashSet<string>());
+        public PosAvailabilitySnapshot Snapshot { get; set; } = new(DateTimeOffset.UtcNow, new HashSet<string>());
         public bool Fail { get; set; }
         public bool FailCreate { get; set; }
         public int Creates { get; private set; }
-        public int Cancels { get; private set; }
         public int StatusReads { get; private set; }
-        public HashSet<string> Cancelled { get; } = [];
         public Func<Task>? OnCreate { get; set; }
         public ReservationResult Result { get; set; } = new(false, null, null, "Processing");
         public Task<PosAvailabilitySnapshot> GetSnapshotAsync(CancellationToken ct = default) =>
@@ -224,16 +212,10 @@ public class RestaurantPosTests
             if (OnCreate is not null) await OnCreate();
             return Result with { ExternalReservationId = request.ReservationId };
         }
-        private ReservationResult State(string id) => Cancelled.Contains(id) ? new(false, id, null, "Cancelled") : Result with { ExternalReservationId = id };
         public Task<ReservationResult> GetAsync(string id, CancellationToken ct = default)
         {
             StatusReads++;
-            return Task.FromResult(State(id));
-        }
-        public Task<ReservationResult> CancelAsync(string id, CancellationToken ct = default)
-        {
-            Cancels++;
-            return Task.FromResult(new ReservationResult(false, id, null, "Processing"));
+            return Task.FromResult(Result with { ExternalReservationId = id });
         }
     }
 
@@ -245,20 +227,19 @@ public class RestaurantPosTests
     }
 
     [Fact]
-    public async Task LiveOrdersBlockTodayAndExternalReservationsBlockFutureDates()
+    public async Task ByTableOrdersOnlyBlockCurrentAvailability()
     {
         using var db = new ReservationRepositoryTests.Database();
         await MigrateAsync(db);
         var pos = new FakePos();
         var future = ReservationDateTime.KazakhstanNow().Date.AddDays(2).AddHours(18);
-        pos.Snapshot = pos.Snapshot with { OccupiedTableIds = new HashSet<string> { "one" },
-            Reservations = [new("external", ["two"], "", "", future, 180, 4)] };
+        pos.Snapshot = pos.Snapshot with { OccupiedTableIds = new HashSet<string> { "one" } };
         var repo = Repository(db, pos);
         Assert.Equal("occupied", (await repo.GetTablesAsync())[0].Status);
         var tables = await repo.GetTablesAsync(future);
         Assert.Equal("free", tables[0].Status);
-        Assert.Equal("occupied", tables[1].Status);
-        Assert.True(await repo.IsReservationTakenAsync("2", future));
+        Assert.Equal("free", tables[1].Status);
+        Assert.False(await repo.IsReservationTakenAsync("2", future));
         Assert.NotNull(tables[0].AvailabilityValidUntil);
     }
 

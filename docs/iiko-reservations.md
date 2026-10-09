@@ -74,25 +74,16 @@ Relevant endpoints are all POST:
 | Endpoint | Purpose |
 | --- | --- |
 | `/api/v2/access_token` | Backend application authentication (JWT) |
-| `/api/1/terminal_groups/is_alive` | Check the configured front-office terminal |
-| `/api/1/reserve/available_restaurant_sections` | Inventory for `terminalGroupIds` |
-| `/api/1/order/init_by_table` | Request loading of POS-created orders; await its HTTP response |
-| `/api/1/order/by_table` | Read nested `order` records with `New` or `Bill` status |
-| `/api/1/reserve/restaurant_sections_workload` | Reservations overlapping the booking horizon |
+| `/api/1/order/by_table` | Read mapped tables' orders with `New` or `Bill` status for availability |
 | `/api/1/reserve/create` | Submit one reservation for all selected tables |
 | `/api/1/reserve/status_by_id` | Resolve the exact reservation UUID and creation state |
-| `/api/1/reserve/cancel` | Request cancellation of a linked previous reservation |
 
-`order/init_by_table` requires iiko 7.7.1+ and the **Orders: loading data**
-restriction group. Cancellation requires 8.2.6+ and supports reservations in
-`New` state. Verify the deployed version, permissions and quotas with iiko.
-
-Order reads await a successful `order/init_by_table` HTTP response with a
-nonempty `correlationId`, then call `order/by_table`. Initialization is not
-documented as supporting `commands/status`; its correlation ID is not polled.
-This avoids the observed `410 Gone` from that unsupported status query without
-discarding open-order occupancy. HTTP failures and malformed responses still
-block availability; no delay, retry fallback, or empty-order substitution is used.
+Availability calls `order/by_table` directly with the configured iiko table UUIDs;
+it does not initialize orders or request sections, terminal health, or reservation
+workload. `by_table` returns orders, not reservations: BRON's local bookings and
+open iiko orders block availability, but reservations created directly in iikoFront
+are not included. HTTP failures and malformed responses block availability; no
+empty-order fallback is used.
 
 The initialization response is not treated as proof of complete Cloud propagation.
 The checked OpenAPI does not specify an initialization-completion or freshness
@@ -151,11 +142,12 @@ Reusing a key with different normalized data returns `409 IDEMPOTENCY_CONFLICT`.
 
 - `200`, `status: Confirmed`, `success: true`: locally confirmed after a successful
   iiko create response; waiter/front-office confirmation is not required.
-- `202`, `status: Processing`, `success: false`: outcome or replacement cancellation
-  is unresolved. Use `POST /api/Reservations/{reservationId}/check` to perform one
+- `202`, `status: Processing`, `success: false`: outcome is unresolved. Use
+  `POST /api/Reservations/{reservationId}/check` to perform one
   explicit provider check; the client does not poll automatically.
-- `409`: conflict or definite rejection; an existing-booking conflict retains the
-  overwrite prompt. `BOOKING_PROCESSING` means an existing operation is unresolved.
+- `409`: conflict or definite rejection. An active booking for the same phone
+  blocks a new booking; replacement is not supported. `BOOKING_PROCESSING` means
+  an existing operation is unresolved.
 - `503 POS_UNAVAILABLE`: verification unavailable. A transport/503 error can also
   obscure a persisted operation, so retain the retry key.
 
@@ -175,15 +167,7 @@ query the exact UUID and never blindly re-send a create. An orphaned hold that w
 never dispatched is rejected if explicitly checked, not dispatched later. An
 unknown external outcome retains its hold, even after the requested time passes.
 
-Replacement sends the new create before requesting cancellation of linked
-originals. An `InProgress` create is accepted locally without waiter approval, but
-the replacement remains processing until cancellation of linked originals is
-verified. An overlapping original iiko reservation blocks replacement with
-`TABLE_TAKEN`; no cancel-first or unverified in-place modification is attempted.
-Cancellation is sent at most once per linked ID because its transport outcome can
-be ambiguous.
-
-For prolonged `processing`, `cancelling` or `review` operations:
+For prolonged `processing` or `review` operations:
 
 1. Inspect `id`, `organization_id`, `state`, `correlation_id`, `attempts` and
   `created_at` in `restaurant_booking_operations`.

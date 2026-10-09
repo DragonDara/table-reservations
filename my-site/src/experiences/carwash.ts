@@ -364,25 +364,7 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
         section: "",
         remindBeforeHour: false,
       };
-      let result;
-      try {
-        result = await createReservation(payload);
-      } catch (error) {
-        if (
-          !(error instanceof ApiError) ||
-          error.code !== "EXISTING_RESERVATION"
-        )
-          throw error;
-        if (
-          !window.confirm(
-            `У вас уже есть запись ${error.existing?.scheduledAt.replace("T", " ") ?? ""}. Заменить её?`,
-          )
-        ) {
-          status("Предыдущая запись сохранена.");
-          return;
-        }
-        result = await createReservation({ ...payload, overwrite: true });
-      }
+      const result = await createReservation(payload);
       const confirmation = `Запись принята · ${payload.plateNumber} · ${payload.scheduledAt.replace("T", " ")} · ${money(Number(result.totalKzt))} · ${result.durationMinutes} мин`;
       form!.reset();
       categoryId = "";
@@ -408,6 +390,8 @@ export function initCarWashExperience(config: PublicTenantConfig): void {
       status();
       const fallback = error instanceof ApiError && error.code === 'SLOT_TAKEN'
         ? 'Выбранное время уже занято. Выберите другое время и попробуйте снова.'
+        : error instanceof ApiError && error.code === 'EXISTING_RESERVATION'
+          ? 'У вас уже есть активная запись. Нельзя оформить новую, пока действует текущая.'
         : steps[currentStep].dataset.carwashStep === 'time'
           ? 'Не удалось проверить время. Нажмите «Назад» и попробуйте снова.'
           : 'Не удалось выполнить запрос. Попробуйте снова.';

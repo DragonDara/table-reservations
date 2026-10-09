@@ -66,16 +66,10 @@ namespace table_reservations.Pos
             return await _inner.ReserveTableAsync(request, ct);
         }
 
-        public async Task<ReservationResult> CancelReservationAsync(string externalReservationId, CancellationToken ct = default)
+        public async Task<PosAvailabilitySnapshot> GetAvailabilityAsync(IReadOnlyList<string> tableIds, CancellationToken ct = default)
         {
             await EnsureAuthAsync(ct);
-            return await _inner.CancelReservationAsync(externalReservationId, ct);
-        }
-
-        public async Task<PosAvailabilitySnapshot> GetAvailabilityAsync(DateTime from, DateTime until, CancellationToken ct = default)
-        {
-            await EnsureAuthAsync(ct);
-            return await _inner.GetAvailabilityAsync(from, until, ct);
+            return await _inner.GetAvailabilityAsync(tableIds, ct);
         }
 
         public async Task<ReservationResult> GetReservationAsync(string externalReservationId, CancellationToken ct = default)

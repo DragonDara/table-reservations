@@ -75,15 +75,10 @@ public class IikoAdapter(HttpClient http, string appId, string clientSecret, str
             throw new HttpRequestException("iiko terminal is unavailable.");
     }
 
-    private async Task<List<ActiveOrderDto>> OrdersAsync(IReadOnlyList<PosTable> tables, CancellationToken ct)
+    private async Task<List<ActiveOrderDto>> OrdersAsync(IReadOnlyList<string> tableIds, CancellationToken ct)
     {
-        var initialized = await SendAsync("api/1/order/init_by_table", new {
-            organizationId, terminalGroupId = TerminalGroup, tableIds = tables.Select(table => table.Id).ToArray()
-        }, ct);
-        if (string.IsNullOrWhiteSpace(Text(initialized, "correlationId")))
-            throw new JsonException("Missing iiko initialization correlation ID.");
         var data = await SendAsync("api/1/order/by_table", new {
-            organizationIds = new[] { organizationId }, tableIds = tables.Select(table => table.Id).ToArray(),
+            organizationIds = new[] { organizationId }, tableIds,
             statuses = new[] { "New", "Bill" }
         }, ct);
         var result = new List<ActiveOrderDto>();
@@ -103,7 +98,7 @@ public class IikoAdapter(HttpClient http, string appId, string clientSecret, str
     public async Task<List<ActiveOrderDto>> GetActiveOrdersAsync(CancellationToken ct = default)
     {
         await EnsureOnlineAsync(ct);
-        return await OrdersAsync(await GetTablesAsync(ct), ct);
+        return await OrdersAsync((await GetTablesAsync(ct)).Select(table => table.Id).ToArray(), ct);
     }
 
     private async Task<List<ReservationInfoDto>> WorkloadAsync(JsonArray sections, DateTime from, DateTime until, CancellationToken ct)
@@ -127,16 +122,12 @@ public class IikoAdapter(HttpClient http, string appId, string clientSecret, str
         return await WorkloadAsync(await SectionsAsync(ct), today.AddDays(-1), today.AddDays(2), ct);
     }
 
-    public async Task<PosAvailabilitySnapshot> GetAvailabilityAsync(DateTime from, DateTime until, CancellationToken ct = default)
+    public async Task<PosAvailabilitySnapshot> GetAvailabilityAsync(IReadOnlyList<string> tableIds, CancellationToken ct = default)
     {
         var checkedAt = DateTimeOffset.UtcNow;
-        await EnsureOnlineAsync(ct);
-        var sections = await SectionsAsync(ct);
-        var tables = ReadTables(sections);
-        if (tables.Count == 0) throw new JsonException("No iiko tables are configured.");
-        var orders = await OrdersAsync(tables, ct);
-        var reserves = await WorkloadAsync(sections, from, until, ct);
-        return new(checkedAt, tables, reserves, orders.SelectMany(order => order.TableIds).ToHashSet(StringComparer.OrdinalIgnoreCase));
+        if (tableIds.Count == 0) throw new JsonException("No iiko tables are configured.");
+        var orders = await OrdersAsync(tableIds, ct);
+        return new(checkedAt, orders.SelectMany(order => order.TableIds).ToHashSet(StringComparer.OrdinalIgnoreCase));
     }
 
     private static ReservationResult ReadReserve(JsonNode info, string? correlationId)
@@ -186,12 +177,6 @@ public class IikoAdapter(HttpClient http, string appId, string clientSecret, str
             throw new JsonException("Unexpected iiko reservation organization.");
         var info = reserves.SingleOrDefault(item => item?["id"]?.GetValue<string>() == externalReservationId);
         return info is null ? new ReservationResult(false, externalReservationId, null, "Unknown") : ReadReserve(info, null);
-    }
-
-    public async Task<ReservationResult> CancelReservationAsync(string externalReservationId, CancellationToken ct = default)
-    {
-        var data = await SendAsync("api/1/reserve/cancel", new { organizationId, reserveId = externalReservationId, cancelReason = "Other" }, ct);
-        return new(false, externalReservationId, null, "Processing", Text(data, "correlationId"));
     }
 
     public async Task<OrderResult> CreateOrderAsync(CreateOrderRequest request, CancellationToken ct = default)

@@ -1,4 +1,3 @@
 namespace table_reservations.Models;
 
-public sealed record PosAvailabilitySnapshot(DateTimeOffset CheckedAt, IReadOnlyList<PosTable> Tables,
-    IReadOnlyList<ReservationInfoDto> Reservations, IReadOnlySet<string> OccupiedTableIds);
+public sealed record PosAvailabilitySnapshot(DateTimeOffset CheckedAt, IReadOnlySet<string> OccupiedTableIds);

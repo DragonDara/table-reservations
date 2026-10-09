@@ -113,10 +113,8 @@ Carwash availability uses active boxes and the entire requested session,
 not just its start time. Adjacent sessions can share a box; overlapping ones
 cannot. Confirmed, pending and in-progress bookings occupy capacity.
 The server assigns the box inside a BEGIN IMMEDIATE transaction and rechecks
-capacity before inserting. An overwrite cancels the old booking and inserts
-the replacement in that same transaction; failures roll back both operations.
-Phone matching alone is not proof of identity: the inherited overwrite flow
-should gain OTP verification before being used where abuse is a concern.
+capacity before inserting. A customer with an active booking cannot create another
+booking using the same phone; bookings cannot be replaced through the API.
 
 Slots are restricted to the tenant schedule, the next seven booking days,
 and at least five minutes lead time. A carwash session must end by closing.

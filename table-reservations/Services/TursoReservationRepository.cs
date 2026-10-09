@@ -183,22 +183,21 @@ public sealed partial class TursoReservationRepository(
                 throw new BookingException("Для выбранных услуг недостаточно времени до закрытия.");
             var state = await StateAsync(connection, carwash, token);
             var previous = state.Reservations.Where(r => r.Phone == phone && r.End > ReservationDateTime.KazakhstanNow()).OrderBy(r => r.Start).ToArray();
-            if (previous.Length > 0 && !request.Overwrite)
+            if (previous.Length > 0)
             {
                 var first = previous[0];
-                throw new BookingException("У вас уже есть актуальная запись. Заменить её?", 409, "EXISTING_RESERVATION",
+                throw new BookingException("У вас уже есть актуальная запись.", 409, "EXISTING_RESERVATION",
                     new ActiveReservationInfo { Id = first.Id, CustomerName = first.Name, CustomerPhone = phone,
                         TablesId = carwash ? "" : first.ResourceId, ScheduledAt = BookingRules.Wire(first.Start), ScheduledAtValue = first.Start });
             }
-            var replacingPhone = request.Overwrite ? phone : null;
             string[] resourceIds;
             if (carwash)
             {
                 var plate = request.PlateNumber?.Trim().ToUpperInvariant() ?? "";
                 if (plate.Length is 0 or > 20) throw new BookingException("Укажите корректный гос. номер.");
-                if (state.Reservations.Any(r => r.Plate == plate && r.Phone != replacingPhone && BookingRules.Overlaps(scheduledAt, end, r.Start, r.End)))
+                if (state.Reservations.Any(r => r.Plate == plate && BookingRules.Overlaps(scheduledAt, end, r.Start, r.End)))
                     throw new BookingException("Автомобиль уже записан на это время.", 409, "SLOT_TAKEN");
-                var box = state.Resources.FirstOrDefault(r => Free(state, r.Id, scheduledAt, end, replacingPhone))
+                var box = state.Resources.FirstOrDefault(r => Free(state, r.Id, scheduledAt, end))
                     ?? throw new BookingException("На это время свободных боксов уже нет.", 409, "SLOT_TAKEN");
                 resourceIds = [box.Id];
                 request.PlateNumber = plate;
@@ -209,12 +208,10 @@ public sealed partial class TursoReservationRepository(
                 if (!BusinessTypes.RestaurantStrategy.TryParseTableIds(request.TablesId, out var ids) || ids.Length == 0 || ids.Distinct().Count() != ids.Length)
                     throw new BookingException("Некорректные номера столиков.");
                 resourceIds = ids.Select(id => id.ToString(CultureInfo.InvariantCulture)).ToArray();
-                if (resourceIds.Any(id => !state.Resources.Any(r => r.Id == id) || !Free(state, id, scheduledAt, end, replacingPhone)))
+                if (resourceIds.Any(id => !state.Resources.Any(r => r.Id == id) || !Free(state, id, scheduledAt, end)))
                     throw new BookingException("Столик уже занят. Выберите другое время.", 409, "TABLE_TAKEN");
             }
             var statements = new List<TursoStatement>();
-            foreach (var old in previous)
-                statements.Add(new($"UPDATE {(carwash ? "box_reservations" : "table_reservations")} SET status = 'cancelled' WHERE id = ?", [old.Id]));
             var reservationId = Guid.NewGuid().ToString();
             for (var i = 0; i < resourceIds.Length; i++)
             {
@@ -236,7 +233,7 @@ public sealed partial class TursoReservationRepository(
                         BookingRules.Store(scheduledAt), request.RemindBeforeHour]));
             }
             await connection.QueryBatchAsync(statements, token);
-            return new BookingResult(reservationId, previous.Length > 0, carwash ? resourceIds[0] : null, quote?.TotalKzt, quote?.DurationMinutes);
+            return new BookingResult(reservationId, carwash ? resourceIds[0] : null, quote?.TotalKzt, quote?.DurationMinutes);
         }, ct);
     }
 

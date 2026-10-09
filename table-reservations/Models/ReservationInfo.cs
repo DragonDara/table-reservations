@@ -8,10 +8,5 @@
         public string? WashServiceType { get; set; }
         public string? VehicleCategoryId { get; set; }
         public string[] ServiceIds { get; set; } = [];
-
-        /// <summary>
-        /// Если true — заменить актуальную бронь по этому номеру телефона.
-        /// </summary>
-        public bool Overwrite { get; set; } = false;
     }
 }

@@ -72,13 +72,6 @@ public class PosBookingService
         return await _pos.ReserveTableAsync(posRequest, ct);
     }
 
-   
-    public Task<ReservationResult> CancelReservationAsync(string externalReservationId, CancellationToken ct = default)
-    {
-        return _pos.CancelReservationAsync(externalReservationId, ct);
-    }
-
-
     public Task<List<PosTable>> GetTablesAsync(CancellationToken ct = default)
     {
         return _pos.GetTablesAsync(ct);

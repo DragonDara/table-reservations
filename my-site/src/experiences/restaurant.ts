@@ -5,7 +5,6 @@ import {
   getRating,
   getTables,
   checkReservationStatus,
-  type ExistingReservation,
   type ReservationPayload,
   type TableAvailability,
 } from '../api';
@@ -123,11 +122,6 @@ const continueToTimeBtn = document.getElementById('continueToTime') as HTMLButto
 const continueToTableBtn = document.getElementById('continueToTable') as HTMLButtonElement | null;
 const continueToNameBtn = document.getElementById('continueToName') as HTMLButtonElement | null;
 const continueToPhoneBtn = document.getElementById('continueToPhone') as HTMLButtonElement | null;
-const overwriteModalOverlay = document.getElementById('overwriteModalOverlay') as HTMLElement | null;
-const overwriteModalText = document.getElementById('overwriteModalText') as HTMLElement | null;
-const overwriteModalCancelBtn = document.getElementById('overwriteModalCancelBtn') as HTMLButtonElement | null;
-const overwriteModalConfirmBtn = document.getElementById('overwriteModalConfirmBtn') as HTMLButtonElement | null;
-
 let scale = 1;
 let panX = 0;
 let panY = 0;
@@ -521,11 +515,19 @@ function applyTableStatuses(tables: TableAvailability[], preserveKnownOccupied =
     if (info?.nextReservationHours != null) marker.dataset.nextReservationHours = String(info.nextReservationHours);
     else delete marker.dataset.nextReservationHours;
   });
-  if (selectedTable && !['free', 'limited'].includes(selectedTable.dataset.status ?? '') && !submitting && !pendingBookingId) {
+  if (selectedTable && selectedTable.dataset.status === 'occupied' && !submitting && !pendingBookingId) {
     clearSelectedTable();
     setReservationStatus('Выбранный столик недоступен. Выберите другой столик.');
+  } else if (selectedTable && selectedTable.dataset.status === 'unknown' && !submitting && !pendingBookingId) {
+    setReservationStatus('Проверяем доступность выбранного столика…');
+  } else if (reservationStatus?.textContent === 'Проверяем доступность выбранного столика…') {
+    setReservationStatus('');
   }
-  if (tables.length) expiryTimer = setTimeout(() => applyTableStatuses([], true), Math.max(0, validUntil - now));
+  if (submitButton) setFormBusy(submitting);
+  if (tables.length) expiryTimer = setTimeout(() => {
+    applyTableStatuses([], true);
+    void refreshTableStatuses();
+  }, Math.max(0, validUntil - now));
 }
 
 async function refreshTableStatuses() {
@@ -682,6 +684,7 @@ window.addEventListener('pagehide', () => {
 window.addEventListener('pageshow', (event) => {
   if (!event.persisted) return;
   applyTableStatuses([], true);
+  void refreshTableStatuses();
   expireTimeSlots();
 });
 
@@ -825,40 +828,6 @@ function formatReservationDateTime(value: string): string {
   return `${day}.${month}.${year} в ${hour}:${minute}`;
 }
 
-function showOverwriteModal(existing: ExistingReservation): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (!overwriteModalOverlay || !overwriteModalText) {
-      resolve(false);
-      return;
-    }
-
-    const when = formatReservationDateTime(existing.scheduledAt);
-    const tablePart = existing.tablesId ? ` (стол №${existing.tablesId})` : '';
-    overwriteModalText.textContent =
-      `У вас уже есть актуальная бронь на ${when}${tablePart}. Хотите перезаписать бронь?`;
-
-    overwriteModalOverlay.hidden = false;
-
-    const cleanup = (result: boolean) => {
-      overwriteModalOverlay.hidden = true;
-      overwriteModalConfirmBtn?.removeEventListener('click', onConfirm);
-      overwriteModalCancelBtn?.removeEventListener('click', onCancel);
-      overwriteModalOverlay.removeEventListener('click', onOverlay);
-      resolve(result);
-    };
-
-    const onConfirm = () => cleanup(true);
-    const onCancel = () => cleanup(false);
-    const onOverlay = (e: MouseEvent) => {
-      if (e.target === overwriteModalOverlay) cleanup(false);
-    };
-
-    overwriteModalConfirmBtn?.addEventListener('click', onConfirm);
-    overwriteModalCancelBtn?.addEventListener('click', onCancel);
-    overwriteModalOverlay.addEventListener('click', onOverlay);
-  });
-}
-
 function resetReservationFormUi() {
   if (!reservationForm) return;
 
@@ -870,7 +839,7 @@ function resetReservationFormUi() {
 async function submitReservation(payload: ReservationPayload) {
   if (pendingBookingId || submitting) return;
   setFormBusy(true);
-  setReservationStatus(payload.overwrite ? 'Перезаписываем бронь…' : 'Отправляем бронь…', 'info');
+  setReservationStatus('Отправляем бронь…', 'info');
 
   try {
     const bytes = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(payload)));
@@ -887,8 +856,7 @@ async function submitReservation(payload: ReservationPayload) {
       return;
     }
     if (response.success !== true) throw new Error('Бронь пока не подтверждена.');
-    const successMessage = response.message
-      || (payload.overwrite ? 'Бронь перезаписана.' : 'Бронирование успешно отправлено.');
+    const successMessage = response.message || 'Бронирование успешно отправлено.';
 
     bookingConfirmed(successMessage);
   } catch (error) {
@@ -896,17 +864,12 @@ async function submitReservation(payload: ReservationPayload) {
       bookingAttempt = null;
       persistBookingAttempt();
     }
-    if (error instanceof ApiError && error.status === 409 && error.code === 'EXISTING_RESERVATION' && error.existing) {
+    if (error instanceof ApiError && error.status === 409 && error.code === 'EXISTING_RESERVATION') {
       setFormBusy(false);
-      setReservationStatus('Найдена актуальная бронь по этому номеру.', 'info');
-
-      const shouldOverwrite = await showOverwriteModal(error.existing);
-      if (!shouldOverwrite) {
-        setReservationStatus('Бронь не изменена.', 'info');
-        return;
-      }
-
-      await submitReservation({ ...payload, overwrite: true });
+      const when = error.existing?.scheduledAt
+        ? ` на ${formatReservationDateTime(error.existing.scheduledAt)}`
+        : '';
+      setReservationStatus(`У вас уже есть актуальная бронь${when}. Нельзя оформить новую, пока действует текущая.`, 'error');
       return;
     }
 

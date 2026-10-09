@@ -62,9 +62,9 @@ public class ReservationsController(
             logger.LogWarning(ex, "Reservation {ReservationId} committed, notification failed.", result.Id);
         }
         return Ok(new {
-            success = true, reservationId = result.Id, result.Overwritten,
+            success = true, reservationId = result.Id,
             result.BoxId, result.TotalKzt, result.DurationMinutes,
-            message = result.Overwritten ? "Бронь перезаписана." : "Бронь создана.",
+            message = "Бронь создана.",
             whatsAppSent = customerSent, adminWhatsAppSent = adminSent,
             telegramSent,
             update = new { reservationId = result.Id }
@@ -79,7 +79,7 @@ public class ReservationsController(
     {
         var result = await reservations.GetBookingStatusAsync(reservationId.ToString(), ct);
         return result is null ? NotFound() : Ok(new RestaurantBookingResponse(result.Id, result.Status,
-            result.Status == "Confirmed", result.Overwritten));
+            result.Status == "Confirmed"));
     }
 
     [HttpPost("{reservationId:guid}/check")]
@@ -110,7 +110,7 @@ public class ReservationsController(
 
     private IActionResult PosResponse(BookingResult result)
     {
-        var body = new RestaurantBookingResponse(result.Id, result.Status, result.Status == "Confirmed", result.Overwritten,
+        var body = new RestaurantBookingResponse(result.Id, result.Status, result.Status == "Confirmed",
             result.Status == "Confirmed" ? "Бронь подтверждена." : result.Status == "Rejected" ? "Бронь отклонена." : "Проверяем результат отправки в кассу.");
         return result.Status == "Processing" ? AcceptedAtAction(nameof(GetReservationStatus), new { reservationId = result.Id }, body)
             : result.Status == "Rejected" ? Conflict(body) : Ok(body);

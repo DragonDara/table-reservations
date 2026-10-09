@@ -13,7 +13,6 @@ public interface IRestaurantPosClient
     Task<PosAvailabilitySnapshot> GetSnapshotAsync(CancellationToken ct = default);
     Task<ReservationResult> CreateAsync(CreateReservationRequest request, CancellationToken ct = default);
     Task<ReservationResult> GetAsync(string id, CancellationToken ct = default);
-    Task<ReservationResult> CancelAsync(string id, CancellationToken ct = default);
 }
 
 public sealed class RestaurantPosSessions(IHttpClientFactory clients)
@@ -66,8 +65,7 @@ public sealed class RestaurantPosClient(RestaurantPosSessions sessions, TenantCo
     }
 
     public Task<PosAvailabilitySnapshot> GetSnapshotAsync(CancellationToken ct = default) => UseAsync(async session => {
-        var now = ReservationDateTime.KazakhstanNow();
-        var snapshot = await session.Adapter.GetAvailabilityAsync(now.Date.AddDays(-90), now.Date.AddDays(9), ct);
+        var snapshot = await session.Adapter.GetAvailabilityAsync(tenant.Organization!.Pos.TableMappings.Values.ToArray(), ct);
         if (DateTimeOffset.UtcNow - snapshot.CheckedAt >= TimeSpan.FromSeconds(30))
             throw new HttpRequestException("POS snapshot expired during refresh.");
         return snapshot;
@@ -77,7 +75,4 @@ public sealed class RestaurantPosClient(RestaurantPosSessions sessions, TenantCo
         UseAsync(session => session.Adapter.ReserveTableAsync(request, ct), ct);
 
     public Task<ReservationResult> GetAsync(string id, CancellationToken ct = default) => UseAsync(session => session.Adapter.GetReservationAsync(id, ct), ct);
-
-    public Task<ReservationResult> CancelAsync(string id, CancellationToken ct = default) =>
-        UseAsync(session => session.Adapter.CancelReservationAsync(id, ct), ct);
 }

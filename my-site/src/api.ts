@@ -35,7 +35,6 @@ export interface ReservationPayload {
   washServiceType?: string;
   vehicleCategoryId?: string;
   serviceIds?: string[];
-  overwrite?: boolean;
 }
 
 export interface ExistingReservation {
@@ -55,7 +54,6 @@ export interface ReservationResponse {
   id?: string;
   message?: string;
   status?: string;
-  overwritten?: boolean;
   [key: string]: unknown;
 }
 

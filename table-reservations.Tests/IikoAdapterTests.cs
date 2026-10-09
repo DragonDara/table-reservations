@@ -86,100 +86,47 @@ public class IikoAdapterTests
     }
 
     [Theory]
-    [InlineData("{\"isAliveStatus\":[]}")]
-    [InlineData("{}")]
-    public async Task UnverifiedTerminalNeverProducesFreeSnapshot(string response)
-    {
-        using var http = new HttpClient(new Handler(_ => Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {
-            Content = new StringContent(response)
-        }))) { BaseAddress = new("https://example.invalid/") };
-        var adapter = new IikoAdapter(http, AppId, "test-secret", "test-key", Organization, Terminal);
-        await Assert.ThrowsAnyAsync<Exception>(() => adapter.GetAvailabilityAsync(DateTime.Today, DateTime.Today.AddDays(1)));
-    }
-
-    [Theory]
     [InlineData("New", true)]
     [InlineData("Bill", true)]
     [InlineData("Closed", false)]
     [InlineData("Deleted", false)]
-    public async Task AvailabilityWaitsForInitializationResponseWithoutPollingCommandStatus(string status, bool occupied)
+    public async Task AvailabilityUsesOnlyByTableAndMarksOpenOrdersOccupied(string status, bool occupied)
     {
         var paths = new List<string>();
-        var initializationStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var initializationResponse = new TaskCompletionSource<HttpResponseMessage>(TaskCreationOptions.RunContinuationsAsynchronously);
         using var http = new HttpClient(new Handler(async request => {
             var path = request.RequestUri!.AbsolutePath;
             paths.Add(path);
             Assert.Equal(HttpMethod.Post, request.Method);
-            if (path == "/api/1/order/init_by_table")
-            {
-                using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
-                Assert.Equal(Organization, body.RootElement.GetProperty("organizationId").GetString());
-                Assert.Equal(Terminal, body.RootElement.GetProperty("terminalGroupId").GetString());
-                Assert.Equal("table", Assert.Single(body.RootElement.GetProperty("tableIds").EnumerateArray()).GetString());
-                initializationStarted.SetResult();
-                return await initializationResponse.Task;
-            }
-            if (path == "/api/1/order/by_table")
-            {
-                using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
-                Assert.Equal(Organization, Assert.Single(body.RootElement.GetProperty("organizationIds").EnumerateArray()).GetString());
-                Assert.Equal("table", Assert.Single(body.RootElement.GetProperty("tableIds").EnumerateArray()).GetString());
-                Assert.Equal(new[] { "New", "Bill" }, body.RootElement.GetProperty("statuses").EnumerateArray().Select(item => item.GetString()));
-            }
-            return new(HttpStatusCode.OK) { Content = System.Net.Http.Json.JsonContent.Create(AvailabilityResponse(path, status)) };
+            Assert.Equal("/api/1/order/by_table", path);
+            using var body = JsonDocument.Parse(await request.Content!.ReadAsStringAsync());
+            Assert.Equal(Organization, Assert.Single(body.RootElement.GetProperty("organizationIds").EnumerateArray()).GetString());
+            Assert.Equal("table", Assert.Single(body.RootElement.GetProperty("tableIds").EnumerateArray()).GetString());
+            Assert.Equal(new[] { "New", "Bill" }, body.RootElement.GetProperty("statuses").EnumerateArray().Select(item => item.GetString()));
+            return new(HttpStatusCode.OK) { Content = System.Net.Http.Json.JsonContent.Create(ByTableResponse(status)) };
         })) { BaseAddress = new("https://example.invalid/") };
         var adapter = new IikoAdapter(http, AppId, "test-secret", "test-key", Organization, Terminal);
-        var requestTask = adapter.GetAvailabilityAsync(DateTime.Today, DateTime.Today.AddDays(1));
-        await initializationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        try
-        {
-            Assert.False(requestTask.IsCompleted);
-            Assert.DoesNotContain("/api/1/order/by_table", paths);
-        }
-        finally
-        {
-            initializationResponse.SetResult(new(HttpStatusCode.OK) {
-                Content = System.Net.Http.Json.JsonContent.Create(AvailabilityResponse("/api/1/order/init_by_table"))
-            });
-        }
-        var snapshot = await requestTask;
+        var snapshot = await adapter.GetAvailabilityAsync(["table"]);
         Assert.Equal(occupied, snapshot.OccupiedTableIds.Contains("table"));
-        Assert.Single(snapshot.Tables);
-        Assert.Equal(Reservation, Assert.Single(snapshot.Reservations).ReservationId);
-        Assert.Equal(new[] { "/api/1/terminal_groups/is_alive", "/api/1/reserve/available_restaurant_sections",
-            "/api/1/order/init_by_table", "/api/1/order/by_table", "/api/1/reserve/restaurant_sections_workload" }, paths);
+        Assert.Equal(new[] { "/api/1/order/by_table" }, paths);
     }
 
     [Theory]
-    [InlineData("/api/1/order/init_by_table", HttpStatusCode.Gone)]
-    [InlineData("/api/1/order/init_by_table", HttpStatusCode.ServiceUnavailable)]
-    [InlineData("/api/1/order/by_table", HttpStatusCode.Gone)]
-    [InlineData("/api/1/order/by_table", HttpStatusCode.ServiceUnavailable)]
-    [InlineData("/api/1/reserve/restaurant_sections_workload", HttpStatusCode.ServiceUnavailable)]
-    public async Task FailedAvailabilityRequestNeverProducesFreeSnapshot(string endpoint, HttpStatusCode status)
+    [InlineData(HttpStatusCode.Gone)]
+    [InlineData(HttpStatusCode.ServiceUnavailable)]
+    public async Task FailedByTableRequestNeverProducesFreeSnapshot(HttpStatusCode status)
     {
-        var paths = new List<string>();
         using var http = new HttpClient(new Handler(request => {
             var path = request.RequestUri!.AbsolutePath;
-            paths.Add(path);
-            return Task.FromResult(path == endpoint ? new HttpResponseMessage(status)
-                : new HttpResponseMessage(HttpStatusCode.OK) {
-                    Content = System.Net.Http.Json.JsonContent.Create(AvailabilityResponse(path))
-                });
+            Assert.Equal("/api/1/order/by_table", path);
+            return Task.FromResult(new HttpResponseMessage(status));
         })) { BaseAddress = new("https://example.invalid/") };
         var adapter = new IikoAdapter(http, AppId, "test-secret", "test-key", Organization, Terminal);
-        var error = await Assert.ThrowsAsync<HttpRequestException>(() => adapter.GetAvailabilityAsync(DateTime.Today, DateTime.Today.AddDays(1)));
+        var error = await Assert.ThrowsAsync<HttpRequestException>(() => adapter.GetAvailabilityAsync(["table"]));
         Assert.Equal(status, error.StatusCode);
-        Assert.Equal(endpoint.TrimStart('/'), error.Data["IikoEndpoint"]);
-        Assert.Equal(endpoint, paths.Last());
-        Assert.Single(paths, path => path == endpoint);
-        Assert.DoesNotContain("/api/1/commands/status", paths);
+        Assert.Equal("api/1/order/by_table", error.Data["IikoEndpoint"]);
     }
 
     [Theory]
-    [InlineData("/api/1/order/init_by_table", "{}")]
-    [InlineData("/api/1/order/init_by_table", "{\"correlationId\":\" \"}")]
     [InlineData("/api/1/order/by_table", "{}")]
     [InlineData("/api/1/order/by_table", "{\"orders\":null}")]
     [InlineData("/api/1/order/by_table", "{\"orders\":[null]}")]
@@ -191,23 +138,17 @@ public class IikoAdapterTests
             var path = request.RequestUri!.AbsolutePath;
             paths.Add(path);
             return Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) {
-                Content = path == endpoint ? new StringContent(response)
-                    : System.Net.Http.Json.JsonContent.Create(AvailabilityResponse(path))
+                Content = new StringContent(response)
             });
         })) { BaseAddress = new("https://example.invalid/") };
         var adapter = new IikoAdapter(http, AppId, "test-secret", "test-key", Organization, Terminal);
-        await Assert.ThrowsAsync<JsonException>(() => adapter.GetAvailabilityAsync(DateTime.Today, DateTime.Today.AddDays(1)));
+        await Assert.ThrowsAsync<JsonException>(() => adapter.GetAvailabilityAsync(["table"]));
         Assert.Equal(endpoint, paths.Last());
-        Assert.DoesNotContain("/api/1/commands/status", paths);
-        Assert.DoesNotContain("/api/1/reserve/restaurant_sections_workload", paths);
+        Assert.Equal(new[] { endpoint }, paths);
     }
 
-    private static object AvailabilityResponse(string path, string status = "Bill") => path switch {
-        "/api/1/terminal_groups/is_alive" => new { isAliveStatus = new[] { new { terminalGroupId = Terminal, organizationId = Organization, isAlive = true } } },
-        "/api/1/reserve/available_restaurant_sections" => new { restaurantSections = new[] { new { id = "section", terminalGroupId = Terminal, name = "Hall", tables = new[] { new { id = "table", number = 1, name = "One", seatingCapacity = 4, isDeleted = false } } } } },
-        "/api/1/order/init_by_table" => new { correlationId = "55555555-5555-5555-5555-555555555555" },
-        "/api/1/order/by_table" => new { orders = new[] { new { id = "order", organizationId = Organization, creationStatus = "Success", order = new { status, tableIds = new[] { "table" } } } } },
-        "/api/1/reserve/restaurant_sections_workload" => new { reserves = new[] { new { id = Reservation, tableIds = new[] { "table" }, estimatedStartTime = "2026-10-09 18:00:00.000", durationInMinutes = 180, guestsCount = 4 } } },
-        _ => throw new InvalidOperationException(path)
+    private static object ByTableResponse(string status) => new {
+        orders = new[] { new { id = "order", organizationId = Organization, creationStatus = "Success",
+            order = new { status, tableIds = new[] { "table" } } } }
     };
 }

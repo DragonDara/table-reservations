@@ -27,7 +27,6 @@ public interface IPosAdapter
 
     Task<ReservationResult> ReserveTableAsync(CreateReservationRequest request, CancellationToken ct = default);
 
-    Task<ReservationResult> CancelReservationAsync(string externalReservationId, CancellationToken ct = default);
-    Task<PosAvailabilitySnapshot> GetAvailabilityAsync(DateTime from, DateTime until, CancellationToken ct = default);
+    Task<PosAvailabilitySnapshot> GetAvailabilityAsync(IReadOnlyList<string> tableIds, CancellationToken ct = default);
     Task<ReservationResult> GetReservationAsync(string externalReservationId, CancellationToken ct = default);
 }
