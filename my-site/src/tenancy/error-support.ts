@@ -2,6 +2,7 @@
 // Keep these in sync when changing an organization's public WhatsApp contact.
 // Loaded tenant settings replace these as soon as the API responds.
 const contacts = new Map([
+  ['secret-veil', 'https://wa.me/87781148844'],
   ['thetochka', 'https://wa.me/77751516189?text=Здравствуйте! Пишу из сайта Bron'],
   ['thetochka-carwasher', 'https://api.whatsapp.com/send/?phone=77475569530&text&type=phone_number&app_absent=0&utm_source=ig'],
 ]);
