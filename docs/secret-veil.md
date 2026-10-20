@@ -1,0 +1,18 @@
+# Secret Veil
+
+Secret Veil uses the existing restaurant page and native tenant API, Turso
+repository, and tenant resolution middleware. No separate page or storage
+implementation is needed.
+
+Open `http://secret-veil.localhost:5173/` with the API running on port 5183.
+`/secret-veil/` also selects the tenant on shared local hosts. Keep the private
+Turso and integration settings in ignored local settings or environment variables.
+
+`Organizations.Items[2].BookingEnabled` is false while the venue's inventory,
+hours, and storage setup are pending. Booking endpoints return 503 and reminder
+processing skips the venue. Public branding and the rating endpoint remain
+available. Do not enable bookings until its Turso data is isolated from the
+existing restaurant; the current database maps one tenant per business type.
+
+The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
+does not start a paid scraping job or require an Apify token.

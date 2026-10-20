@@ -21,7 +21,7 @@ namespace table_reservations.Services.BusinessTypes
 
     /// <summary>
     /// Pluggable per-business-type behavior: request validation rules and the
-    /// mapping of a reservation to a Google Sheets row. Selected per tenant based
+    /// mapping of a reservation to its persistence record. Selected per tenant based
     /// on <see cref="BusinessType"/>.
     /// </summary>
     public interface IBusinessTypeStrategy

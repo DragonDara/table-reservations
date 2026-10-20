@@ -19,8 +19,14 @@ import {
 
 // Imported only after the restaurant page and tenant configuration are ready.
 export async function initRestaurantExperience(config: PublicTenantConfig): Promise<void> {
-  configureBookingTime(config);
   if (config.features.showRating) void loadRating();
+  if (config.bookingEnabled === false) {
+    document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('#reservationForm input, #reservationForm button, #reservationForm select').forEach((control) => { control.disabled = true; });
+    const status = document.getElementById('reservationStatus');
+    if (status) status.textContent = `Онлайн-бронирование ${config.displayName} скоро откроется.`;
+    return;
+  }
+  configureBookingTime(config);
   await initRestaurantBooking();
 }
 

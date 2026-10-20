@@ -140,7 +140,7 @@ namespace table_reservations
 
             if (checkDb)
             {
-                foreach (var organization in app.Services.GetRequiredService<OrganizationRegistry>().All)
+                foreach (var organization in app.Services.GetRequiredService<OrganizationRegistry>().All.Where(organization => organization.BookingEnabled))
                 {
                     using var scope = app.Services.CreateScope();
                     scope.ServiceProvider.GetRequiredService<TenantContext>().Set(organization);

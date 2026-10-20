@@ -4,17 +4,17 @@ using table_reservations.Models;
 namespace table_reservations.Helpers;
 
 // Маппинг между "внешним" миром (POS-адаптеры: iiko, Paloma и т.д.)
-// и "внутренним" миром приложения (Google Sheets / доменная модель).
+// и "внутренним" миром приложения (Turso / доменная модель).
 // Ни один POS-адаптер не должен знать о ReservationInfo,
-// ни один сервис Google Sheets не должен знать о ReservationInfoDto.
+// ни один сервис Turso не должен знать о ReservationInfoDto.
 public static class ReservationMapper
 {
-    // Формат, в котором даты хранятся в колонке "ScheduledAt" в Google Sheets.
+    // Формат, в котором даты хранятся в колонке "ScheduledAt" в Turso.
     // Подгони под реальный формат, который использует ReservationDateTime.
     private const string ScheduledAtFormat = "dd.MM.yyyy HH:mm";
 
     // POS -> Домен: бронь, пришедшая из кассы, приводим к виду,
-    // который можно записать в Google Sheets.
+    // который можно записать в Turso.
     public static ReservationInfo ToDomain(ReservationInfoDto dto)
     {
         return new ReservationInfo

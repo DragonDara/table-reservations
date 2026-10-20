@@ -61,6 +61,7 @@ export interface PublicBookingTime {
 }
 
 export interface PublicTenantConfig {
+  bookingEnabled?: boolean;
   organizationId: string;
   businessType: BusinessType;
   locale: string;

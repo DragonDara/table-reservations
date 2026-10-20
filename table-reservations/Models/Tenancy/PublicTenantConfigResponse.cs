@@ -6,11 +6,12 @@ namespace table_reservations.Models.Tenancy
     /// <summary>
     /// Strictly allow-listed, browser-safe public configuration for the resolved
     /// tenant. Returned by <c>GET /api/tenant/public-config</c>. This DTO must never
-    /// carry backend secrets such as spreadsheet ids, credentials, or sheet schema.
+    /// carry backend secrets such as authentication tokens or credentials.
     /// </summary>
     public sealed class PublicTenantConfigResponse
     {
         public string OrganizationId { get; init; } = string.Empty;
+        public bool BookingEnabled { get; init; } = true;
         public BusinessType BusinessType { get; init; }
         public string Locale { get; init; } = "ru";
         public string DisplayName { get; init; } = string.Empty;
@@ -38,6 +39,7 @@ namespace table_reservations.Models.Tenancy
             return new PublicTenantConfigResponse
             {
                 OrganizationId = org.Id,
+                BookingEnabled = org.BookingEnabled,
                 BusinessType = org.BusinessType,
                 Locale = string.IsNullOrWhiteSpace(f.Locale) ? "ru" : f.Locale,
                 DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? org.DisplayName : f.DisplayName,
@@ -47,10 +49,10 @@ namespace table_reservations.Models.Tenancy
                     : f.LayoutVariant,
                 BookingTime = new PublicBookingTimeDto
                 {
-                    StartTime = org.BookingTime.StartTime,
-                    EndTime = org.BookingTime.EndTime,
+                    StartTime = org.BookingEnabled ? org.BookingTime.StartTime : string.Empty,
+                    EndTime = org.BookingEnabled ? org.BookingTime.EndTime : string.Empty,
                     SlotDurationMinutes = org.BookingTime.SlotDurationMinutes,
-                    AvailableTimeSlots = BookingTimeSchedule.GetAvailableSlots(org.BookingTime).ToArray()
+                    AvailableTimeSlots = org.BookingEnabled ? BookingTimeSchedule.GetAvailableSlots(org.BookingTime).ToArray() : Array.Empty<string>()
                 },
                 Theme = new PublicThemeDto
                 {

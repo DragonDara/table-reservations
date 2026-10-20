@@ -26,9 +26,8 @@ namespace table_reservations.Configuration
     }
 
     /// <summary>
-    /// Configuration for a single tenant (organization). Each organization is
-    /// backed by its own Google Sheets spreadsheet and Google credentials, and
-    /// declares the business type that selects its reservation rules and schema.
+    /// Configuration for a tenant using the Turso reservation repository and
+    /// the business type that selects its reservation rules.
     /// </summary>
     public sealed class OrganizationOptions
     {
@@ -44,20 +43,11 @@ namespace table_reservations.Configuration
         /// <summary>Business type that selects the pluggable reservation strategy.</summary>
         public BusinessType BusinessType { get; set; } = BusinessType.Restaurant;
 
+        /// <summary>False for venues whose booking setup is not ready.</summary>
+        public bool BookingEnabled { get; set; } = true;
+
         /// <summary>Organization-specific booking window and slot interval.</summary>
         public BookingTimeOptions BookingTime { get; set; } = new();
-
-        /// <summary>Google Sheets spreadsheet id backing this organization.</summary>
-        public string SpreadsheetId { get; set; } = string.Empty;
-
-        /// <summary>Inline service-account credentials JSON (dev). Prefer secrets/Key Vault in prod.</summary>
-        public string? CredentialsJson { get; set; }
-
-        /// <summary>Path to a service-account credentials JSON file.</summary>
-        public string? CredentialsJsonPath { get; set; }
-
-        /// <summary>Sheet names, ranges, and column layout for this organization's schema.</summary>
-        public SheetSchemaOptions Sheets { get; set; } = new();
 
         /// <summary>Tenant-specific WhatsApp delivery settings.</summary>
         public WhatsAppOptions WhatsApp { get; set; } = new();
@@ -72,8 +62,8 @@ namespace table_reservations.Configuration
 
         /// <summary>
         /// Public, front-end-facing branding/content/theme settings for this organization.
-        /// Everything here is safe to expose to the browser; secrets (spreadsheet id,
-        /// credentials, sheet schema) must never be placed in this section.
+        /// Everything here is safe to expose to the browser; backend secrets (tokens,
+        /// credentials) must never be placed in this section.
         /// </summary>
         public FrontendOptions Frontend { get; set; } = new();
     }
@@ -118,6 +108,9 @@ namespace table_reservations.Configuration
         public bool Enabled { get; set; }
         public string? ApifyToken { get; set; }
         public string? PlaceUrl { get; set; }
+        public string? Mode { get; set; }
+        public double? Value { get; set; }
+        public int? ReviewCount { get; set; }
     }
 
     public sealed class PosOptions
@@ -132,7 +125,7 @@ namespace table_reservations.Configuration
     /// <summary>
     /// Public frontend configuration for an organization. Bound from the
     /// <c>Frontend</c> child section and mapped to a strictly allow-listed public
-    /// response. Never contains spreadsheet ids, credentials, or sheet schema.
+    /// response. Never contains backend tokens or credentials.
     /// </summary>
     public sealed class FrontendOptions
     {
@@ -217,32 +210,4 @@ namespace table_reservations.Configuration
         public bool ShowSocialLinks { get; set; } = true;
     }
 
-    /// <summary>
-    /// Describes the Google Sheets layout for an organization. Defaults match the
-    /// original single-tenant restaurant schema so existing tenants keep working
-    /// without extra configuration. Car-wash tenants override sheet names, ranges,
-    /// and column indexes to match their (id, plate, time, phone, wash type) layout.
-    /// </summary>
-    public sealed class SheetSchemaOptions
-    {
-        public string TablesRange { get; set; } = "Столики!A2:C100";
-        public string ReservationsRange { get; set; } = "Брони!A2:H10000";
-        public string ReservationsAppendRange { get; set; } = "Брони!A:H";
-
-        /// <summary>Sheet (tab) name that stores reservations; used for targeted cell updates.</summary>
-        public string ReservationsSheetName { get; set; } = "Брони";
-
-        /// <summary>Column letter used to mark that a reminder has been sent.</summary>
-        public string ReminderSentColumnLetter { get; set; } = "H";
-
-        // Zero-based column indexes within a reservation row.
-        public int TableIdsColumn { get; set; } = 1;
-        public int CustomerNameColumn { get; set; } = 2;
-        public int CustomerPhoneColumn { get; set; } = 3;
-        public int ScheduledAtColumn { get; set; } = 4;
-        public int RemindBeforeHourColumn { get; set; } = 6;
-        public int ReminderSentColumn { get; set; } = 7;
-        public int ResourceColumn { get; set; } = 1;
-        public int ServiceTypeColumn { get; set; } = 4;
-    }
 }

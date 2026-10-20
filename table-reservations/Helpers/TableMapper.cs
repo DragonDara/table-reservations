@@ -13,8 +13,7 @@ namespace table_reservations.Helpers;
 // это бизнес-логика самого приложения. POS даёт только
 // актуальную занятость стола в реальном времени.
 //
-// PosTable (а не просто Table) — потому что имя "Table" конфликтует
-// с Google.Apis.Sheets.v4.Data.Table, который тоже подключён в проекте.
+// POS table names are separate from domain table models.
 public static class TableMapper
 {
     // Сопоставление идёт по номеру стола:
@@ -38,7 +37,7 @@ public static class TableMapper
                     : TableStatuses.Occupied;
             }
             // Если POS не вернул стол с таким номером — оставляем статус как есть
-            // (например, стол существует только в Google Sheets, ещё не заведён в кассе)
+            // (например, стол существует только в Turso, ещё не заведён в кассе)
         }
 
         return domainTables;

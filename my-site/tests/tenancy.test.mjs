@@ -54,6 +54,13 @@ test('legacy query links remain supported and remembered', () => {
   }
 });
 
+test('Secret Veil path and local tenant host override saved tenants and conflicting queries', () => {
+  visit('/secret-veil/?org=thetochka', 'thetochka');
+  assert.equal(resolveOrganizationIdFallback(), 'secret-veil');
+  window.location = new URL('http://secret-veil.localhost:5173/?org=thetochka');
+  assert.equal(resolveOrganizationIdFallback(), 'secret-veil');
+});
+
 test('query links do not require Object.hasOwn support from the browser', () => {
   const nativeHasOwn = Object.hasOwn;
   try {

@@ -7,7 +7,7 @@ namespace table_reservations.Controllers
     /// <summary>
     /// Serves browser-safe public configuration for the tenant resolved by
     /// <c>TenantResolutionMiddleware</c>. Only allow-listed branding/content/theme
-    /// values are returned; spreadsheet ids, credentials, and sheet schema are never
+    /// values are returned; authentication tokens and backend credentials are never
     /// exposed here.
     /// </summary>
     [ApiController]

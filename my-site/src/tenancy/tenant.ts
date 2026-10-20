@@ -20,6 +20,7 @@ const ORGANIZATION_ROUTES: Record<string, string> = {
   thetochka: 'thetochka',
   carwash: 'thetochka-carwasher',
   'thetochka-carwasher': 'thetochka-carwasher',
+  'secret-veil': 'secret-veil',
 };
 
 function fromPath(): string | null {
@@ -85,6 +86,8 @@ function fromEnv(): string | null {
  * when the backend should resolve the tenant from the host.
  */
 export function resolveOrganizationIdFallback(): string | null {
+  const localTenant = window.location.hostname.toLowerCase().match(/^([a-z0-9-]+)\.localhost\.?$/)?.[1];
+  if (localTenant) return localTenant;
   const routeOrganization = fromPath();
   if (routeOrganization) return routeOrganization;
   const queryOrganization = fromQuery();
