@@ -1,5 +1,13 @@
 # Secret Veil
 
+The public venue name is **The Veil**; its organization id and subdomain remain
+`secret-veil`. The BRON header and shared restaurant structure are preserved.
+The venue's own brand guide supplies its near-black/warm-white palette, amber
+accents, Geist typography, original photographs, and keyhole framing. These
+styles are scoped by `data-organization="secret-veil"` and do not apply to
+other tenants. Brand assets and the font license are in
+`my-site/public/tenants/secret-veil/`.
+
 Secret Veil uses the existing restaurant page and native tenant API, Turso
 repository, and tenant resolution middleware. No separate page or storage
 implementation is needed.
