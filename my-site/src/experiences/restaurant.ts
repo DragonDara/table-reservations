@@ -18,10 +18,16 @@ import {
 } from '../phone';
 
 // Imported only after the restaurant page and tenant configuration are ready.
+let restaurantBookingEnabled = false;
 export async function initRestaurantExperience(config: PublicTenantConfig): Promise<void> {
+  restaurantBookingEnabled = config.bookingEnabled !== false;
   if (config.features.showRating) void loadRating();
+  const veilPlan = config.organizationId === 'secret-veil'
+    ? await import('./veil-floor-plan') : null;
+  veilPlan?.initVeilFloorPlan();
   if (config.bookingEnabled === false) {
     document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('#reservationForm input, #reservationForm button, #reservationForm select').forEach((control) => { control.disabled = true; });
+    veilPlan?.showVeilFloorPlanPreview();
     const status = document.getElementById('reservationStatus');
     if (status) status.textContent = `Онлайн-бронирование ${config.displayName} скоро откроется.`;
     return;
@@ -312,6 +318,7 @@ viewport?.addEventListener('touchend', () => {
 
 // открытие / закрытие модалки
 openTablePickerBtn?.addEventListener('click', () => {
+  if (openTablePickerBtn.dataset.floorPlan === 'veil' || !restaurantBookingEnabled) return;
   if (overlay) overlay.hidden = false;
   refreshTableStatuses();
   scale = 1;
@@ -785,6 +792,7 @@ async function submitReservation(payload: ReservationPayload) {
 reservationForm?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  if (!restaurantBookingEnabled) return;
   if (!reservationForm) return;
 
   if (!syncDateTimeValue(true)) {

@@ -1,0 +1,80 @@
+[data-organization='secret-veil'] .veil-dialog {
+  width: min(1120px, calc(100vw - 40px));
+  max-width: none;
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid #f4dfc433;
+  border-radius: 18px;
+  box-shadow: 0 32px 100px #0009;
+  overflow: hidden;
+  font-family: 'Geist', sans-serif;
+}
+.veil-dialog::backdrop { background: #000b; backdrop-filter: blur(6px); }
+.veil-picker { display: flex; flex-direction: column; max-height: calc(100dvh - 42px); }
+.veil-picker-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 24px 28px 20px; }
+.veil-picker-eyebrow { color: var(--veil-sand); font-size: 11px; letter-spacing: .12em; margin-bottom: 8px; }
+.veil-picker-header h2 { font-size: 26px; letter-spacing: -.035em; font-weight: 500; }
+.veil-icon-button { display: inline-grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border: 1px solid #f4dfc42e; border-radius: 10px; color: var(--text); background: transparent; cursor: pointer; font-size: 20px; }
+.veil-icon-button:disabled { opacity: .3; cursor: default; }
+.veil-area-tabs { display: flex; gap: 8px; padding: 0 28px 20px; }
+.veil-area-tabs button { display: flex; justify-content: center; align-items: center; gap: 9px; min-height: 44px; padding: 8px 18px; border: 1px solid #f4dfc426; border-radius: 9px; color: var(--muted); background: transparent; cursor: pointer; font-size: 14px; }
+.veil-area-tabs button span { font-size: 11px; opacity: .65; }
+.veil-area-tabs button[aria-selected='true'] { background: var(--veil-sand); border-color: var(--veil-sand); color: var(--bg); }
+.veil-picker-body { display: grid; grid-template-columns: minmax(0, 1fr) 246px; min-height: 0; overflow: auto; border-block: 1px solid #f4dfc426; }
+.veil-map-section { min-width: 0; padding: 16px; background: #14110f; }
+.veil-map-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+.veil-map-toolbar p { color: var(--muted); font-size: 12px; }
+.veil-map-tools { display: flex; align-items: center; gap: 6px; }
+.veil-map-tools .veil-icon-button { width: 34px; height: 34px; border-radius: 8px; }
+.veil-fit-button { min-height: 34px; padding: 0 8px; color: var(--veil-sand); font-size: 11px; border: 0; background: transparent; cursor: pointer; }
+.veil-map-viewport { position: relative; height: clamp(300px, 48dvh, 500px); overflow: auto; overscroll-behavior: contain; border: 1px solid #f4dfc41a; border-radius: 12px; background: #0b0908; scrollbar-width: thin; scrollbar-color: #f4dfc440 transparent; cursor: grab; }
+.veil-map-viewport.is-dragging { cursor: grabbing; }
+.veil-map-stage { position: relative; display: grid; place-items: center; padding: 16px; width: 100%; min-height: 100%; }
+.veil-map { position: relative; flex-shrink: 0; }
+.veil-map img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; filter: invert(1) sepia(.18) brightness(3); opacity: .85; }
+.veil-map-table { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--veil-sand); border-radius: 8px; color: var(--veil-sand); background: #211b16; box-shadow: 0 2px 8px #0005; font-size: 12px; font-weight: 500; cursor: pointer; }
+.veil-map-table[aria-pressed='true'] { background: var(--accent); color: var(--bg); border-color: var(--accent); box-shadow: 0 0 0 4px #f0a03c33; z-index: 2; }
+.veil-map-hint { margin-top: 10px; color: var(--muted); font-size: 11px; text-align: center; }
+.veil-table-list { padding: 24px 20px; background: var(--bg); border-left: 1px solid #f4dfc426; }
+.veil-table-list h3 { margin-bottom: 16px; font-size: 14px; font-weight: 500; }
+.veil-table-list h3 span { color: var(--muted); font-weight: 400; }
+.veil-table-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.veil-table-grid button { min-height: 44px; border: 1px solid #f4dfc433; border-radius: 8px; color: var(--text); background: #f4dfc405; font-size: 14px; cursor: pointer; }
+.veil-table-grid button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.veil-capacity-note, .veil-image-error { margin-top: 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
+.veil-picker-footer { display: grid; grid-template-columns: 1fr auto; gap: 14px 24px; padding: 20px 28px; }
+.veil-selection { display: flex; flex-direction: column; justify-content: center; gap: 5px; }
+.veil-selection strong { font-size: 15px; font-weight: 500; }
+.veil-selection span { font-size: 12px; color: var(--muted); }
+.veil-picker-footer .btn { min-height: 46px; padding: 12px 24px; }
+.veil-picker-footer > p { grid-column: 1 / -1; color: var(--muted); font-size: 11px; line-height: 1.6; }
+@media (hover: hover) {
+  .veil-table-grid button:hover, .veil-map-table:hover, .veil-icon-button:not(:disabled):hover { border-color: var(--accent); }
+}
+@media (max-width: 760px) {
+  [data-organization='secret-veil'] .veil-dialog { width: calc(100vw - 20px); max-height: calc(100dvh - 20px); border-radius: 14px; }
+  .veil-picker { max-height: calc(100dvh - 22px); }
+  .veil-picker-header { padding: 18px 16px 16px; }
+  .veil-picker-header h2 { font-size: 23px; }
+  .veil-area-tabs { gap: 5px; padding: 0 12px 14px; }
+  .veil-area-tabs button { flex: 1; gap: 5px; padding: 8px 6px; font-size: 12px; }
+  .veil-area-tabs button span { font-size: 10px; }
+  .veil-picker-body { grid-template-columns: 1fr; }
+  .veil-map-section { padding: 12px; }
+  .veil-map-toolbar { align-items: center; }
+  .veil-map-toolbar p { max-width: 135px; font-size: 11px; }
+  .veil-map-viewport { height: clamp(220px, 34dvh, 320px); }
+  .veil-map-hint { font-size: 10px; }
+  .veil-table-list { border-left: 0; border-top: 1px solid #f4dfc41a; padding: 16px; }
+  .veil-table-list h3 { margin-bottom: 12px; }
+  .veil-table-grid { grid-template-columns: repeat(auto-fit, minmax(40px, 1fr)); gap: 6px; }
+  .veil-capacity-note { margin-top: 12px; font-size: 11px; }
+  .veil-picker-footer { gap: 12px; padding: 16px; }
+  .veil-selection strong { font-size: 13px; }
+  .veil-selection span { font-size: 10px; }
+  .veil-picker-footer .btn { padding: 10px 14px; font-size: 12px; }
+  .veil-picker-footer > p { font-size: 10px; }
+}
