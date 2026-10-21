@@ -24,3 +24,17 @@ existing restaurant; the current database maps one tenant per business type.
 
 The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
 does not start a paid scraping job or require an Apify token.
+
+## Floor plan assumptions
+
+Treat the balcony and terrace as separate booking areas pending the venue's
+confirmation. Their reference illustrations currently show balcony tables 1-9
+and terrace tables 1-13. Repeated display numbers across areas are valid;
+reservation inventory must use distinct internal table IDs and identify the
+area alongside each table number.
+
+The terrace, hall, and VIP SVG overlays use table IDs 1-13, 14-27, and 28-29
+respectively. These artwork IDs do not include a separate balcony inventory and
+must not be treated as the complete venue inventory. Hall numbering also differs
+between the full plan and individual detail images, so final numbering and seat
+capacities still need confirmation before booking inventory is configured.
