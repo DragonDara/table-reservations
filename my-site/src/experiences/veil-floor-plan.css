@@ -36,32 +36,47 @@
 .veil-map { position: relative; flex-shrink: 0; }
 .veil-map img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; filter: invert(1) sepia(.18) brightness(3); opacity: .85; }
 .veil-hall-diagram { display: block; width: 100%; height: 100%; pointer-events: none; }
-.veil-hall-floor { fill: #0e0d0c; }
-.veil-room-wall { fill: none; stroke: #b8b3ab; stroke-width: 12; stroke-linecap: square; }
+.veil-hall-floor { fill: url('#veil-floor-boards'); }
+.veil-room-wall { fill: none; stroke: #b8b3ab; stroke-width: 18; stroke-linecap: square; }
+.veil-wall-reveal { fill: none; stroke: #625b51; stroke-width: 2; }
 .veil-room-door { fill: none; stroke: #938a7c; stroke-width: 3; }
 .veil-room-floor { fill: #171614; stroke: #aaa298; stroke-width: 5; }
 .veil-room-hatch { fill: url('#veil-room-hatch'); }
 .veil-stair-tread, .veil-stair-arrow, .veil-room-divider { fill: none; stroke: #8b8377; stroke-width: 3; }
 .veil-stair-arrow { stroke: #d0c7b9; }
 .veil-facility-counter { fill: #302d29; stroke: #716b61; stroke-width: 3; }
-.veil-furniture-shadow { fill: #0008; }
-.veil-lounge-bench > rect { fill: url('#veil-upholstery'); stroke: #777068; stroke-width: 2; }
-.veil-lounge-bench .veil-upholstery-inset { fill: none; stroke: #49443e; stroke-width: 2; }
+.veil-furniture-shadow { fill: #000a; filter: url('#veil-soft-shadow'); }
+.veil-sofa-body { fill: url('#veil-upholstery'); stroke: #aaa092; stroke-width: 2; }
+.veil-sofa-back { fill: #4a433a; stroke: #867b6c; stroke-width: 1.5; }
+.veil-sofa-cushion { fill: #302c26; stroke: #645a4d; stroke-width: 1; }
+.veil-sofa-arms { fill: #484137; stroke: #938775; stroke-width: 1; }
+.veil-upholstery-stitch { fill: none; stroke: #b0a18c; stroke-width: .8; stroke-dasharray: 3 3; opacity: .65; }
+.veil-upholstery-crease { fill: none; stroke: #9a8a74; stroke-width: .8; }
 .veil-table-footprint { fill: url('#veil-table-surface'); stroke: #aaa298; stroke-width: 2; }
+.veil-table-grain { fill: url('#veil-wood-grain'); }
 .veil-table-inset { fill: none; stroke: #6b645b; stroke-width: 1; opacity: .6; }
+.veil-table-glint { fill: none; stroke: #e0d2bd; stroke-width: 1.5; opacity: .5; }
+.veil-table-accessories rect, .veil-table-vase circle { fill: #b8aa9155; stroke: #b5a58b; stroke-width: 1; }
+.veil-table-accessories path, .veil-table-vase path { fill: none; stroke: #9eab8b; stroke-width: 1; }
+.veil-stair-rail, .veil-counter-reveal { fill: none; stroke: #c0b49f; stroke-width: 2; }
+.veil-cabinet-joint { fill: none; stroke: #817566; stroke-width: 1.5; }
+.veil-entrance-mat { fill: #39332a; stroke: #82725c; stroke-width: 2; }
+.veil-threshold { fill: none; stroke: #c9bfac; stroke-width: 3; }
+.veil-bar-station, .veil-hookah-detail, .veil-washroom-detail { fill: #38332b; stroke: #aa9b83; stroke-width: 2; }
+.veil-bar-station path, .veil-hookah-detail path, .veil-washroom-detail path { fill: none; }
 .veil-map-landmark { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid #f4dfc433; border-radius: 6px; background: #f4dfc40a; color: var(--muted); font-size: 11px; text-align: center; pointer-events: none; }
 .veil-landmark-stairs, .veil-landmark-entrance { background: repeating-linear-gradient(-45deg, #f4dfc40d 0 2px, transparent 2px 9px), #16120e; padding: 4px; line-height: 1.5; }
 .veil-landmark-stairs { color: var(--veil-sand); border-color: #f4dfc455; }
 .veil-landmark-entrance { color: var(--accent); font-size: 12px; font-weight: 500; }
-.veil-map[data-rendering='diagram'] .veil-map-landmark { border: 0; background: transparent; padding: 0; color: #c4bcb0; }
+.veil-map[data-rendering='diagram'] .veil-map-landmark { border: 0; background: transparent; padding: 0; color: #c4bcb0; font-size: var(--veil-plan-annotation-size, 11px); }
 .veil-map[data-rendering='diagram'] .veil-map-landmark > span { max-width: 100%; min-width: 0; padding: 2px 3px; border-radius: 3px; background: #171614eb; line-height: 1.4; }
 .veil-map[data-rendering='diagram'] .veil-landmark-entrance { color: var(--veil-sand); }
-.veil-map[data-rendering='diagram'] .veil-landmark-stairs > span { padding: 3px 1px; font-size: 10px; line-height: 1.5; }
+.veil-map[data-rendering='diagram'] .veil-landmark-stairs > span { position: absolute; top: calc(100% + 6px); right: 0; width: var(--veil-plan-caption-width, 104px); max-width: none; padding: 0; background: transparent; text-align: right; font-size: var(--veil-plan-caption-size, 10px); line-height: 1.4; }
 .veil-map-table { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--veil-sand); border-radius: 8px; color: var(--veil-sand); background: #211b16; box-shadow: 0 2px 8px #0005; font-size: 12px; font-weight: 500; cursor: pointer; }
 .veil-map-table[data-shape='round'] { width: max(32px, var(--veil-table-width)); height: max(32px, var(--veil-table-height)); border-radius: 50%; }
 .veil-map-table[data-shape='rectangular'] { width: max(44px, var(--veil-table-width)); height: max(44px, var(--veil-table-height)); border-radius: 6px; }
 .veil-map-table[aria-pressed='true'] { background: var(--accent); color: var(--bg); border-color: var(--accent); box-shadow: 0 0 0 4px #f0a03c33; z-index: 2; }
-.veil-map[data-rendering='diagram'] .veil-map-table { color: #f1ebe1; background: transparent; border-color: transparent; box-shadow: none; }
+.veil-map[data-rendering='diagram'] .veil-map-table { color: #f1ebe1; background: transparent; border-color: transparent; box-shadow: none; font-size: var(--veil-plan-number-size, 12px); }
 .veil-map[data-rendering='diagram'] .veil-map-table[data-shape='round'] { width: max(28px, var(--veil-table-width)); height: max(28px, var(--veil-table-height)); }
 .veil-map[data-rendering='diagram'] .veil-map-table[data-shape='rectangular'] { width: max(30px, var(--veil-table-width)); height: max(30px, var(--veil-table-height)); }
 .veil-map[data-rendering='diagram'] .veil-map-table[aria-pressed='true'] { background: #f0a03c33; border-color: var(--accent); color: #ffe2ac; box-shadow: 0 0 0 3px #f0a03c1f; }

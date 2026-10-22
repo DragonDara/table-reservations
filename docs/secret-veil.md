@@ -46,6 +46,13 @@ dimensions or a seat inventory. Landmarks are labels, not selectable inventory.
 The architectural palette matches the retained VIP illustration. Table numbers
 sit on the drawing; amber highlights appear on hover or selection. Selection
 targets retain clear gaps at the fitted scale, including on narrow screens.
+The vector artwork also includes upholstery arms and stitching, subtle wood
+grain and edge reflections, small tabletop accessories, floor-board lines,
+bar cabinetry and a sink, a hookah outline, washroom fixtures, and entrance
+threshold details. These are illustrative drawing details, not confirmed venue
+equipment. The stair caption sits below the treads so it does not obscure them.
+Hall numbers and annotations grow with zoom while retaining readable minimum
+sizes in the fitted view.
 
 The balcony and terrace are separate spaces but are out of season and omitted
 from the current picker. They must not contribute selectable tables or counts.
