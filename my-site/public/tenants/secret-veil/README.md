@@ -10,9 +10,12 @@ Cyrillic glyphs. Their SIL Open Font License is included in `OFL.txt`.
 BRON remains the software identity in the header and footer. The venue name,
 theme, imagery, and favicon are configured separately for `secret-veil`.
 
-The four `floor-plans/*.png` images are unchanged copies of the venue-supplied
-terrace, hall, balcony, and VIP illustrations in the ignored `context/venue/`
-directory. Table positions are derived from the matching SVG groups, except
-for the balcony, whose positions follow its numbered PNG. Balcony and terrace
-are separate areas pending venue confirmation. Capacities remain unknown;
-the drawings do not establish availability or bookable VIP room boundaries.
+`floor-plans/vip.png` is an unchanged copy of the venue-supplied VIP illustration
+in the ignored `context/venue/` directory. Its markers retain the original SVG
+table IDs 28 and 29. Capacities and bookable VIP room boundaries remain unknown.
+
+The active hall uses a code-rendered diagram of the latest handwritten seating
+chart: tables 1-25, VIP room locations, bar, hookah area, restrooms, and entrance.
+The source photograph is not published. The chart is rotated clockwise so the
+entrance stays at the lower left. Old hall, balcony, and terrace PNGs are no
+longer shipped; outdoor areas are omitted while out of season.

@@ -25,36 +25,40 @@ existing restaurant; the current database maps one tenant per business type.
 The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
 does not start a paid scraping job or require an Apify token.
 
-## Floor plan assumptions
+## Current indoor floor plan
 
-Treat the balcony and terrace as separate booking areas pending the venue's
-confirmation. Their reference illustrations currently show balcony tables 1-9
-and terrace tables 1-13. Repeated display numbers across areas are valid;
-reservation inventory must use distinct internal table IDs and identify the
-area alongside each table number.
+The latest handwritten seating chart supersedes the older hall illustration
+and SVG numbering. It shows hall tables 1-25, two VIP rooms, a bar, a hookah
+area, restrooms (М/Ж), and the entrance. The chart is rotated clockwise in the
+picker to preserve the venue's clarified orientation: entrance at the lower
+left, bar and hookah area on the right, and restrooms at the upper left.
 
-The terrace, hall, and VIP SVG overlays use table IDs 1-13, 14-27, and 28-29
-respectively. These artwork IDs do not include a separate balcony inventory and
-must not be treated as the complete venue inventory. Hall numbering also differs
-between the full plan and individual detail images, so final numbering and seat
-capacities still need confirmation before booking inventory is configured.
+The hall is rendered as a schematic from the same coordinates as its table
+markers. Landmarks are labels, not selectable inventory. Box sizes represent
+the sketch's arrangement, not measured table sizes or seat capacities.
+
+The balcony and terrace are separate spaces but are out of season and omitted
+from the current picker. They must not contribute selectable tables or counts.
+The VIP illustration and its existing UI table IDs 28 and 29 are retained;
+whether each VIP room is booked as a whole still needs confirmation.
 
 ## Table picker preview
 
 With bookings disabled, the existing reservation section opens The Veil's own
-table picker instead of the hardcoded TheTochka map. It includes the hall,
-terrace, balcony, and VIP plans, a table-number grid, zoom controls, and local
+table picker instead of the hardcoded TheTochka map. It includes the hall and
+VIP plans, a table-number grid, zoom controls, and local
 selection confirmation. The BRON header and shared page sections remain intact.
 
-The preview currently has 38 selectable entries based on the illustrations:
-14 hall, 13 terrace, 9 balcony, and 2 VIP. These are provisional UI entries,
+The preview currently has 27 selectable entries: 25 hall tables and 2 VIP
+entries. These are provisional UI entries,
 not confirmed bookable inventory. All capacities are null and availability is
 unknown; no table/slot/reservation API is called by the preview. Selection is
 kept only in the current page, and does not create a reservation. Its internal
-IDs include the area (for example `terrace-1` and `balcony-1`); these still need
+IDs include the area (for example `hall-1` and `vip-28`); these still need
 mapping to isolated Turso inventory before bookings can be enabled.
 
-The original drawings are copied to `my-site/public/tenants/secret-veil/floor-plans/`.
-Normalized marker positions and provisional table metadata are in
-`my-site/src/experiences/veil-floor-plan-data.ts`. Confirm numbering, capacities,
-and whether each VIP room is booked as a whole before connecting real bookings.
+The retained VIP drawing is in `my-site/public/tenants/secret-veil/floor-plans/`.
+Marker positions, landmark labels, and provisional table metadata are in
+`my-site/src/experiences/veil-floor-plan-data.ts`; the hall artwork is generated
+by `veil-floor-plan-diagram.ts`. Confirm capacities and VIP booking rules before
+connecting real bookings.
