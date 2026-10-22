@@ -49,15 +49,28 @@ function area(
   };
 }
 
-const HALL_WIDTH = 1280;
-const HALL_HEIGHT = 1900;
+const CHART_WIDTH = 1280;
+const CHART_HEIGHT = 1900;
+const HALL_WIDTH = 1720;
+const HALL_HEIGHT = 2140;
 
 // The annotated chart establishes relative placement. Drawing units leave
 // room for furniture and aisles; they are not measured sizes or seat counts.
-function hallBox(x: number, y: number, width: number, height: number) {
+function hallBox(
+  x: number, y: number, width: number, height: number,
+  anchorX?: 'left' | 'right', anchorY?: 'top' | 'bottom',
+) {
+  // Spread centers across the larger room without enlarging furniture. Edge
+  // rooms retain their wall offsets, including the lower-left entrance.
+  const centerX = anchorX === 'left' ? x : anchorX === 'right'
+    ? HALL_WIDTH - (CHART_WIDTH - x)
+    : 40 + (x - 40) * (HALL_WIDTH - 80) / (CHART_WIDTH - 80);
+  const centerY = anchorY === 'top' ? y : anchorY === 'bottom'
+    ? HALL_HEIGHT - (CHART_HEIGHT - y)
+    : 40 + (y - 40) * (HALL_HEIGHT - 80) / (CHART_HEIGHT - 80);
   return {
-    x: 100 * x / HALL_WIDTH,
-    y: 100 * y / HALL_HEIGHT,
+    x: 100 * centerX / HALL_WIDTH,
+    y: 100 * centerY / HALL_HEIGHT,
     width: 100 * width / HALL_WIDTH,
     height: 100 * height / HALL_HEIGHT,
   };
@@ -84,7 +97,7 @@ const hallPositions: [number, number, number, number, number][] = [
 // table identities remain unchanged until the venue confirms room booking rules.
 export const veilAreas: VeilArea[] = [
   {
-    id: 'hall', label: 'Зал', width: HALL_WIDTH, height: HALL_HEIGHT, minMapWidth: 340,
+    id: 'hall', label: 'Зал', width: HALL_WIDTH, height: HALL_HEIGHT, minMapWidth: 420,
     description: 'Вход — внизу слева. Лестница к VIP на 2-й этаж — вверху справа.',
     tables: hallPositions.map(([number, x, y, width, height]) => {
       const round = number >= 12 && number <= 23;
@@ -95,11 +108,11 @@ export const veilAreas: VeilArea[] = [
       };
     }),
     landmarks: [
-      { label: 'Лестница к VIP · 2‑й этаж', kind: 'stairs', ...hallBox(1140, 210, 200, 260) },
-      { label: 'Бар', kind: 'facility', ...hallBox(1160, 650, 160, 300) },
-      { label: 'Кальян', kind: 'facility', ...hallBox(1160, 1110, 160, 460) },
-      { label: 'М/Ж', kind: 'facility', ...hallBox(145, 210, 170, 260) },
-      { label: 'Вход', kind: 'entrance', ...hallBox(160, 1720, 240, 280) },
+      { label: 'Лестница к VIP · 2‑й этаж', kind: 'stairs', ...hallBox(1140, 210, 200, 260, 'right', 'top') },
+      { label: 'Бар', kind: 'facility', ...hallBox(1150, 650, 180, 300, 'right') },
+      { label: 'Кальян', kind: 'facility', ...hallBox(1150, 1110, 180, 460, 'right') },
+      { label: 'М/Ж', kind: 'facility', ...hallBox(145, 210, 170, 260, 'left', 'top') },
+      { label: 'Вход', kind: 'entrance', ...hallBox(160, 1720, 240, 280, 'left', 'bottom') },
     ],
   },
   area('vip', 'VIP', 1900, 920, 440, [

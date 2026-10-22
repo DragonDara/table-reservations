@@ -43,6 +43,11 @@ markers, with shaded tabletops, continuous upholstery bands, wall thickness,
 door swings, stair treads, and facility counters. Relative positions follow the
 sketch, with wider aisles for legibility. Furniture is illustrative, not measured
 dimensions or a seat inventory. Landmarks are labels, not selectable inventory.
+The drawing expands the room to 1720 by 2140 schematic units while keeping
+tabletop and upholstery dimensions fixed. Table centers spread across the new
+floor area; perimeter facilities stay anchored to their respective walls. The
+picker provides a larger viewport and minimum hall width so the extra aisle
+space remains visible on desktop and mobile.
 The architectural palette matches the retained VIP illustration. Table numbers
 sit on the drawing; amber highlights appear on hover or selection. Selection
 targets retain clear gaps at the fitted scale, including on narrow screens.
