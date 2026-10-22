@@ -39,8 +39,13 @@ are on the right; restrooms (М/Ж) are at the upper left. This orientation matc
 the latest annotation and the clockwise rotation of the earlier seating chart.
 
 The hall is rendered as a schematic from the same coordinates as its table
-markers. Landmarks are labels, not selectable inventory. Box sizes represent
-the sketch's arrangement, not measured table sizes or seat capacities.
+markers, with shaded tabletops, continuous upholstery bands, wall thickness,
+door swings, stair treads, and facility counters. Relative positions follow the
+sketch, with wider aisles for legibility. Furniture is illustrative, not measured
+dimensions or a seat inventory. Landmarks are labels, not selectable inventory.
+The architectural palette matches the retained VIP illustration. Table numbers
+sit on the drawing; amber highlights appear on hover or selection. Selection
+targets retain clear gaps at the fitted scale, including on narrow screens.
 
 The balcony and terrace are separate spaces but are out of season and omitted
 from the current picker. They must not contribute selectable tables or counts.

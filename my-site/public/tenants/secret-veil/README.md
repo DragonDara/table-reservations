@@ -21,3 +21,7 @@ the shaded upper-right room is the staircase to the VIP rooms on the second
 floor. VIP interiors remain in their separate tab. Source photographs are not
 published. Old hall, balcony, and terrace PNGs are no longer shipped; outdoor
 areas are omitted while out of season.
+
+The hall uses native SVG furniture and architectural details in the VIP plan's
+muted palette, with wider aisles and separate transparent selection targets.
+Continuous upholstery bands are illustrative and do not assign seat counts.
