@@ -35,6 +35,13 @@
 .veil-map-stage { position: relative; display: grid; place-items: center; padding: 16px; width: 100%; min-height: 100%; }
 .veil-map { position: relative; flex-shrink: 0; }
 .veil-map img { display: block; width: 100%; height: 100%; user-select: none; pointer-events: none; filter: invert(1) sepia(.18) brightness(3); opacity: .85; }
+.veil-hall-diagram { display: block; width: 100%; height: 100%; pointer-events: none; }
+.veil-room-wall { fill: none; stroke: #f4dfc455; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.veil-room-door { fill: none; stroke: #f0a03c88; stroke-width: 1; stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; }
+.veil-table-footprint { fill: #f4dfc408; stroke: #f4dfc440; stroke-width: 1; vector-effect: non-scaling-stroke; }
+.veil-map-landmark { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid #f4dfc433; border-radius: 6px; background: #f4dfc40a; color: var(--muted); font-size: 11px; text-align: center; pointer-events: none; }
+.veil-landmark-vip { color: var(--veil-sand); border-color: #f4dfc455; }
+.veil-landmark-entrance { color: var(--accent); border: 0; background: transparent; font-size: 12px; font-weight: 500; }
 .veil-map-table { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--veil-sand); border-radius: 8px; color: var(--veil-sand); background: #211b16; box-shadow: 0 2px 8px #0005; font-size: 12px; font-weight: 500; cursor: pointer; }
 .veil-map-table[aria-pressed='true'] { background: var(--accent); color: var(--bg); border-color: var(--accent); box-shadow: 0 0 0 4px #f0a03c33; z-index: 2; }
 .veil-map-hint { margin-top: 10px; color: var(--muted); font-size: 11px; text-align: center; }

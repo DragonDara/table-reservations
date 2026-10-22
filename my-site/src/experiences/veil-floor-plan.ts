@@ -1,4 +1,5 @@
 import { veilAreas, type VeilArea, type VeilTable } from './veil-floor-plan-data';
+import { veilHallDiagram } from './veil-floor-plan-diagram';
 import './veil-floor-plan.css';
 
 interface Selection { area: VeilArea; table: VeilTable }
@@ -114,18 +115,24 @@ export function initVeilFloorPlan(): void {
     zoom = 1;
     dialog.querySelector('#veilAreaPanel')!.setAttribute('aria-labelledby', `veil-tab-${area.id}`);
     dialog.querySelector('[data-area-label]')!.textContent = `· ${area.label}`;
+    dialog.querySelector('.veil-map-hint')!.textContent = area.description;
     dialog.querySelector<HTMLElement>('.veil-image-error')!.hidden = true;
     tabs.forEach((tab) => {
       const selected = tab.dataset.area === area.id;
       tab.setAttribute('aria-selected', String(selected));
       tab.tabIndex = selected ? 0 : -1;
     });
-    map.innerHTML = `<img src="${area.image}" width="${area.width}" height="${area.height}" alt="" draggable="false" />
+    map.innerHTML = `${area.image
+      ? `<img src="${area.image}" width="${area.width}" height="${area.height}" alt="" draggable="false" />`
+      : veilHallDiagram(area)}
+      ${(area.landmarks ?? []).map((landmark) => `
+        <span class="veil-map-landmark veil-landmark-${landmark.kind}"
+          style="left:${landmark.x}%;top:${landmark.y}%;width:${landmark.width}%;height:${landmark.height}%">${landmark.label}</span>`).join('')}
       ${area.tables.map((table) => `
         <button type="button" class="veil-map-table" data-table="${table.id}"
           style="left:${table.x}%;top:${table.y}%" aria-pressed="false"
           aria-label="${area.label}, столик №${table.number}">${table.number}</button>`).join('')}`;
-    map.querySelector('img')!.addEventListener('error', () => {
+    map.querySelector('img')?.addEventListener('error', () => {
       dialog.querySelector<HTMLElement>('.veil-image-error')!.hidden = false;
     });
     grid.innerHTML = area.tables.map((table) => `
