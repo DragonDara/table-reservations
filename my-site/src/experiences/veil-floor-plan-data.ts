@@ -49,58 +49,57 @@ function area(
   };
 }
 
-// Coordinates follow the newly supplied handwritten seating chart. Rotate it
-// clockwise so the entrance stays at the lower left, as the venue clarified.
-// This is a schematic: neither table dimensions nor capacities are inferred.
-function rotatedBox(x: number, y: number, width: number, height: number) {
+const HALL_WIDTH = 1280;
+const HALL_HEIGHT = 1900;
+
+// The annotated chart establishes relative placement. Drawing units leave
+// room for furniture and aisles; they are not measured sizes or seat counts.
+function hallBox(x: number, y: number, width: number, height: number) {
   return {
-    x: 100 * (1040 - y - height / 2) / 1040,
-    y: 100 * (x + width / 2) / 1400,
-    width: 100 * height / 1040,
-    height: 100 * width / 1400,
+    x: 100 * x / HALL_WIDTH,
+    y: 100 * y / HALL_HEIGHT,
+    width: 100 * width / HALL_WIDTH,
+    height: 100 * height / HALL_HEIGHT,
   };
 }
 
 const hallPositions: [number, number, number, number, number][] = [
-  // Number, x, y, width, height on the handwritten chart before rotation.
-  [1, 1240, 75, 100, 120], [2, 1240, 245, 100, 120],
-  [3, 1240, 415, 100, 120], [4, 1240, 585, 100, 130],
-  [5, 930, 890, 150, 100], [6, 700, 890, 150, 100],
-  [7, 470, 890, 150, 100], [8, 480, 540, 150, 110],
-  [9, 480, 395, 150, 105], [10, 720, 395, 150, 105],
-  [11, 720, 540, 150, 110], [12, 510, 280, 75, 75],
-  [13, 660, 280, 75, 75], [14, 810, 280, 75, 75],
-  [15, 1100, 415, 70, 70], [16, 910, 400, 60, 80],
-  [17, 1100, 530, 70, 70], [18, 910, 550, 60, 80],
-  [19, 1100, 645, 70, 70], [20, 760, 680, 70, 70],
-  [21, 520, 680, 70, 70], [22, 270, 665, 80, 80],
-  [23, 270, 410, 80, 80], [24, 70, 600, 110, 150],
-  [25, 70, 395, 110, 150],
+  // Number, center x/y, tabletop width/height in the upright drawing.
+  [1, 1110, 1730, 150, 120], [2, 870, 1730, 150, 120],
+  [3, 630, 1730, 150, 120], [4, 390, 1730, 150, 120],
+  [5, 160, 1340, 120, 170], [6, 160, 995, 120, 170],
+  [7, 160, 650, 120, 170], [8, 550, 710, 140, 170],
+  [9, 800, 710, 140, 170], [10, 800, 1070, 140, 170],
+  [11, 550, 1070, 140, 170], [12, 995, 650, 86, 86],
+  [13, 995, 860, 86, 86], [14, 995, 1070, 86, 86],
+  [15, 995, 1510, 86, 86], [16, 800, 1320, 86, 86],
+  [17, 690, 1510, 86, 86], [18, 550, 1320, 86, 86],
+  [19, 390, 1510, 86, 86], [20, 355, 1070, 86, 86],
+  [21, 355, 710, 86, 86], [22, 390, 420, 86, 86],
+  [23, 700, 420, 86, 86], [24, 390, 170, 150, 110],
+  [25, 700, 170, 150, 110],
 ];
 
 // Seasonal outdoor areas are omitted from the active picker. VIP artwork and
 // table identities remain unchanged until the venue confirms room booking rules.
 export const veilAreas: VeilArea[] = [
   {
-    id: 'hall', label: 'Зал', width: 1040, height: 1400, minMapWidth: 330,
+    id: 'hall', label: 'Зал', width: HALL_WIDTH, height: HALL_HEIGHT, minMapWidth: 340,
     description: 'Вход — внизу слева. Лестница к VIP на 2-й этаж — вверху справа.',
     tables: hallPositions.map(([number, x, y, width, height]) => {
       const round = number >= 12 && number <= 23;
       return {
         id: `hall-${number}`, number, capacity: null,
-        ...rotatedBox(x, y, width, height),
+        ...hallBox(x, y, width, height),
         shape: round ? 'round' : 'rectangular',
-        // Equal rendered width/height for the small round tables. These are
-        // diagram units only, not physical dimensions or inferred seat counts.
-        ...(round ? { width: 100 * 72 / 1040, height: 100 * 72 / 1400 } : {}),
       };
     }),
     landmarks: [
-      { label: 'Лестница к VIP · 2‑й этаж', kind: 'stairs', x: 88, y: 11, width: 18, height: 16 },
-      { label: 'Бар', kind: 'facility', x: 88, y: 36, width: 18, height: 21 },
-      { label: 'Кальян', kind: 'facility', x: 88, y: 58, width: 18, height: 23 },
-      { label: 'М/Ж', kind: 'facility', ...rotatedBox(65, 890, 220, 100) },
-      { label: 'Вход', kind: 'entrance', x: 12.5, y: 89.3, width: 19.2, height: 17.1 },
+      { label: 'Лестница к VIP · 2‑й этаж', kind: 'stairs', ...hallBox(1140, 210, 200, 260) },
+      { label: 'Бар', kind: 'facility', ...hallBox(1160, 650, 160, 300) },
+      { label: 'Кальян', kind: 'facility', ...hallBox(1160, 1110, 160, 460) },
+      { label: 'М/Ж', kind: 'facility', ...hallBox(145, 210, 170, 260) },
+      { label: 'Вход', kind: 'entrance', ...hallBox(160, 1720, 240, 280) },
     ],
   },
   area('vip', 'VIP', 1900, 920, 440, [

@@ -126,6 +126,7 @@ export function initVeilFloorPlan(): void {
 
   function renderArea(area: VeilArea): void {
     activeArea = area;
+    map.dataset.rendering = area.image ? 'image' : 'diagram';
     zoom = 1;
     dialog.querySelector('#veilAreaPanel')!.setAttribute('aria-labelledby', `veil-tab-${area.id}`);
     dialog.querySelector('[data-area-label]')!.textContent = `· ${area.label}`;
@@ -142,7 +143,7 @@ export function initVeilFloorPlan(): void {
       : veilHallDiagram(area)}
       ${(area.landmarks ?? []).map((landmark) => `
         <span class="veil-map-landmark veil-landmark-${landmark.kind}"
-          style="left:${landmark.x}%;top:${landmark.y}%;width:${landmark.width}%;height:${landmark.height}%">${landmark.label}</span>`).join('')}
+          style="left:${landmark.x}%;top:${landmark.y}%;width:${landmark.width}%;height:${landmark.height}%"><span>${landmark.label}</span></span>`).join('')}
       ${area.tables.map((table) => `
         <button type="button" class="veil-map-table" data-table="${table.id}" data-shape="${table.shape ?? ''}"
           style="left:${table.x}%;top:${table.y}%;--veil-table-width:${table.width ?? 0}%;--veil-table-height:${table.height ?? 0}%" aria-pressed="false"
