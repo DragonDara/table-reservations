@@ -77,8 +77,8 @@
 .veil-map-table[data-shape='rectangular'] { width: max(44px, var(--veil-table-width)); height: max(44px, var(--veil-table-height)); border-radius: 6px; }
 .veil-map-table[aria-pressed='true'] { background: var(--accent); color: var(--bg); border-color: var(--accent); box-shadow: 0 0 0 4px #f0a03c33; z-index: 2; }
 .veil-map[data-rendering='diagram'] .veil-map-table { color: #f1ebe1; background: transparent; border-color: transparent; box-shadow: none; font-size: var(--veil-plan-number-size, 12px); }
-.veil-map[data-rendering='diagram'] .veil-map-table[data-shape='round'] { width: max(28px, var(--veil-table-width)); height: max(28px, var(--veil-table-height)); }
-.veil-map[data-rendering='diagram'] .veil-map-table[data-shape='rectangular'] { width: max(30px, var(--veil-table-width)); height: max(30px, var(--veil-table-height)); }
+.veil-map[data-rendering='diagram'] .veil-map-table[data-shape='round'] { width: max(44px, var(--veil-table-width)); height: max(44px, var(--veil-table-height)); }
+.veil-map[data-rendering='diagram'] .veil-map-table[data-shape='rectangular'] { width: max(44px, var(--veil-table-width)); height: max(44px, var(--veil-table-height)); }
 .veil-map[data-rendering='diagram'] .veil-map-table[aria-pressed='true'] { background: #f0a03c33; border-color: var(--accent); color: #ffe2ac; box-shadow: 0 0 0 3px #f0a03c1f; }
 .veil-map-hint { margin-top: 10px; color: var(--muted); font-size: 11px; text-align: center; }
 .veil-table-list { padding: 24px 20px; background: var(--bg); border-left: 1px solid #f4dfc426; }

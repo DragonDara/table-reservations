@@ -96,7 +96,7 @@ export function initVeilFloorPlan(): void {
     const fitWidth = Math.min(viewport.clientWidth - 32, (viewport.clientHeight - 32) * activeArea.width / activeArea.height);
     const width = Math.max(activeArea.minMapWidth, fitWidth) * zoom;
     map.style.width = `${width}px`;
-    map.style.setProperty('--veil-plan-number-size', `${Math.max(12, Math.min(20, width * .022))}px`);
+    map.style.setProperty('--veil-plan-number-size', `${Math.max(13, Math.min(20, width * .022))}px`);
     map.style.setProperty('--veil-plan-annotation-size', `${Math.max(11, Math.min(16, width * .018))}px`);
     map.style.setProperty('--veil-plan-caption-size', `${Math.max(10, Math.min(14, width * .017))}px`);
     map.style.setProperty('--veil-plan-caption-width', `${Math.max(104, Math.min(220, width * .28))}px`);

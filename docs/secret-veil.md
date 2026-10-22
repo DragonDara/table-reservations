@@ -48,6 +48,9 @@ tabletop and upholstery dimensions fixed. Table centers spread across the new
 floor area; perimeter facilities stay anchored to their respective walls. The
 picker provides a larger viewport and minimum hall width so the extra aisle
 space remains visible on desktop and mobile.
+The visible tabletops are slightly enlarged within that extra floor space.
+Every hall table has a minimum 44 by 44 CSS-pixel selection target, with clear
+gaps between neighboring targets. Number labels retain a 13-pixel minimum.
 The architectural palette matches the retained VIP illustration. Table numbers
 sit on the drawing; amber highlights appear on hover or selection. Selection
 targets retain clear gaps at the fitted scale, including on narrow screens.
