@@ -27,11 +27,16 @@ does not start a paid scraping job or require an Apify token.
 
 ## Current indoor floor plan
 
-The latest handwritten seating chart supersedes the older hall illustration
-and SVG numbering. It shows hall tables 1-25, two VIP rooms, a bar, a hookah
-area, restrooms (М/Ж), and the entrance. The chart is rotated clockwise in the
-picker to preserve the venue's clarified orientation: entrance at the lower
-left, bar and hookah area on the right, and restrooms at the upper left.
+The annotated seating chart supersedes the older hall illustration and SVG
+numbering. Hall tables 12-23 are small and round; tables 1-11 and 24-25 are
+larger and rectangular. Map markers, the shape legend, selection details, and
+accessible labels distinguish these types without assigning seat capacities.
+
+The entrance vestibule is at the lower left. The shaded room at the upper
+right is the staircase to the VIP rooms on the second floor, not two VIP rooms
+in the main hall. Both spaces use hatching on the map. The bar and hookah area
+are on the right; restrooms (М/Ж) are at the upper left. This orientation matches
+the latest annotation and the clockwise rotation of the earlier seating chart.
 
 The hall is rendered as a schematic from the same coordinates as its table
 markers. Landmarks are labels, not selectable inventory. Box sizes represent

@@ -15,7 +15,9 @@ in the ignored `context/venue/` directory. Its markers retain the original SVG
 table IDs 28 and 29. Capacities and bookable VIP room boundaries remain unknown.
 
 The active hall uses a code-rendered diagram of the latest handwritten seating
-chart: tables 1-25, VIP room locations, bar, hookah area, restrooms, and entrance.
-The source photograph is not published. The chart is rotated clockwise so the
-entrance stays at the lower left. Old hall, balcony, and terrace PNGs are no
-longer shipped; outdoor areas are omitted while out of season.
+chart: small round tables 12-23, larger rectangular tables 1-11 and 24-25, bar,
+hookah area, and restrooms. The shaded entrance vestibule is at the lower left;
+the shaded upper-right room is the staircase to the VIP rooms on the second
+floor. VIP interiors remain in their separate tab. Source photographs are not
+published. Old hall, balcony, and terrace PNGs are no longer shipped; outdoor
+areas are omitted while out of season.
