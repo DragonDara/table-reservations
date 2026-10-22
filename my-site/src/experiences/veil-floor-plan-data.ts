@@ -3,6 +3,7 @@ export interface VeilTable {
   id: string;
   number: number;
   capacity: number | null;
+  shape?: 'round' | 'rectangular';
   x: number;
   y: number;
   width?: number;
@@ -11,7 +12,7 @@ export interface VeilTable {
 
 export interface VeilLandmark {
   label: string;
-  kind: 'facility' | 'vip' | 'entrance';
+  kind: 'facility' | 'stairs' | 'entrance';
   x: number;
   y: number;
   width: number;
@@ -82,18 +83,24 @@ const hallPositions: [number, number, number, number, number][] = [
 export const veilAreas: VeilArea[] = [
   {
     id: 'hall', label: 'Зал', width: 1040, height: 1400, minMapWidth: 330,
-    description: 'Вход — внизу слева. Бар и кальян — справа, М/Ж — вверху слева.',
-    tables: hallPositions.map(([number, x, y, width, height]) => ({
-      id: `hall-${number}`, number, capacity: null,
-      ...rotatedBox(x, y, width, height),
-    })),
+    description: 'Вход — внизу слева. Лестница к VIP на 2-й этаж — вверху справа.',
+    tables: hallPositions.map(([number, x, y, width, height]) => {
+      const round = number >= 12 && number <= 23;
+      return {
+        id: `hall-${number}`, number, capacity: null,
+        ...rotatedBox(x, y, width, height),
+        shape: round ? 'round' : 'rectangular',
+        // Equal rendered width/height for the small round tables. These are
+        // diagram units only, not physical dimensions or inferred seat counts.
+        ...(round ? { width: 100 * 72 / 1040, height: 100 * 72 / 1400 } : {}),
+      };
+    }),
     landmarks: [
-      { label: 'VIP 1', kind: 'vip', ...rotatedBox(60, 50, 150, 150) },
-      { label: 'VIP 2', kind: 'vip', ...rotatedBox(210, 50, 110, 150) },
-      { label: 'Бар', kind: 'facility', ...rotatedBox(410, 50, 420, 150) },
-      { label: 'Кальян', kind: 'facility', ...rotatedBox(830, 50, 290, 150) },
+      { label: 'Лестница к VIP · 2‑й этаж', kind: 'stairs', x: 88, y: 11, width: 18, height: 16 },
+      { label: 'Бар', kind: 'facility', x: 88, y: 36, width: 18, height: 21 },
+      { label: 'Кальян', kind: 'facility', x: 88, y: 58, width: 18, height: 23 },
       { label: 'М/Ж', kind: 'facility', ...rotatedBox(65, 890, 220, 100) },
-      { label: 'Вход →', kind: 'entrance', x: 10, y: 89, width: 18, height: 7 },
+      { label: 'Вход', kind: 'entrance', x: 12.5, y: 89.3, width: 19.2, height: 17.1 },
     ],
   },
   area('vip', 'VIP', 1900, 920, 440, [

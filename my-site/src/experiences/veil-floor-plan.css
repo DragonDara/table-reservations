@@ -40,14 +40,22 @@
 .veil-room-door { fill: none; stroke: #f0a03c88; stroke-width: 1; stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; }
 .veil-table-footprint { fill: #f4dfc408; stroke: #f4dfc440; stroke-width: 1; vector-effect: non-scaling-stroke; }
 .veil-map-landmark { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; border: 1px solid #f4dfc433; border-radius: 6px; background: #f4dfc40a; color: var(--muted); font-size: 11px; text-align: center; pointer-events: none; }
-.veil-landmark-vip { color: var(--veil-sand); border-color: #f4dfc455; }
-.veil-landmark-entrance { color: var(--accent); border: 0; background: transparent; font-size: 12px; font-weight: 500; }
+.veil-landmark-stairs, .veil-landmark-entrance { background: repeating-linear-gradient(-45deg, #f4dfc40d 0 2px, transparent 2px 9px), #16120e; padding: 4px; line-height: 1.5; }
+.veil-landmark-stairs { color: var(--veil-sand); border-color: #f4dfc455; }
+.veil-landmark-entrance { color: var(--accent); font-size: 12px; font-weight: 500; }
 .veil-map-table { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--veil-sand); border-radius: 8px; color: var(--veil-sand); background: #211b16; box-shadow: 0 2px 8px #0005; font-size: 12px; font-weight: 500; cursor: pointer; }
+.veil-map-table[data-shape='round'] { width: max(32px, var(--veil-table-width)); height: max(32px, var(--veil-table-height)); border-radius: 50%; }
+.veil-map-table[data-shape='rectangular'] { width: max(44px, var(--veil-table-width)); height: max(44px, var(--veil-table-height)); border-radius: 6px; }
 .veil-map-table[aria-pressed='true'] { background: var(--accent); color: var(--bg); border-color: var(--accent); box-shadow: 0 0 0 4px #f0a03c33; z-index: 2; }
 .veil-map-hint { margin-top: 10px; color: var(--muted); font-size: 11px; text-align: center; }
 .veil-table-list { padding: 24px 20px; background: var(--bg); border-left: 1px solid #f4dfc426; }
 .veil-table-list h3 { margin-bottom: 16px; font-size: 14px; font-weight: 500; }
 .veil-table-list h3 span { color: var(--muted); font-weight: 400; }
+.veil-table-shapes { display: flex; flex-wrap: wrap; gap: 8px 12px; margin-bottom: 16px; color: var(--muted); font-size: 11px; }
+.veil-table-shapes span { display: inline-flex; align-items: center; gap: 5px; }
+.veil-table-shapes i { display: inline-block; width: 12px; height: 12px; border: 1px solid var(--veil-sand); }
+.veil-shape-round { border-radius: 50%; }
+.veil-table-shapes .veil-shape-large { width: 16px; border-radius: 2px; }
 .veil-table-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .veil-table-grid button { min-height: 44px; border: 1px solid #f4dfc433; border-radius: 8px; color: var(--text); background: #f4dfc405; font-size: 14px; cursor: pointer; }
 .veil-table-grid button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--bg); }

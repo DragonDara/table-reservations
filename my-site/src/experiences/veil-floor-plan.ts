@@ -4,6 +4,14 @@ import './veil-floor-plan.css';
 
 interface Selection { area: VeilArea; table: VeilTable }
 
+function tableKind(table: VeilTable): string {
+  return table.shape === 'round' ? 'Малый круглый' : table.shape === 'rectangular' ? 'Большой' : '';
+}
+
+function tableLabel(area: VeilArea, table: VeilTable): string {
+  return `${area.label}, ${tableKind(table).toLowerCase()} столик №${table.number}`.replace('  ', ' ');
+}
+
 /** Local table selection while inventory and booking rules await confirmation. */
 export function initVeilFloorPlan(): void {
   const opener = document.querySelector<HTMLButtonElement>('#openTablePicker');
@@ -50,6 +58,10 @@ export function initVeilFloorPlan(): void {
         </div>
         <aside class="veil-table-list">
           <h3>Столики <span data-area-label>в зале</span></h3>
+          <div class="veil-table-shapes" hidden>
+            <span><i class="veil-shape-round" aria-hidden="true"></i>Малый круглый</span>
+            <span><i class="veil-shape-large" aria-hidden="true"></i>Большой</span>
+          </div>
           <div class="veil-table-grid" role="group" aria-label="Выбор столика по номеру"></div>
           <p class="veil-capacity-note">Вместимость столиков уточняется</p>
           <p class="veil-image-error" hidden>Схема не загрузилась. Выберите столик по номеру.</p>
@@ -96,7 +108,9 @@ export function initVeilFloorPlan(): void {
       button.setAttribute('aria-pressed', String(button.dataset.table === draft?.table.id));
     });
     dialog.querySelector('[data-selection-title]')!.textContent = draft ? `Столик №${draft.table.number}` : 'Столик пока не выбран';
-    dialog.querySelector('[data-selection-detail]')!.textContent = draft ? `${draft.area.label} · Вместимость уточняется` : 'Выберите зону и удобное место';
+    dialog.querySelector('[data-selection-detail]')!.textContent = draft
+      ? [draft.area.label, tableKind(draft.table), 'Вместимость уточняется'].filter(Boolean).join(' · ')
+      : 'Выберите зону и удобное место';
     confirm.disabled = !draft;
   }
 
@@ -116,6 +130,7 @@ export function initVeilFloorPlan(): void {
     dialog.querySelector('#veilAreaPanel')!.setAttribute('aria-labelledby', `veil-tab-${area.id}`);
     dialog.querySelector('[data-area-label]')!.textContent = `· ${area.label}`;
     dialog.querySelector('.veil-map-hint')!.textContent = area.description;
+    dialog.querySelector<HTMLElement>('.veil-table-shapes')!.hidden = !area.tables.some((table) => table.shape);
     dialog.querySelector<HTMLElement>('.veil-image-error')!.hidden = true;
     tabs.forEach((tab) => {
       const selected = tab.dataset.area === area.id;
@@ -129,15 +144,15 @@ export function initVeilFloorPlan(): void {
         <span class="veil-map-landmark veil-landmark-${landmark.kind}"
           style="left:${landmark.x}%;top:${landmark.y}%;width:${landmark.width}%;height:${landmark.height}%">${landmark.label}</span>`).join('')}
       ${area.tables.map((table) => `
-        <button type="button" class="veil-map-table" data-table="${table.id}"
-          style="left:${table.x}%;top:${table.y}%" aria-pressed="false"
-          aria-label="${area.label}, столик №${table.number}">${table.number}</button>`).join('')}`;
+        <button type="button" class="veil-map-table" data-table="${table.id}" data-shape="${table.shape ?? ''}"
+          style="left:${table.x}%;top:${table.y}%;--veil-table-width:${table.width ?? 0}%;--veil-table-height:${table.height ?? 0}%" aria-pressed="false"
+          aria-label="${tableLabel(area, table)}">${table.number}</button>`).join('')}`;
     map.querySelector('img')?.addEventListener('error', () => {
       dialog.querySelector<HTMLElement>('.veil-image-error')!.hidden = false;
     });
     grid.innerHTML = area.tables.map((table) => `
       <button type="button" data-table="${table.id}" aria-pressed="false"
-        aria-label="${area.label}, столик №${table.number}">${table.number}</button>`).join('');
+        aria-label="${tableLabel(area, table)}">${table.number}</button>`).join('');
     resizeMap();
     viewport.scrollTo(0, 0);
     updateSelection();
