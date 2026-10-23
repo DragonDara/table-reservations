@@ -17,7 +17,7 @@ namespace table_reservations.Tests;
 public class SecretVeilStorageTests
 {
     private static string Schema => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "secret-veil.sql"));
-    private static string HallInventory => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "secret-veil-tables.sql"));
+    private static string Inventory => File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Fixtures", "secret-veil-tables.sql"));
     private static OrganizationOptions Veil(bool enabled = true) => new()
     {
         Id = "secret-veil", BookingEnabled = enabled,
@@ -53,15 +53,18 @@ public class SecretVeilStorageTests
     }
 
     [Fact]
-    public async Task HallInventoryUsesConfirmedCapacitiesWithoutAddingUnconfirmedAreas()
+    public async Task InventoryUsesConfirmedHallAndVipCapacitiesWithoutAddingOutdoorAreas()
     {
         using var db = new Database();
         await db.ExecuteAsync(Schema);
-        await db.ExecuteAsync(HallInventory);
+        await db.ExecuteAsync(Inventory);
         var tables = await Repository(db, true).GetTablesAsync(Start);
-        Assert.Equal(Enumerable.Range(1, 25), tables.Select(table => table.Id));
-        Assert.All(tables, table => Assert.Equal(table.Id is >= 12 and <= 23 ? 4 : 6, table.Seats));
-        Assert.All(tables, table => Assert.Equal(TableType.Обычный, table.Type));
+        Assert.Equal(Enumerable.Range(1, 25).Concat([28, 29]), tables.Select(table => table.Id));
+        Assert.All(tables.Where(table => table.Id <= 25), table => Assert.Equal(table.Id is >= 12 and <= 23 ? 4 : 6, table.Seats));
+        Assert.All(tables.Where(table => table.Id <= 25), table => Assert.Equal(TableType.Обычный, table.Type));
+        Assert.All(tables.Where(table => table.Id >= 28), table => Assert.Equal(TableType.VIP, table.Type));
+        Assert.Equal(6, Assert.Single(tables, table => table.Id == 28).Seats);
+        Assert.Equal(8, Assert.Single(tables, table => table.Id == 29).Seats);
         Assert.Equal(2, (await db.QueryAsync("SELECT id FROM tables")).Rows.Count);
     }
 
@@ -70,14 +73,14 @@ public class SecretVeilStorageTests
     {
         using var db = new Database();
         await db.ExecuteAsync(Schema);
-        await db.ExecuteAsync(HallInventory);
+        await db.ExecuteAsync(Inventory);
         var booking = await Repository(db, true).BookAsync(Request("2"), Start);
         await db.ExecuteAsync("UPDATE secret_veil_tables SET status='unavailable',capacity=8 WHERE id=1");
-        await db.ExecuteAsync(HallInventory);
+        await db.ExecuteAsync(Inventory);
         var preserved = Assert.Single((await db.QueryAsync("SELECT capacity,status FROM secret_veil_tables WHERE id=1")).Rows);
         Assert.Equal(8, preserved.GetInt32("capacity"));
         Assert.Equal("unavailable", preserved.GetString("status"));
-        Assert.Equal(25, (await db.QueryAsync("SELECT id FROM secret_veil_tables")).Rows.Count);
+        Assert.Equal(27, (await db.QueryAsync("SELECT id FROM secret_veil_tables")).Rows.Count);
         Assert.Single((await db.QueryAsync("SELECT id FROM secret_veil_table_reservations WHERE id=? AND status='confirmed'", [booking.Id])).Rows);
     }
 

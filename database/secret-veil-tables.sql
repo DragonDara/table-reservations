@@ -1,7 +1,8 @@
 -- Run after secret-veil.sql in the same shared Turso database.
--- Confirmed maximum guest counts for the main hall only.
+-- Confirmed maximum guest counts for the main hall and VIP rooms.
 -- Re-running adds missing tables without changing existing inventory or bookings.
-BEGIN IMMEDIATE;
+-- In the Turso SQL Console, select all INSERT statements and run together;
+-- the console wraps the selected statements in a transaction automatically.
 
 -- Small round tables: up to 4 guests.
 INSERT INTO secret_veil_tables (id, type, capacity) VALUES
@@ -36,6 +37,10 @@ INSERT INTO secret_veil_tables (id, type, capacity) VALUES
     (25, 'Обычный', 6)
 ON CONFLICT(id) DO NOTHING;
 
--- VIP 28/29 await confirmed capacities and whole-room booking rules.
+-- VIP rooms: smaller room 28 seats up to 6; larger room 29 seats up to 8.
+INSERT INTO secret_veil_tables (id, type, capacity) VALUES
+    (28, 'VIP', 6),
+    (29, 'VIP', 8)
+ON CONFLICT(id) DO NOTHING;
+
 -- Balcony and terrace are out of season and are not inserted.
-COMMIT;
