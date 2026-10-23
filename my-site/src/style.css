@@ -1229,6 +1229,31 @@ body {
     margin-bottom: 24px;
 }
 
+#successModalOverlay .success-modal {
+    max-height: calc(100dvh - 32px);
+    overflow-y: auto;
+}
+
+.reservation-confirmation:not([hidden]) {
+    display: grid;
+    gap: 12px;
+    margin: 0 0 24px;
+    padding-top: 16px;
+    border-top: 1px solid var(--whiteborder);
+    font-size: 13px;
+    line-height: 1.5;
+    text-align: left;
+}
+
+.reservation-confirmation > div {
+    display: grid;
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 12px;
+}
+
+.reservation-confirmation dt { color: var(--muted); }
+.reservation-confirmation dd { margin: 0; color: var(--text); font-weight: 600; overflow-wrap: anywhere; }
+
 .overwrite-modal-actions {
     display: flex;
     gap: 10px;
