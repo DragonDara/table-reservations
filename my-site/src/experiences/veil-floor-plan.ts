@@ -113,7 +113,7 @@ export function initVeilFloorPlan(): void {
     });
     dialog.querySelector('[data-selection-title]')!.textContent = draft ? `Столик №${draft.table.number}` : 'Столик пока не выбран';
     dialog.querySelector('[data-selection-detail]')!.textContent = draft
-      ? [draft.area.label, tableKind(draft.table), 'Вместимость уточняется'].filter(Boolean).join(' · ')
+      ? [draft.area.label, tableKind(draft.table), draft.table.capacity === null ? 'Вместимость уточняется' : `До ${draft.table.capacity} гостей`].filter(Boolean).join(' · ')
       : 'Выберите зону и удобное место';
     confirm.disabled = !draft;
   }
@@ -135,6 +135,8 @@ export function initVeilFloorPlan(): void {
     dialog.querySelector('#veilAreaPanel')!.setAttribute('aria-labelledby', `veil-tab-${area.id}`);
     dialog.querySelector('[data-area-label]')!.textContent = `· ${area.label}`;
     dialog.querySelector('.veil-map-hint')!.textContent = area.description;
+    dialog.querySelector('.veil-capacity-note')!.textContent = area.tables.some((table) => table.capacity === null)
+      ? 'Вместимость столиков уточняется' : 'Указана максимальная вместимость столиков';
     dialog.querySelector<HTMLElement>('.veil-table-shapes')!.hidden = !area.tables.some((table) => table.shape);
     dialog.querySelector<HTMLElement>('.veil-image-error')!.hidden = true;
     tabs.forEach((tab) => {

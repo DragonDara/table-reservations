@@ -62,11 +62,17 @@ positive `capacity`, `status` (`available` or `unavailable`), `created_at`, and
 in the current database. Reminder preference defaults to off for Veil; this
 script does not enable notifications.
 
-Inventory starts empty. Do not insert placeholder capacities. Fill confirmed
-tables only after the venue provides capacities. The local floor-plan preview
-still has 25 hall tables and provisional VIP entries 28/29; whether each VIP
-room is booked as a whole still needs confirmation. Balcony and terrace remain
-out of season. Room/shape coordinates remain in the frontend floor-plan data.
+The schema script leaves inventory empty. Then run
+[`database/secret-veil-tables.sql`](../database/secret-veil-tables.sql) to insert
+the 25 confirmed hall tables: small round tables 12–23 accommodate up to 4
+guests; larger rectangular tables 1–11 and 24–25 accommodate up to 6. Both use
+the existing `Обычный` table type. Inserts use the default `available` status;
+repeating the script adds missing rows without overwriting existing inventory
+or reservations. These are maximum guest counts, not required party sizes.
+
+VIP entries 28/29 remain preview-only until their capacities and whole-room
+booking rules are confirmed. Balcony and terrace remain out of season.
+Room/shape coordinates remain in the frontend floor-plan data.
 
 The shared `telegram_groups` and `notification_deliveries` tables already scope
 their records by `organization_id` and do not need copies for Veil. The shared
@@ -84,8 +90,7 @@ do not require their tables to exist yet. Normal startup does not create them,
 and the existing `--migrate` command still handles the legacy shared schema.
 No new database URL or token is needed. Keep the existing credentials private.
 
-After executing the script, this inventory query should return no rows until
-confirmed tables are inserted:
+After executing both scripts, this query should return 25 hall tables:
 
 ```sql
 SELECT id, type, capacity, status, created_at, updated_at
@@ -102,7 +107,8 @@ are complete. The page continues using its local floor-plan preview meanwhile.
 The annotated seating chart supersedes the older hall illustration and SVG
 numbering. Hall tables 12-23 are small and round; tables 1-11 and 24-25 are
 larger and rectangular. Map markers, the shape legend, selection details, and
-accessible labels distinguish these types without assigning seat capacities.
+accessible labels distinguish these types. The selection details show the
+confirmed maximum of 4 guests for small round tables and 6 for larger tables.
 
 The entrance vestibule is at the lower left. The shaded room at the upper
 right is the staircase to the VIP rooms on the second floor, not two VIP rooms
@@ -147,9 +153,9 @@ VIP plans, a table-number grid, zoom controls, and local
 selection confirmation. The BRON header and shared page sections remain intact.
 
 The preview currently has 27 selectable entries: 25 hall tables and 2 VIP
-entries. These are provisional UI entries,
-not confirmed bookable inventory. All capacities are null and availability is
-unknown; no table/slot/reservation API is called by the preview. Selection is
+entries. Hall capacities are confirmed at 4 or 6 guests; VIP capacities remain
+null. Availability is unknown; no table/slot/reservation API is called by the
+preview. Selection is
 kept only in the current page, and does not create a reservation. Its internal
 IDs include the area (for example `hall-1` and `vip-28`); these still need
 mapping to isolated Turso inventory before bookings can be enabled.
@@ -157,5 +163,5 @@ mapping to isolated Turso inventory before bookings can be enabled.
 The retained VIP drawing is in `my-site/public/tenants/secret-veil/floor-plans/`.
 Marker positions, landmark labels, and provisional table metadata are in
 `my-site/src/experiences/veil-floor-plan-data.ts`; the hall artwork is generated
-by `veil-floor-plan-diagram.ts`. Confirm capacities and VIP booking rules before
+by `veil-floor-plan-diagram.ts`. Confirm VIP capacities and booking rules before
 connecting real bookings.

@@ -102,7 +102,7 @@ export const veilAreas: VeilArea[] = [
     tables: hallPositions.map(([number, x, y, width, height]) => {
       const round = number >= 12 && number <= 23;
       return {
-        id: `hall-${number}`, number, capacity: null,
+        id: `hall-${number}`, number, capacity: round ? 4 : 6,
         ...hallBox(x, y, width * (round ? 1.28 : 1.14), height * (round ? 1.28 : 1.14)),
         shape: round ? 'round' : 'rectangular',
       };
