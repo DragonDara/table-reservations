@@ -351,11 +351,12 @@
 </div>
 
 
-<div class="modal-overlay" id="successModalOverlay" hidden>
+<div class="modal-overlay" id="successModalOverlay" role="dialog" aria-modal="true" aria-labelledby="successModalTitle" hidden>
   <div class="success-modal">
     <div class="success-modal-icon">✓</div>
-    <h3 class="success-modal-title">Бронь подтверждена!</h3>
+    <h3 class="success-modal-title" id="successModalTitle">Бронь подтверждена!</h3>
     <p class="success-modal-text" id="successModalText"></p>
+    <dl class="reservation-confirmation" id="successReservationSummary" hidden></dl>
     <button type="button" class="btn btn-primary btn-block" id="successModalCloseBtn">Отлично</button>
   </div>
 </div>

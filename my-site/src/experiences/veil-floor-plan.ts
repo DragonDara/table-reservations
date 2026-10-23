@@ -1,4 +1,4 @@
-import { veilAreas, type VeilArea, type VeilTable } from './veil-floor-plan-data';
+import { veilAreas, veilMapSize, veilMapBox, type VeilArea, type VeilTable } from './veil-floor-plan-data';
 import { veilHallDiagram } from './veil-floor-plan-diagram';
 import './veil-floor-plan.css';
 import type { TableAvailability } from '../api';
@@ -141,16 +141,21 @@ export function initVeilFloorPlan(options: PickerOptions = {}): VeilFloorPlanCon
   }
 
   function resizeMap(): void {
-    const fitWidth = Math.min(viewport.clientWidth - 32, (viewport.clientHeight - 32) * activeArea.width / activeArea.height);
-    const width = Math.max(activeArea.minMapWidth, fitWidth) * zoom;
+    const size = veilMapSize(activeArea);
+    const fitWidth = Math.min(viewport.clientWidth - 32, (viewport.clientHeight - 32) * size.width / size.height);
+    // A smaller mobile overview reveals more of the room; hall tap targets
+    // keep their 44px CSS minimum and zoom still allows a closer look.
+    const minWidth = (window.matchMedia('(max-width: 760px)').matches ? 320 : activeArea.minMapWidth)
+      * size.width / activeArea.width;
+    const width = Math.max(minWidth, fitWidth) * zoom;
     map.style.width = `${width}px`;
     map.style.setProperty('--veil-plan-number-size', `${Math.max(13, Math.min(20, width * .022))}px`);
     map.style.setProperty('--veil-plan-annotation-size', `${Math.max(11, Math.min(16, width * .018))}px`);
     map.style.setProperty('--veil-plan-caption-size', `${Math.max(10, Math.min(14, width * .017))}px`);
     map.style.setProperty('--veil-plan-caption-width', `${Math.max(104, Math.min(220, width * .28))}px`);
-    map.style.aspectRatio = `${activeArea.width} / ${activeArea.height}`;
+    map.style.aspectRatio = `${size.width} / ${size.height}`;
     stage.style.minWidth = `${width + 32}px`;
-    stage.style.minHeight = `${width * activeArea.height / activeArea.width + 32}px`;
+    stage.style.minHeight = `${width * size.height / size.width + 32}px`;
     zoomOut.disabled = zoom <= 1;
     zoomIn.disabled = zoom >= 3;
   }
@@ -180,6 +185,7 @@ export function initVeilFloorPlan(options: PickerOptions = {}): VeilFloorPlanCon
   function renderArea(area: VeilArea): void {
     activeArea = area;
     map.dataset.rendering = area.image ? 'image' : 'diagram';
+    map.dataset.rotation = String(area.rotation ?? 0);
     zoom = 1;
     dialog.querySelector('#veilAreaPanel')!.setAttribute('aria-labelledby', `veil-tab-${area.id}`);
     dialog.querySelector('[data-area-label]')!.textContent = `· ${area.label}`;
@@ -196,13 +202,19 @@ export function initVeilFloorPlan(options: PickerOptions = {}): VeilFloorPlanCon
     map.innerHTML = `${area.image
       ? `<img src="${area.image}" width="${area.width}" height="${area.height}" alt="" draggable="false" />`
       : veilHallDiagram(area)}
-      ${(area.landmarks ?? []).map((landmark) => `
+      ${(area.landmarks ?? []).map((landmark) => {
+        const box = veilMapBox(area, landmark);
+        return `
         <span class="veil-map-landmark veil-landmark-${landmark.kind}"
-          style="left:${landmark.x}%;top:${landmark.y}%;width:${landmark.width}%;height:${landmark.height}%"><span>${landmark.label}</span></span>`).join('')}
-      ${area.tables.map((table) => `
+          style="left:${box.x}%;top:${box.y}%;width:${box.width}%;height:${box.height}%"><span>${landmark.label}</span></span>`;
+      }).join('')}
+      ${area.tables.map((table) => {
+        const box = veilMapBox(area, table);
+        return `
         <button type="button" class="veil-map-table" data-table="${table.id}" data-shape="${table.shape ?? ''}"
-          style="left:${table.x}%;top:${table.y}%;--veil-table-width:${table.width ?? 0}%;--veil-table-height:${table.height ?? 0}%" aria-pressed="false"
-          aria-label="${tableLabel(area, table)}">${table.number}</button>`).join('')}`;
+          style="left:${box.x}%;top:${box.y}%;--veil-table-width:${box.width ?? 0}%;--veil-table-height:${box.height ?? 0}%" aria-pressed="false"
+          aria-label="${tableLabel(area, table)}">${table.number}</button>`;
+      }).join('')}`;
     map.querySelector('img')?.addEventListener('error', () => {
       dialog.querySelector<HTMLElement>('.veil-image-error')!.hidden = false;
     });

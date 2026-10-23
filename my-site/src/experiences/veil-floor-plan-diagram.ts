@@ -1,4 +1,5 @@
 import type { VeilArea, VeilLandmark, VeilTable } from './veil-floor-plan-data';
+import { veilMapSize } from './veil-floor-plan-data';
 
 function upholsteredBench(x: number, y: number, width: number, height: number): string {
   const vertical = height > width;
@@ -99,8 +100,9 @@ function roomArtwork(room: VeilLandmark, area: VeilArea): string {
 
 /** Architectural drawing and hit targets share one source of table geometry. */
 export function veilHallDiagram(area: VeilArea): string {
-  return `<svg class="veil-hall-diagram" viewBox="0 0 ${area.width} ${area.height}"
-      width="${area.width}" height="${area.height}" aria-hidden="true">
+  const size = veilMapSize(area);
+  return `<svg class="veil-hall-diagram" viewBox="0 0 ${size.width} ${size.height}"
+      width="${size.width}" height="${size.height}" aria-hidden="true">
     <defs>
       <linearGradient id="veil-table-surface" x2=".8" y2="1">
         <stop stop-color="#4b453e" /><stop offset=".4" stop-color="#36322e" /><stop offset="1" stop-color="#282522" />
@@ -120,10 +122,12 @@ export function veilHallDiagram(area: VeilArea): string {
       </pattern>
       <filter id="veil-soft-shadow" x="-25%" y="-25%" width="160%" height="160%"><feGaussianBlur stdDeviation="3" /></filter>
     </defs>
+    <g${area.rotation === 90 ? ` transform="translate(${area.height} 0) rotate(90)"` : ''}>
     <rect class="veil-hall-floor" x="40" y="40" width="${area.width - 80}" height="${area.height - 80}" />
     <path class="veil-room-wall" d="M40 ${area.height - 40}V40H${area.width - 40}V${area.height - 40}H210M80 ${area.height - 40}H40" />
     <path class="veil-wall-reveal" d="M53 ${area.height - 54}V53H${area.width - 53}V${area.height - 53}H218" />
     ${(area.landmarks ?? []).map((room) => roomArtwork(room, area)).join('')}
     ${area.tables.map((table) => `<g class="veil-table-furniture" data-furniture="${table.id}">${tableFurniture(table, area)}</g>`).join('')}
+    </g>
   </svg>`;
 }

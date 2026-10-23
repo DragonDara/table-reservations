@@ -10,6 +10,7 @@ import {
 } from '../api';
 import type { PublicTenantConfig } from '../tenancy/types';
 import type { VeilFloorPlanController } from './veil-floor-plan';
+import { reservationConfirmation, renderReservationConfirmation } from './reservation-confirmation';
 import { reportError, showError } from '../ui/error-notification';
 import {
   formatKazakhstanPhone,
@@ -790,6 +791,12 @@ async function submitReservation(payload: ReservationPayload) {
 
     if (successModalOverlay && successModalText) {
       successModalText.textContent = successMessage;
+      const summary = document.getElementById('successReservationSummary');
+      if (summary) renderReservationConfirmation(summary, reservationConfirmation(
+        payload, restaurantConfig?.displayName ?? '',
+        typeof response.durationMinutes === 'number' ? response.durationMinutes : restaurantConfig?.reservationDurationMinutes ?? 180,
+        restaurantConfig?.locale ?? 'ru',
+      ));
       successModalOverlay.hidden = false;
     }
 
