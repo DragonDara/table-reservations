@@ -52,17 +52,29 @@ tables, configured by `Organizations.Items[2].RestaurantStorage.TablePrefix`:
 
 Run the complete [`database/secret-veil.sql`](../database/secret-veil.sql) script
 manually in the existing shared Turso database. It creates these three tables,
-foreign keys, lookup indexes, and 27 inactive inventory rows. It does not touch
-the existing restaurant or carwash tables. Repeating it preserves capacities,
-activation states, and reservations, and inserts only missing inventory rows.
-The separate VIP entries 28/29 remain provisional until the venue confirms
-whether each room is booked as a whole. Balcony and terrace are not seeded.
+foreign keys, and lookup indexes. It does not touch the existing restaurant or
+carwash tables. Repeating it preserves inventory and reservations. It creates
+missing tables only; it does not alter a namespace created with another schema.
 
-All capacities start as SQL `NULL`. The schema prevents activating a table until
-it has a positive integer capacity. Once capacities and the VIP rules are
-confirmed, fill the inventory and mark the confirmed entries `available`.
-Unknown entries remain `inactive` and are omitted by the booking repository.
-Reminder preference defaults to off; this script does not enable notifications.
+The inventory uses the inspected restaurant structure: `id`, `type`, mandatory
+positive `capacity`, `status` (`available` or `unavailable`), `created_at`, and
+`updated_at`. Reservation columns include the nullable `ends_at` field present
+in the current database. Reminder preference defaults to off for Veil; this
+script does not enable notifications.
+
+Inventory starts empty. Do not insert placeholder capacities. Fill confirmed
+tables only after the venue provides capacities. The local floor-plan preview
+still has 25 hall tables and provisional VIP entries 28/29; whether each VIP
+room is booked as a whole still needs confirmation. Balcony and terrace remain
+out of season. Room/shape coordinates remain in the frontend floor-plan data.
+
+The shared `telegram_groups` and `notification_deliveries` tables already scope
+their records by `organization_id` and do not need copies for Veil. The shared
+`restaurant_booking_operations` also has `organization_id`, but
+`restaurant_booking_rows.reservation_id` references the legacy
+`table_reservations`, so that link cannot store Veil's reservation IDs. Keep
+`Pos.Enabled` false: adding `ends_at` does not connect the new namespace to the
+iiko workflow. Its operation/row routing needs a separate integration change.
 
 The backend routes inventory, availability, reservation lists, inserts,
 replacement cancellations, and reminder receipts to this namespace. It does
@@ -72,10 +84,11 @@ do not require their tables to exist yet. Normal startup does not create them,
 and the existing `--migrate` command still handles the legacy shared schema.
 No new database URL or token is needed. Keep the existing credentials private.
 
-After executing the script, inspect the initial inventory:
+After executing the script, this inventory query should return no rows until
+confirmed tables are inserted:
 
 ```sql
-SELECT id, type, area, shape, capacity, status
+SELECT id, type, capacity, status, created_at, updated_at
 FROM secret_veil_tables
 ORDER BY id;
 ```
