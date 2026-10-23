@@ -40,6 +40,8 @@ namespace table_reservations.Services.Tenancy
 
             foreach (var org in items)
             {
+                if (org.ReservationDurationMinutes is <= 0 or > 1440)
+                    throw new InvalidOperationException($"Invalid reservation duration for organization '{org.Id}'. Use 1–1440 minutes.");
                 if (org.RestaurantStorage is { } storage
                     && (org.BusinessType != Models.Tenancy.BusinessType.Restaurant
                         || !RestaurantStorageOptions.IsValidPrefix(storage.TablePrefix)))
@@ -60,6 +62,8 @@ namespace table_reservations.Services.Tenancy
                 try
                 {
                     _ = BookingTimeSchedule.GetAvailableSlots(org.BookingTime);
+                    foreach (var hours in org.OpeningHours)
+                        _ = BookingTimeSchedule.GetAvailableSlots(BookingRules.HoursForDay(org, hours.Day)!);
                 }
                 catch (InvalidOperationException ex)
                 {

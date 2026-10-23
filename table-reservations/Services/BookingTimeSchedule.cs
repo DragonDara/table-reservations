@@ -17,7 +17,8 @@ public static class BookingTimeSchedule
         var (startMinutes, deadlineMinutes, slotDuration) = Parse(options);
         var slots = new List<string>();
 
-        for (var minute = startMinutes; minute < deadlineMinutes; minute += slotDuration)
+        for (var minute = startMinutes; minute < deadlineMinutes
+            || (options.ReservationDeadlineInclusive && minute == deadlineMinutes); minute += slotDuration)
         {
             slots.Add(FormatMinutes(minute % MinutesPerDay));
         }

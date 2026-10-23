@@ -50,7 +50,7 @@ namespace table_reservations.Services
 
         private async Task ProcessAllOrganizationsAsync(CancellationToken ct)
         {
-            foreach (var organization in _registry.All.Where(organization => organization.BookingEnabled))
+            foreach (var organization in _registry.All.Where(organization => organization.BookingEnabled && organization.NotificationsEnabled))
             {
                 try
                 {

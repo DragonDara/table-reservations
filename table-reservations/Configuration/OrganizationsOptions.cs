@@ -46,6 +46,11 @@ namespace table_reservations.Configuration
         /// <summary>False for venues whose booking setup is not ready.</summary>
         public bool BookingEnabled { get; set; } = true;
 
+        public bool NotificationsEnabled { get; set; } = true;
+
+        /// <summary>Restaurant visit length; existing venues retain their three-hour default.</summary>
+        public int ReservationDurationMinutes { get; set; } = 180;
+
         /// <summary>Organization-specific booking window and slot interval.</summary>
         public BookingTimeOptions BookingTime { get; set; } = new();
 
@@ -109,6 +114,9 @@ namespace table_reservations.Configuration
         /// The cutoff must fall within the configured start/end window.
         /// </summary>
         public string? ReservationDeadline { get; set; }
+
+        /// <summary>Include a slot exactly at ReservationDeadline when true.</summary>
+        public bool ReservationDeadlineInclusive { get; set; }
 
         /// <summary>Number of minutes between available booking slots.</summary>
         public int SlotDurationMinutes { get; set; } = 60;

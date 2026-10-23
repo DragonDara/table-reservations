@@ -13,6 +13,7 @@ namespace table_reservations.Models.Tenancy
     {
         public string OrganizationId { get; init; } = string.Empty;
         public bool BookingEnabled { get; init; } = true;
+        public int ReservationDurationMinutes { get; init; } = 180;
         public BusinessType BusinessType { get; init; }
         public string Locale { get; init; } = "ru";
         public string DisplayName { get; init; } = string.Empty;
@@ -42,6 +43,7 @@ namespace table_reservations.Models.Tenancy
             {
                 OrganizationId = org.Id,
                 BookingEnabled = org.BookingEnabled,
+                ReservationDurationMinutes = org.ReservationDurationMinutes,
                 BusinessType = org.BusinessType,
                 Locale = string.IsNullOrWhiteSpace(f.Locale) ? "ru" : f.Locale,
                 DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? org.DisplayName : f.DisplayName,
@@ -54,7 +56,12 @@ namespace table_reservations.Models.Tenancy
                     StartTime = org.BookingEnabled ? org.BookingTime.StartTime : string.Empty,
                     EndTime = org.BookingEnabled ? org.BookingTime.EndTime : string.Empty,
                     SlotDurationMinutes = org.BookingTime.SlotDurationMinutes,
-                    AvailableTimeSlots = org.BookingEnabled ? BookingTimeSchedule.GetAvailableSlots(org.BookingTime).ToArray() : Array.Empty<string>()
+                    AvailableTimeSlots = org.BookingEnabled
+                        ? (org.OpeningHours.Count == 0 ? BookingTimeSchedule.GetAvailableSlots(org.BookingTime)
+                            : org.OpeningHours.SelectMany(hours => BookingTimeSchedule.GetAvailableSlots(
+                                BookingRules.HoursForDay(org, hours.Day)!)))
+                            .Distinct().ToArray()
+                        : Array.Empty<string>()
                 },
                 OpeningHours = org.OpeningHours.Select(hours => new PublicOpeningHoursDto
                 {
