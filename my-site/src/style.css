@@ -482,6 +482,18 @@ body {
     font-weight: 700;
 }
 
+.reservation-hours.weekly-opening-hours {
+    display: grid;
+    gap: 8px;
+    width: min(100%, 320px);
+}
+
+.opening-hours-row {
+    display: flex;
+    justify-content: space-between;
+    gap: 24px;
+}
+
 .reservation-form {
     width: 100%;
     max-width: none;

@@ -1,3 +1,4 @@
+using System.Globalization;
 using table_reservations.Configuration;
 using table_reservations.Services;
 
@@ -6,17 +7,20 @@ namespace table_reservations.Models.Tenancy
     /// <summary>
     /// Strictly allow-listed, browser-safe public configuration for the resolved
     /// tenant. Returned by <c>GET /api/tenant/public-config</c>. This DTO must never
-    /// carry backend secrets such as spreadsheet ids, credentials, or sheet schema.
+    /// carry backend secrets such as authentication tokens or credentials.
     /// </summary>
     public sealed class PublicTenantConfigResponse
     {
         public string OrganizationId { get; init; } = string.Empty;
+        public bool BookingEnabled { get; init; } = true;
+        public int ReservationDurationMinutes { get; init; } = 180;
         public BusinessType BusinessType { get; init; }
         public string Locale { get; init; } = "ru";
         public string DisplayName { get; init; } = string.Empty;
         public string DocumentTitle { get; init; } = string.Empty;
         public string LayoutVariant { get; init; } = string.Empty;
         public PublicBookingTimeDto BookingTime { get; init; } = new();
+        public PublicOpeningHoursDto[] OpeningHours { get; init; } = Array.Empty<PublicOpeningHoursDto>();
 
         public PublicThemeDto Theme { get; init; } = new();
         public PublicAssetsDto Assets { get; init; } = new();
@@ -38,6 +42,8 @@ namespace table_reservations.Models.Tenancy
             return new PublicTenantConfigResponse
             {
                 OrganizationId = org.Id,
+                BookingEnabled = org.BookingEnabled,
+                ReservationDurationMinutes = org.ReservationDurationMinutes,
                 BusinessType = org.BusinessType,
                 Locale = string.IsNullOrWhiteSpace(f.Locale) ? "ru" : f.Locale,
                 DisplayName = string.IsNullOrWhiteSpace(f.DisplayName) ? org.DisplayName : f.DisplayName,
@@ -47,11 +53,24 @@ namespace table_reservations.Models.Tenancy
                     : f.LayoutVariant,
                 BookingTime = new PublicBookingTimeDto
                 {
-                    StartTime = org.BookingTime.StartTime,
-                    EndTime = org.BookingTime.EndTime,
+                    StartTime = org.BookingEnabled ? org.BookingTime.StartTime : string.Empty,
+                    EndTime = org.BookingEnabled ? org.BookingTime.EndTime : string.Empty,
                     SlotDurationMinutes = org.BookingTime.SlotDurationMinutes,
-                    AvailableTimeSlots = BookingTimeSchedule.GetAvailableSlots(org.BookingTime).ToArray()
+                    AvailableTimeSlots = org.BookingEnabled
+                        ? (org.OpeningHours.Count == 0 ? BookingTimeSchedule.GetAvailableSlots(org.BookingTime)
+                            : org.OpeningHours.SelectMany(hours => BookingTimeSchedule.GetAvailableSlots(
+                                BookingRules.HoursForDay(org, hours.Day)!)))
+                            .Distinct().ToArray()
+                        : Array.Empty<string>()
                 },
+                OpeningHours = org.OpeningHours.Select(hours => new PublicOpeningHoursDto
+                {
+                    Day = (int)hours.Day,
+                    OpenTime = hours.OpenTime,
+                    CloseTime = hours.CloseTime,
+                    ClosesNextDay = TimeOnly.ParseExact(hours.CloseTime, "HH:mm", CultureInfo.InvariantCulture)
+                        <= TimeOnly.ParseExact(hours.OpenTime, "HH:mm", CultureInfo.InvariantCulture)
+                }).ToArray(),
                 Theme = new PublicThemeDto
                 {
                     Background = f.Theme.Background,
@@ -106,6 +125,15 @@ namespace table_reservations.Models.Tenancy
                     : new Dictionary<string, string>(f.BusinessUi)
             };
         }
+    }
+
+    public sealed class PublicOpeningHoursDto
+    {
+        /// <summary>Day the venue opens: Sunday = 0 through Saturday = 6.</summary>
+        public int Day { get; init; }
+        public string OpenTime { get; init; } = string.Empty;
+        public string CloseTime { get; init; } = string.Empty;
+        public bool ClosesNextDay { get; init; }
     }
 
     public sealed class PublicBookingTimeDto

@@ -11,7 +11,7 @@ using table_reservations.Services.Tenancy;
 
 namespace table_reservations.Services;
 
-/// <summary>The existing database separates tenants by business table, not organization_id.</summary>
+/// <summary>Each restaurant uses its configured table namespace; the carwash keeps its own catalog.</summary>
 public sealed class TursoReservationRepository(
     ITursoClient db, TenantContext tenant, IOptions<TursoOptions> options) : IReservationRepository
 {
@@ -19,12 +19,18 @@ public sealed class TursoReservationRepository(
     private const string Active = "'pending','confirmed','in_progress'";
     private bool IsCarWash => tenant.BusinessType == BusinessType.CarWash;
     private BookingTimeOptions Hours => tenant.Organization!.BookingTime;
+    private int RestaurantMinutes => tenant.Organization!.ReservationDurationMinutes;
+    private bool StoresRestaurantEnd => tenant.Organization!.RestaurantStorage is not null;
+    private string RestaurantEnd => StoresRestaurantEnd
+        ? $"COALESCE(ends_at,datetime(reserved_at,'+{RestaurantMinutes} minutes'))"
+        : $"datetime(reserved_at,'+{RestaurantMinutes} minutes')";
+    private RestaurantStorageTables RestaurantTables => RestaurantStorageTables.Resolve(tenant.Organization!, options.Value);
     private void EnsureTenant(bool? carwash = null)
     {
-        var expected = IsCarWash ? options.Value.CarWashOrganizationId : options.Value.RestaurantOrganizationId;
-        if (!string.Equals(tenant.OrganizationId, expected, StringComparison.OrdinalIgnoreCase) ||
-            (carwash.HasValue && IsCarWash != carwash.Value))
+        if ((carwash.HasValue && IsCarWash != carwash.Value)
+            || (IsCarWash && !string.Equals(tenant.OrganizationId, options.Value.CarWashOrganizationId, StringComparison.OrdinalIgnoreCase)))
             throw new BookingException("Хранилище этой организации не настроено.", 404);
+        if (!IsCarWash) _ = RestaurantTables;
     }
 
     public async Task<CarWashCatalog> GetCarWashCatalogAsync(CancellationToken ct = default)
@@ -64,10 +70,10 @@ public sealed class TursoReservationRepository(
     {
         var results = await connection.QueryBatchAsync([
             new(carwash ? "SELECT id, name FROM carwash_boxes WHERE is_active = 1 ORDER BY id"
-                : "SELECT id, type, capacity FROM tables WHERE status = 'available' ORDER BY id"),
+                : $"SELECT id, type, capacity FROM {RestaurantTables.Tables} WHERE status = 'available' ORDER BY id"),
             new(carwash
                 ? $"SELECT id, box_id AS resource_id, customer_name, customer_phone, plate_number, scheduled_at AS start_at, ends_at, 0 AS remind_before_hour FROM box_reservations WHERE status IN ({Active})"
-                : $"SELECT id, table_id AS resource_id, customer_name, customer_phone, '' AS plate_number, reserved_at AS start_at, datetime(reserved_at, '+3 hours') AS ends_at, remind_before_hour FROM table_reservations WHERE status IN ({Active})")
+                : $"SELECT id, table_id AS resource_id, customer_name, customer_phone, '' AS plate_number, reserved_at AS start_at, {RestaurantEnd} AS ends_at, remind_before_hour FROM {RestaurantTables.Reservations} WHERE status IN ({Active})")
         ], ct);
         return new(
             results[0].Rows.Select(r => new Resource(r.GetString("id"), r.GetString("name"), r.GetString("type"), r.GetInt32("capacity"))).ToArray(),
@@ -97,15 +103,14 @@ public sealed class TursoReservationRepository(
                 ORDER BY r.scheduled_at, r.box_id, r.id
                 """, [BookingRules.Store(end), BookingRules.Store(start)], ct)
             : await db.QueryAsync($"""
-                SELECT reserved_at AS start_at, datetime(reserved_at, '+3 hours') AS ends_at,
+                SELECT reserved_at AS start_at, {RestaurantEnd} AS ends_at,
                     table_id AS tables_id, '' AS box_id, '' AS wash_service_type,
                     customer_name, customer_phone
-                FROM table_reservations
-                WHERE status IN ({Active}) AND reserved_at >= ? AND reserved_at < ?
-                    AND datetime(reserved_at, '+3 hours') > ?
+                FROM {RestaurantTables.Reservations}
+                WHERE status IN ({Active}) AND reserved_at < ?
+                    AND {RestaurantEnd} > ?
                 ORDER BY reserved_at, table_id, id
-                """, [BookingRules.Store(start.AddHours(-ReservationDuration.Hours)),
-                    BookingRules.Store(end), BookingRules.Store(start)], ct);
+                """, [BookingRules.Store(end), BookingRules.Store(start)], ct);
 
         return result.Rows.Select(row => new ReservationListItem(
             BookingRules.Wire(BookingRules.Read(row.GetString("start_at"))),
@@ -130,14 +135,14 @@ public sealed class TursoReservationRepository(
     {
         EnsureTenant(false);
         var state = await StateAsync(db, false, ct);
-        return BookingRules.Slots(date, Hours, now)
-            .Where(start => state.Resources.Any(table => Free(state, table.Id, start, start.AddHours(ReservationDuration.Hours)))).ToArray();
+        return BookingRules.Slots(date, tenant.Organization!, now)
+            .Where(start => state.Resources.Any(table => Free(state, table.Id, start, start.AddMinutes(RestaurantMinutes)))).ToArray();
     }
     public async Task<IReadOnlyList<TableInfo>> GetTablesAsync(DateTime? scheduledAt = null, CancellationToken ct = default)
     {
         EnsureTenant(false);
         var start = scheduledAt ?? ReservationDateTime.KazakhstanNow();
-        var end = start.AddHours(ReservationDuration.Hours);
+        var end = start.AddMinutes(RestaurantMinutes);
         var state = await StateAsync(db, false, ct);
         return state.Resources.Select(resource =>
         {
@@ -155,13 +160,14 @@ public sealed class TursoReservationRepository(
     {
         EnsureTenant(false);
         var state = await StateAsync(db, false, ct);
-        return !state.Resources.Any(r => r.Id == tableId) || !Free(state, tableId, scheduledAt, scheduledAt.AddHours(ReservationDuration.Hours));
+        return !state.Resources.Any(r => r.Id == tableId) || !Free(state, tableId, scheduledAt, scheduledAt.AddMinutes(RestaurantMinutes));
     }
 
     public async Task<BookingResult> BookAsync(ReservationInfo request, DateTime scheduledAt, CancellationToken ct = default)
     {
         EnsureTenant();
-        BookingRules.ValidateStart(scheduledAt, Hours, ReservationDateTime.KazakhstanNow());
+        if (IsCarWash) BookingRules.ValidateStart(scheduledAt, Hours, ReservationDateTime.KazakhstanNow());
+        else BookingRules.ValidateStart(scheduledAt, tenant.Organization!, ReservationDateTime.KazakhstanNow());
         var phone = KazakhstanPhone.NormalizeAndValidate(request.CustomerPhone);
         request.CustomerPhone = phone;
         // BEGIN IMMEDIATE serializes the complete read/check/write sequence across app instances.
@@ -170,7 +176,7 @@ public sealed class TursoReservationRepository(
             var carwash = IsCarWash;
             var quote = carwash ? BookingRules.Quote(await CatalogAsync(connection, token),
                 request.VehicleCategoryId ?? "", request.ServiceIds ?? [], options.Value.DefaultCarWashMinutes) : null;
-            var duration = quote?.DurationMinutes ?? ReservationDuration.Hours * 60;
+            var duration = quote?.DurationMinutes ?? RestaurantMinutes;
             var end = scheduledAt.AddMinutes(duration);
             if (carwash && !BookingRules.FitsHours(scheduledAt, duration, Hours))
                 throw new BookingException("Для выбранных услуг недостаточно времени до закрытия.");
@@ -207,7 +213,7 @@ public sealed class TursoReservationRepository(
             }
             var statements = new List<TursoStatement>();
             foreach (var old in previous)
-                statements.Add(new($"UPDATE {(carwash ? "box_reservations" : "table_reservations")} SET status = 'cancelled' WHERE id = ?", [old.Id]));
+                statements.Add(new($"UPDATE {(carwash ? "box_reservations" : RestaurantTables.Reservations)} SET status = 'cancelled' WHERE id = ?", [old.Id]));
             var reservationId = Guid.NewGuid().ToString();
             for (var i = 0; i < resourceIds.Length; i++)
             {
@@ -222,14 +228,19 @@ public sealed class TursoReservationRepository(
                             BookingRules.Store(scheduledAt), BookingRules.Store(end), checked(quote!.TotalKzt * 100),
                             JsonSerializer.Serialize(quote.Services.Select(s => s.Id).ToArray(), JsonOptions)]));
                 }
-                else statements.Add(new("""
-                    INSERT INTO table_reservations (id,table_id,customer_name,customer_phone,reserved_at,status,remind_before_hour)
+                else if (StoresRestaurantEnd) statements.Add(new($"""
+                    INSERT INTO {RestaurantTables.Reservations} (id,table_id,customer_name,customer_phone,reserved_at,ends_at,status,remind_before_hour)
+                    VALUES (?,?,?,?,?,?,'confirmed',?)
+                    """, [id, int.Parse(resourceIds[i], CultureInfo.InvariantCulture), request.CustomerName.Trim(), phone,
+                        BookingRules.Store(scheduledAt), BookingRules.Store(end), request.RemindBeforeHour && tenant.Organization!.NotificationsEnabled]));
+                else statements.Add(new($"""
+                    INSERT INTO {RestaurantTables.Reservations} (id,table_id,customer_name,customer_phone,reserved_at,status,remind_before_hour)
                     VALUES (?,?,?,?,?,'confirmed',?)
                     """, [id, int.Parse(resourceIds[i], CultureInfo.InvariantCulture), request.CustomerName.Trim(), phone,
                         BookingRules.Store(scheduledAt), request.RemindBeforeHour]));
             }
             await connection.QueryBatchAsync(statements, token);
-            return new BookingResult(reservationId, previous.Length > 0, carwash ? resourceIds[0] : null, quote?.TotalKzt, quote?.DurationMinutes);
+            return new BookingResult(reservationId, previous.Length > 0, carwash ? resourceIds[0] : null, quote?.TotalKzt, duration);
         }, ct);
     }
 
@@ -238,10 +249,10 @@ public sealed class TursoReservationRepository(
         EnsureTenant();
         if (IsCarWash) return []; // This schema/tenant does not enable customer reminders for car washes.
         var now = ReservationDateTime.KazakhstanNow();
-        var result = await db.QueryAsync("""
+        var result = await db.QueryAsync($"""
             SELECT r.id,r.table_id,r.customer_name,r.customer_phone,r.reserved_at
-            FROM table_reservations r
-            LEFT JOIN reservation_reminders m ON m.reservation_id = r.id
+            FROM {RestaurantTables.Reservations} r
+            LEFT JOIN {RestaurantTables.Reminders} m ON m.reservation_id = r.id
             WHERE r.remind_before_hour = 1 AND r.status IN ('pending','confirmed')
               AND m.reservation_id IS NULL AND r.reserved_at > ? AND r.reserved_at <= ?
             """, [BookingRules.Store(now), BookingRules.Store(now.AddHours(1))], ct);
@@ -254,6 +265,6 @@ public sealed class TursoReservationRepository(
     public async Task MarkReminderSentAsync(string reservationId, CancellationToken ct)
     {
         EnsureTenant(false);
-        await db.ExecuteAsync("INSERT OR IGNORE INTO reservation_reminders (reservation_id,sent_at) VALUES (?,CURRENT_TIMESTAMP)", [reservationId], ct);
+        await db.ExecuteAsync($"INSERT OR IGNORE INTO {RestaurantTables.Reminders} (reservation_id,sent_at) VALUES (?,CURRENT_TIMESTAMP)", [reservationId], ct);
     }
 }

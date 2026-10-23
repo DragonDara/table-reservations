@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Options;
 using table_reservations.Configuration;
 using table_reservations.Services;
@@ -39,6 +40,20 @@ namespace table_reservations.Services.Tenancy
 
             foreach (var org in items)
             {
+                if (org.ReservationDurationMinutes is <= 0 or > 1440)
+                    throw new InvalidOperationException($"Invalid reservation duration for organization '{org.Id}'. Use 1–1440 minutes.");
+                if (org.RestaurantStorage is { } storage
+                    && (org.BusinessType != Models.Tenancy.BusinessType.Restaurant
+                        || !RestaurantStorageOptions.IsValidPrefix(storage.TablePrefix)))
+                    throw new InvalidOperationException($"Invalid restaurant table prefix for organization '{org.Id}'. Use a lowercase SQL identifier ending in underscore.");
+
+                org.OpeningHours ??= new();
+                if (org.OpeningHours.GroupBy(hours => hours.Day).Any(days => days.Count() > 1)
+                    || org.OpeningHours.Any(hours => !Enum.IsDefined(hours.Day)
+                        || !TimeOnly.TryParseExact(hours.OpenTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                        || !TimeOnly.TryParseExact(hours.CloseTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
+                    throw new InvalidOperationException($"Invalid opening hours for organization '{org.Id}': use unique weekdays and HH:mm times.");
+
                 org.Telegram ??= new OrganizationTelegramOptions();
                 var code = org.Telegram.ConnectionCode;
                 if (!string.IsNullOrEmpty(code) && (code.Length > 128 || code.Any(char.IsWhiteSpace)))
@@ -47,6 +62,8 @@ namespace table_reservations.Services.Tenancy
                 try
                 {
                     _ = BookingTimeSchedule.GetAvailableSlots(org.BookingTime);
+                    foreach (var hours in org.OpeningHours)
+                        _ = BookingTimeSchedule.GetAvailableSlots(BookingRules.HoursForDay(org, hours.Day)!);
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -55,6 +72,11 @@ namespace table_reservations.Services.Tenancy
                         ex);
                 }
             }
+
+            if (items.Where(o => o.RestaurantStorage is not null)
+                .GroupBy(o => o.RestaurantStorage!.TablePrefix, StringComparer.OrdinalIgnoreCase)
+                .Any(group => group.Count() > 1))
+                throw new InvalidOperationException("Restaurant table prefixes must be unique for each organization.");
 
             if (items.Where(o => !string.IsNullOrEmpty(o.Telegram.ConnectionCode))
                 .GroupBy(o => o.Telegram.ConnectionCode, StringComparer.Ordinal)

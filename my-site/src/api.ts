@@ -1,7 +1,8 @@
 import { resolveOrganizationIdFallback } from './tenancy/tenant';
 import type { PublicTenantConfig } from './tenancy/types';
 
-export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '');
+export const API_BASE_URL = (import.meta.env.DEV && window.location.hostname.endsWith('.localhost')
+  ? '/api' : import.meta.env.VITE_API_BASE_URL ?? '/api').replace(/\/$/, '');
 
 const ORGANIZATION_ID_HEADER = 'X-Organization-Id';
 

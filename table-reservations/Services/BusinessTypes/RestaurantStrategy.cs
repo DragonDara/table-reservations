@@ -5,7 +5,7 @@ using table_reservations.Models.Tenancy;
 namespace table_reservations.Services.BusinessTypes
 {
     /// <summary>
-    /// Restaurant / bar reservation rules and sheet mapping. Preserves the original
+    /// Restaurant / bar reservation rules and persistence mapping. Preserves the original
     /// single-tenant behavior: minimum lead time, working hours 12:00–04:00, unique
     /// table ids, and the (id, tableIds, name, phone, start, status, remind) row layout.
     /// </summary>

@@ -14,6 +14,41 @@ public static class BookingRules
     public static string Wire(DateTime local) => local.ToString("yyyy-MM-ddTHH:mm", CultureInfo.InvariantCulture);
     public static bool Overlaps(DateTime start, DateTime end, DateTime otherStart, DateTime otherEnd) => start < otherEnd && otherStart < end;
 
+    public static BookingTimeOptions? HoursForDay(OrganizationOptions organization, DateOnly day) => HoursForDay(organization, day.DayOfWeek);
+
+    public static BookingTimeOptions? HoursForDay(OrganizationOptions organization, DayOfWeek day)
+    {
+        if (organization.OpeningHours.Count == 0) return organization.BookingTime;
+        var hours = organization.OpeningHours.SingleOrDefault(hours => hours.Day == day);
+        if (hours is null) return null;
+        return new BookingTimeOptions
+        {
+            StartTime = hours.OpenTime, EndTime = hours.CloseTime,
+            ReservationDeadline = organization.BookingTime.ReservationDeadline,
+            ReservationDeadlineInclusive = organization.BookingTime.ReservationDeadlineInclusive,
+            SlotDurationMinutes = organization.BookingTime.SlotDurationMinutes
+        };
+    }
+
+    public static IReadOnlyList<DateTime> Slots(DateOnly date, OrganizationOptions organization, DateTime now)
+    {
+        var hours = HoursForDay(organization, date);
+        if (hours is null) return [];
+        return Slots(date, hours, now).Where(slot => organization.OpeningHours.Count == 0
+            || FitsHours(slot, organization.ReservationDurationMinutes, hours)).ToArray();
+    }
+
+    public static void ValidateStart(DateTime start, OrganizationOptions organization, DateTime now)
+    {
+        // After-midnight starts belong to the previous opening day. Try both
+        // calendar days so venues can also vary their opening time by weekday.
+        var day = DateOnly.FromDateTime(start);
+        foreach (var openingDay in new[] { day, day.AddDays(-1) })
+            if (RestaurantSlotSchedule.IsBookableDate(openingDay, now)
+                && Slots(openingDay, organization, now).Contains(start)) return;
+        throw new BookingException("Выбранное время недоступно.");
+    }
+
     public static IReadOnlyList<DateTime> Slots(DateOnly date, BookingTimeOptions hours, DateTime now)
     {
         var today = DateOnly.FromDateTime(now);

@@ -1,4 +1,5 @@
 import type { PublicTenantConfig } from './types';
+import './the-veil.css';
 
 // Applies tenant branding at runtime: CSS custom properties (theme tokens),
 // document title, favicon, language, font links, and stable root attributes.
@@ -76,6 +77,7 @@ function applyRootAttributes(config: PublicTenantConfig): void {
   const root = document.documentElement;
   root.dataset.organization = config.organizationId;
   root.dataset.businessType = config.businessType;
+  root.dataset.bookingEnabled = String(config.bookingEnabled !== false);
   if (config.layoutVariant && config.layoutVariant.trim()) {
     root.dataset.layoutVariant = config.layoutVariant.trim();
   }

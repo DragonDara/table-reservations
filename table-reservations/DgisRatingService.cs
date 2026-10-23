@@ -25,6 +25,13 @@ public class DgisRatingService
         var options = organization.Rating;
         if (!options.Enabled)
             throw new InvalidOperationException($"Ratings are not enabled for organization '{organization.Id}'.");
+        if (string.Equals(options.Mode, "Snapshot", StringComparison.OrdinalIgnoreCase))
+        {
+            if (options.Value is not double value || !double.IsFinite(value) || value < 0 || value > 5 ||
+                options.ReviewCount is not int count || count < 0)
+                throw new InvalidOperationException("Rating snapshot is incomplete.");
+            return (value, count);
+        }
         if (string.IsNullOrWhiteSpace(options.ApifyToken)
             || string.IsNullOrWhiteSpace(options.PlaceUrl))
             throw new InvalidOperationException($"Rating settings are incomplete for organization '{organization.Id}'.");

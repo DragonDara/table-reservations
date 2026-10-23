@@ -1,0 +1,159 @@
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/tenants/secret-veil/geist-regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('/tenants/secret-veil/geist-medium.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Geist';
+  font-style: normal;
+  font-weight: 600 900;
+  font-display: swap;
+  src: url('/tenants/secret-veil/geist-semibold.ttf') format('truetype');
+}
+
+/* Brand styling stays inside the existing restaurant shell. */
+html[data-organization='secret-veil'] {
+  --manrope: 'Geist', sans-serif;
+  --monsterrat: 'Geist', sans-serif;
+  --montagu: 'Geist', sans-serif;
+  --veil-sand: #f4dfc4;
+  --veil-ember: #e8662b;
+  --veil-crimson: #d93a12;
+  color-scheme: dark;
+}
+
+[data-organization='secret-veil'] :is(.nav, .rating, .hero-title, .hero-text, .section-title, .step-title, button, input, select, textarea) {
+  font-family: 'Geist', sans-serif;
+}
+[data-organization='secret-veil'] :is(.site-header, .site-footer) {
+  background: var(--bg);
+  border-color: var(--whiteborder);
+}
+[data-organization='secret-veil'] .nav-link.active {
+  border-color: var(--accent);
+}
+[data-organization='secret-veil'] .hero-content {
+  min-width: 0;
+  background-image: radial-gradient(ellipse at 8% 6%, #d93a1214, transparent 65%);
+}
+[data-organization='secret-veil'] :is(.cta-group, .features) {
+  flex-wrap: wrap;
+}
+[data-organization='secret-veil'] .hero-title {
+  font-weight: 500;
+  letter-spacing: -.035em;
+}
+[data-organization='secret-veil'] .hero-title .accent {
+  color: var(--veil-sand);
+}
+[data-organization='secret-veil'] .hero-text {
+  max-width: 350px;
+  line-height: 1.7;
+  font-weight: 400;
+}
+[data-organization='secret-veil'] .rating {
+  font-weight: 400;
+  letter-spacing: .02em;
+  color: var(--muted);
+}
+[data-organization='secret-veil'] .hero-gallery {
+  mask-image: url('/tenants/secret-veil/keyhole-mask.svg');
+  mask-size: contain;
+  mask-position: center;
+  mask-repeat: no-repeat;
+}
+[data-organization='secret-veil'] .btn {
+  font-weight: 500;
+  border-radius: 8px;
+  transition: background-color .2s, color .2s, border-color .2s;
+}
+[data-organization='secret-veil'] .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+[data-organization='secret-veil'] .btn-primary:not(:disabled):hover {
+  background: var(--veil-sand);
+  border-color: var(--veil-sand);
+  color: var(--bg);
+  opacity: 1;
+}
+[data-organization='secret-veil'] .btn-secondary {
+  border-color: #f4ece24d;
+}
+[data-organization='secret-veil'] .btn-secondary:hover {
+  background: var(--text);
+  color: var(--bg);
+}
+[data-organization='secret-veil'] .how-it-works {
+  background: radial-gradient(ellipse at 50% 0, #e8662b0a, transparent 70%), var(--bg);
+  border-block: 1px solid var(--whiteborder);
+}
+[data-organization='secret-veil'] .section-title {
+  font-weight: 500;
+  letter-spacing: -.025em;
+}
+[data-organization='secret-veil'] .step-icon {
+  background: var(--panel);
+  border: 1px solid var(--whiteborder);
+  color: var(--veil-sand);
+}
+[data-organization='secret-veil'] .step-icon svg {
+  width: 64px;
+  height: 64px;
+}
+[data-organization='secret-veil'] .step:hover {
+  transform: none;
+  box-shadow: none;
+}
+[data-organization='secret-veil'] .reservation {
+  background: linear-gradient(#0b0908e8, #0b0908f5), url('/tenants/secret-veil/curtains.jpeg') center / cover;
+}
+[data-organization='secret-veil'][data-booking-enabled='false'] .reservation-hours:not(.weekly-opening-hours) {
+  display: none;
+}
+[data-organization='secret-veil'] :is(.field input, .field select, .date-option, .time-option, .table-picker) {
+  background-color: var(--panel);
+  border-color: var(--whiteborder);
+}
+[data-organization='secret-veil'] .reservation-status {
+  color: var(--veil-sand);
+  text-align: center;
+}
+[data-organization='secret-veil'] .btn:disabled {
+  opacity: .5;
+  cursor: not-allowed;
+}
+[data-organization='secret-veil'] .footer-tagline {
+  color: var(--veil-sand);
+}
+[data-organization='secret-veil'] :is(a, button, input, select, textarea):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+@media (max-width: 900px) {
+  [data-organization='secret-veil'] .hero-title {
+    font-size: clamp(32px, 9.5vw, 38px);
+  }
+  [data-organization='secret-veil'] .nav {
+    background: var(--panel);
+    border-color: var(--whiteborder);
+  }
+  [data-organization='secret-veil'] .hero-gallery {
+    min-height: 420px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-organization='secret-veil'] .btn {
+    transition: none;
+  }
+}

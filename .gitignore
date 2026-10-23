@@ -1,4 +1,15 @@
 .cursor
+context/
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.pem
+*.key
+*.p12
+*.pfx
+.secrets/
+service-account*.json
 .local-tools/
 node_modules/
 dist/

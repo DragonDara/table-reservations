@@ -60,7 +60,17 @@ export interface PublicBookingTime {
   availableTimeSlots: string[];
 }
 
+export interface PublicOpeningHours {
+  /** Opening weekday: Sunday = 0 through Saturday = 6. */
+  day: number;
+  openTime: string;
+  closeTime: string;
+  closesNextDay: boolean;
+}
+
 export interface PublicTenantConfig {
+  bookingEnabled?: boolean;
+  reservationDurationMinutes?: number;
   organizationId: string;
   businessType: BusinessType;
   locale: string;
@@ -68,6 +78,7 @@ export interface PublicTenantConfig {
   documentTitle: string;
   layoutVariant: string;
   bookingTime: PublicBookingTime;
+  openingHours?: PublicOpeningHours[];
   theme: PublicTheme;
   assets: PublicAssets;
   content: PublicContent;

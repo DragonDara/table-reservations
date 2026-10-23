@@ -23,7 +23,7 @@ class Input extends Element { validationMessage = ''; }
 class Select extends Input {}
 class Textarea extends Input {}
 
-const names = ['document', 'window', 'HTMLInputElement', 'HTMLSelectElement', 'HTMLTextAreaElement'];
+const names = ['document', 'window', 'HTMLElement', 'HTMLInputElement', 'HTMLSelectElement', 'HTMLTextAreaElement'];
 let saved;
 let notifications;
 let moduleId = 0;
@@ -34,6 +34,7 @@ beforeEach(async () => {
     body: new Element(), createElement: () => new Element(),
   });
   globalThis.window = new EventTarget();
+  globalThis.HTMLElement = Element;
   globalThis.HTMLInputElement = Input;
   globalThis.HTMLSelectElement = Select;
   globalThis.HTMLTextAreaElement = Textarea;
@@ -156,15 +157,15 @@ test('WhatsApp link survives new errors and switches to the loaded tenant contac
 test('startup chat addresses match public configuration and respect tenant hosts over saved selections', async () => {
   const settings = JSON.parse(await readFile(new URL('../../table-reservations/appsettings.json', import.meta.url), 'utf8'));
   for (const org of settings.Organizations.Items) {
-    assert.equal(initialErrorWhatsApp(`${org.Id}.bron.cafe`, 'other'), org.Frontend.Links.WhatsApp);
-    assert.equal(initialErrorWhatsApp(`${org.Id}.localhost`, 'other'), org.Frontend.Links.WhatsApp);
-    assert.equal(initialErrorWhatsApp('localhost', org.Id), org.Frontend.Links.WhatsApp);
+    assert.equal(initialErrorWhatsApp(`${org.Id}.bron.cafe`, 'other'), org.Frontend.Links.WhatsApp ?? null);
+    assert.equal(initialErrorWhatsApp(`${org.Id}.localhost`, 'other'), org.Frontend.Links.WhatsApp ?? null);
+    assert.equal(initialErrorWhatsApp('localhost', org.Id), org.Frontend.Links.WhatsApp ?? null);
   }
   assert.equal(initialErrorWhatsApp('unknown.bron.cafe', 'thetochka'), null);
   assert.equal(initialErrorWhatsApp('localhost', null), null);
 });
 
-test('native validation suppresses bubbles and reports/focuses only the first invalid field per pass', async () => {
+test('native validation suppresses bubbles and reports the first invalid field without shifting focus', async () => {
   notifications.initErrorNotifications();
   const name = new Input();
   name.validationMessage = 'Введите имя.';
@@ -174,10 +175,10 @@ test('native validation suppresses bubbles and reports/focuses only the first in
   assert.equal(invalid(phone).defaultPrevented, true);
   await Promise.resolve();
   assert.equal(elements().message.textContent, 'Введите имя.');
-  assert.deepEqual(name.focusOptions, { preventScroll: true });
+  assert.equal(name.focusOptions, undefined);
   assert.equal(phone.focusOptions, undefined);
   invalid(phone);
   await Promise.resolve();
   assert.equal(elements().message.textContent, 'Введите телефон.');
-  assert.deepEqual(phone.focusOptions, { preventScroll: true });
+  assert.equal(phone.focusOptions, undefined);
 });

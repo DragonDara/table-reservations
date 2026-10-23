@@ -32,6 +32,7 @@ public class ReservationsController(
         var strategy = strategies.Resolve(tenant.BusinessType);
         var validation = strategy.ValidateCreate(request);
         if (!validation.IsValid) return BadRequest(new { message = validation.Error });
+        request.RemindBeforeHour &= tenant.Organization?.NotificationsEnabled != false;
         var result = await reservations.BookAsync(request, validation.ScheduledAt, ct);
         // Notification failures must not turn a committed booking into an apparent failure.
         var customerSent = false;
@@ -39,11 +40,14 @@ public class ReservationsController(
         var telegramSent = false;
         try
         {
-            IReadOnlyList<TableInfo> tables = tenant.BusinessType == BusinessType.Restaurant
-                ? await reservations.GetTablesAsync(validation.ScheduledAt, ct) : [];
-            var delivery = await notifications.SendReservationNotificationsAsync(
-                request, validation.ScheduledAt, strategy.BuildNotificationLabel(request, tables), ct);
-            (customerSent, adminSent, telegramSent) = delivery;
+            if (tenant.Organization?.NotificationsEnabled != false)
+            {
+                IReadOnlyList<TableInfo> tables = tenant.BusinessType == BusinessType.Restaurant
+                    ? await reservations.GetTablesAsync(validation.ScheduledAt, ct) : [];
+                var delivery = await notifications.SendReservationNotificationsAsync(
+                    request, validation.ScheduledAt, strategy.BuildNotificationLabel(request, tables), ct);
+                (customerSent, adminSent, telegramSent) = delivery;
+            }
         }
         catch (Exception ex)
         {

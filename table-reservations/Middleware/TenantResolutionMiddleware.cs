@@ -52,6 +52,14 @@ namespace table_reservations.Middleware
             if (resolution == TenantResolution.Resolved)
             {
                 tenant.Set(organization);
+                if (!organization.BookingEnabled && IsApiRequest(context.Request.Path) &&
+                    !context.Request.Path.Equals("/api/tenant/public-config", StringComparison.OrdinalIgnoreCase) &&
+                    !context.Request.Path.Equals("/api/rating", StringComparison.OrdinalIgnoreCase))
+                {
+                    context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                    await context.Response.WriteAsJsonAsync(new { message = $"Онлайн-бронирование {organization.DisplayName} скоро откроется." });
+                    return;
+                }
             }
             else if (IsApiRequest(context.Request.Path))
             {

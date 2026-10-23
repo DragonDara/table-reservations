@@ -9,14 +9,26 @@ Never use a `VITE_` variable for a database token.
 The production client uses .NET HttpClient and Turso's
 [SQL-over-HTTP protocol](https://docs.turso.tech/sdk/http/reference); no database dependency is needed in the browser.
 
-The existing schema has no organization_id. These configured IDs bind each
-business table to exactly one tenant:
+Restaurant inventory and reservation tables have no organization_id. The
+legacy schema keeps these default bindings:
 
 - `Turso:RestaurantOrganizationId = thetochka`: `tables`, `table_reservations`.
 - `Turso:CarWashOrganizationId = thetochka-carwasher`: `carwash_boxes`, `box_reservations`, and the carwash catalog.
 
-An additional tenant is rejected until its storage is configured; it cannot
-silently reuse another organization's reservations.
+Additional restaurants use an explicit, unique
+`Organizations:Items:<index>:RestaurantStorage:TablePrefix`. Secret Veil uses
+`secret_veil_`, giving it `secret_veil_tables`, `secret_veil_table_reservations`,
+and `secret_veil_reservation_reminders` in the same database. All restaurant
+repository operations use the resolved namespace; no fallback to the default
+restaurant is allowed for an unmapped tenant. Prefixes must be lowercase SQL
+identifiers ending in an underscore, and cannot use SQLite's reserved prefix.
+The prefix is backend configuration and is not exposed in public tenant config.
+
+Create Secret Veil's tables manually with
+[`database/secret-veil.sql`](../database/secret-veil.sql); see
+[its setup notes](secret-veil.md#turso-tables) for capacity and activation rules.
+Normal startup validates the extra tables only for enabled tenants. The legacy
+`--migrate` command below does not create additional restaurant namespaces.
 Local frontend routes: `/lounge`, `/carwash` (also the organization-ID paths).
 Production uses tenant subdomains and same-origin `/api`; the production
 middleware intentionally ignores tenant headers on shared hosts.
