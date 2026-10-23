@@ -49,6 +49,9 @@ namespace table_reservations.Configuration
         /// <summary>Organization-specific booking window and slot interval.</summary>
         public BookingTimeOptions BookingTime { get; set; } = new();
 
+        /// <summary>Weekly venue hours in local venue time, separate from reservation start rules.</summary>
+        public List<OpeningHoursOptions> OpeningHours { get; set; } = new();
+
         /// <summary>Tenant-specific WhatsApp delivery settings.</summary>
         public WhatsAppOptions WhatsApp { get; set; } = new();
 
@@ -66,6 +69,15 @@ namespace table_reservations.Configuration
         /// credentials) must never be placed in this section.
         /// </summary>
         public FrontendOptions Frontend { get; set; } = new();
+    }
+
+    public sealed class OpeningHoursOptions
+    {
+        /// <summary>The day on which the venue opens, including for overnight hours.</summary>
+        public DayOfWeek Day { get; set; }
+        public string OpenTime { get; set; } = string.Empty;
+        /// <summary>HH:mm; a time at or before opening means the following calendar day.</summary>
+        public string CloseTime { get; set; } = string.Empty;
     }
 
     public sealed class BookingTimeOptions

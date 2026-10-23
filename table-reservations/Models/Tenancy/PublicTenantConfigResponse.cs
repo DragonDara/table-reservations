@@ -1,3 +1,4 @@
+using System.Globalization;
 using table_reservations.Configuration;
 using table_reservations.Services;
 
@@ -18,6 +19,7 @@ namespace table_reservations.Models.Tenancy
         public string DocumentTitle { get; init; } = string.Empty;
         public string LayoutVariant { get; init; } = string.Empty;
         public PublicBookingTimeDto BookingTime { get; init; } = new();
+        public PublicOpeningHoursDto[] OpeningHours { get; init; } = Array.Empty<PublicOpeningHoursDto>();
 
         public PublicThemeDto Theme { get; init; } = new();
         public PublicAssetsDto Assets { get; init; } = new();
@@ -54,6 +56,14 @@ namespace table_reservations.Models.Tenancy
                     SlotDurationMinutes = org.BookingTime.SlotDurationMinutes,
                     AvailableTimeSlots = org.BookingEnabled ? BookingTimeSchedule.GetAvailableSlots(org.BookingTime).ToArray() : Array.Empty<string>()
                 },
+                OpeningHours = org.OpeningHours.Select(hours => new PublicOpeningHoursDto
+                {
+                    Day = (int)hours.Day,
+                    OpenTime = hours.OpenTime,
+                    CloseTime = hours.CloseTime,
+                    ClosesNextDay = TimeOnly.ParseExact(hours.CloseTime, "HH:mm", CultureInfo.InvariantCulture)
+                        <= TimeOnly.ParseExact(hours.OpenTime, "HH:mm", CultureInfo.InvariantCulture)
+                }).ToArray(),
                 Theme = new PublicThemeDto
                 {
                     Background = f.Theme.Background,
@@ -108,6 +118,15 @@ namespace table_reservations.Models.Tenancy
                     : new Dictionary<string, string>(f.BusinessUi)
             };
         }
+    }
+
+    public sealed class PublicOpeningHoursDto
+    {
+        /// <summary>Day the venue opens: Sunday = 0 through Saturday = 6.</summary>
+        public int Day { get; init; }
+        public string OpenTime { get; init; } = string.Empty;
+        public string CloseTime { get; init; } = string.Empty;
+        public bool ClosesNextDay { get; init; }
     }
 
     public sealed class PublicBookingTimeDto

@@ -23,6 +23,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\table-reservations\table-reservations.csproj" />
+    <None Include="..\table-reservations\appsettings.json" Link="Fixtures\tenant-settings.json" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Extensions.Options;
 using table_reservations.Configuration;
 using table_reservations.Services;
@@ -39,6 +40,13 @@ namespace table_reservations.Services.Tenancy
 
             foreach (var org in items)
             {
+                org.OpeningHours ??= new();
+                if (org.OpeningHours.GroupBy(hours => hours.Day).Any(days => days.Count() > 1)
+                    || org.OpeningHours.Any(hours => !Enum.IsDefined(hours.Day)
+                        || !TimeOnly.TryParseExact(hours.OpenTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)
+                        || !TimeOnly.TryParseExact(hours.CloseTime, "HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.None, out _)))
+                    throw new InvalidOperationException($"Invalid opening hours for organization '{org.Id}': use unique weekdays and HH:mm times.");
+
                 org.Telegram ??= new OrganizationTelegramOptions();
                 var code = org.Telegram.ConnectionCode;
                 if (!string.IsNullOrEmpty(code) && (code.Length > 128 || code.Any(char.IsWhiteSpace)))
