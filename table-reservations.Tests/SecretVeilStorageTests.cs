@@ -52,20 +52,17 @@ public class SecretVeilStorageTests
     }
 
     [Fact]
-    public async Task ManualSchemaSeedsCurrentIndoorPositionsAndPreservesDataOnRepeat()
+    public async Task ManualSchemaWaitsForCapacitiesAndPreservesDataOnRepeat()
     {
         using var db = new Database();
         await db.ExecuteAsync("INSERT INTO table_reservations(id,table_id,customer_name,customer_phone,reserved_at) VALUES('existing',1,'Test','+77010000001','2026-10-23 10:00:00')");
         await db.ExecuteAsync(Schema);
-        var tables = (await db.QueryAsync("SELECT * FROM secret_veil_tables ORDER BY id")).Rows;
-        Assert.Equal(Enumerable.Range(1, 25).Concat([28, 29]), tables.Select(row => row.GetInt32("id")));
-        Assert.All(tables, row => { Assert.Null(row["capacity"]); Assert.Equal("inactive", row.GetString("status")); });
-        Assert.Equal(12, tables.Count(row => row.GetString("area") == "hall" && row.GetString("shape") == "round"));
-        Assert.Equal(13, tables.Count(row => row.GetString("area") == "hall" && row.GetString("shape") == "rectangular"));
-        Assert.Equal(2, tables.Count(row => row.GetString("area") == "vip" && row.GetString("type") == "VIP"));
+        Assert.Empty((await db.QueryAsync("SELECT id FROM secret_veil_tables")).Rows);
+        var columns = (await db.QueryAsync("PRAGMA table_info(secret_veil_table_reservations)")).Rows;
+        Assert.Contains(columns, row => row.GetString("name") == "ends_at" && row.GetInt32("notnull") == 0);
         Assert.Empty(await Repository(db, true).GetTablesAsync(Start));
 
-        await db.ExecuteAsync("UPDATE secret_veil_tables SET capacity=6,status='available' WHERE id=1");
+        await db.ExecuteAsync("INSERT INTO secret_veil_tables(id,type,capacity) VALUES(1,'Обычный',6)");
         var booking = await Repository(db, true).BookAsync(Request("1"), Start);
         await db.ExecuteAsync(Schema);
         var retained = Assert.Single((await db.QueryAsync("SELECT capacity,status FROM secret_veil_tables WHERE id=1")).Rows);
@@ -83,7 +80,7 @@ public class SecretVeilStorageTests
         using var db = new Database();
         await Initializer(db).MigrateAsync();
         await db.ExecuteAsync(Schema);
-        await db.ExecuteAsync("UPDATE secret_veil_tables SET capacity=6,status='available' WHERE id IN (1,2)");
+        await db.ExecuteAsync("INSERT INTO secret_veil_tables(id,type,capacity) VALUES(1,'Обычный',6),(2,'Обычный',6)");
         var veil = Repository(db, true);
         var tochka = Repository(db, false);
         var tochkaBooking = await tochka.BookAsync(Request("1"), Start);
@@ -114,6 +111,7 @@ public class SecretVeilStorageTests
         using var db = new Database();
         await Initializer(db).MigrateAsync();
         await db.ExecuteAsync(Schema);
+        await db.ExecuteAsync("INSERT INTO secret_veil_tables(id,type,capacity) VALUES(1,'Обычный',6)");
         foreach (var (prefix, name) in new[] { ("", "Tochka"), ("secret_veil_", "Veil") })
             await db.ExecuteAsync($"INSERT INTO {prefix}table_reservations(id,table_id,customer_name,customer_phone,reserved_at,status,remind_before_hour) VALUES('same-id',1,?,'+77010000001',?,'confirmed',1)",
                 [name, BookingRules.Store(ReservationDateTime.KazakhstanNow().AddMinutes(30))]);
@@ -130,13 +128,13 @@ public class SecretVeilStorageTests
     }
 
     [Fact]
-    public async Task UnknownCapacityCannotBeActivatedAndReservationsCannotReferenceAnotherRestaurantsTable()
+    public async Task UnknownCapacityCannotBeInsertedAndReservationsCannotReferenceAnotherRestaurantsTable()
     {
         using var db = new Database();
         await db.ExecuteAsync(Schema);
-        await Assert.ThrowsAsync<SqliteException>(() => db.ExecuteAsync("UPDATE secret_veil_tables SET status='available' WHERE id=1"));
-        await Assert.ThrowsAsync<SqliteException>(() => db.ExecuteAsync("UPDATE secret_veil_tables SET capacity=0 WHERE id=1"));
-        await Assert.ThrowsAsync<SqliteException>(() => db.ExecuteAsync("INSERT INTO secret_veil_table_reservations(id,table_id,customer_name,customer_phone,reserved_at) VALUES('invalid',26,'Test','+77010000001','2026-10-23 10:00:00')"));
+        await Assert.ThrowsAsync<SqliteException>(() => db.ExecuteAsync("INSERT INTO secret_veil_tables(id,type) VALUES(1,'Обычный')"));
+        await Assert.ThrowsAsync<SqliteException>(() => db.ExecuteAsync("INSERT INTO secret_veil_tables(id,type,capacity) VALUES(1,'Обычный',0)"));
+        await Assert.ThrowsAsync<SqliteException>(() => db.ExecuteAsync("INSERT INTO secret_veil_table_reservations(id,table_id,customer_name,customer_phone,reserved_at) VALUES('invalid',1,'Test','+77010000001','2026-10-23 10:00:00')"));
     }
 
     [Fact]

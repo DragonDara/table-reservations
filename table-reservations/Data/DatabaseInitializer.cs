@@ -25,8 +25,8 @@ public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseIni
             if (!organization.BookingEnabled || organization.RestaurantStorage is null) continue;
             var tables = RestaurantStorageTables.FromPrefix(organization.RestaurantStorage.TablePrefix);
             await client.QueryBatchAsync([
-                new($"SELECT id,type,capacity,status FROM {tables.Tables} LIMIT 0"),
-                new($"SELECT id,table_id,customer_name,customer_phone,reserved_at,status,remind_before_hour FROM {tables.Reservations} LIMIT 0"),
+                new($"SELECT id,type,capacity,status,created_at,updated_at FROM {tables.Tables} LIMIT 0"),
+                new($"SELECT id,table_id,customer_name,customer_phone,reserved_at,status,remind_before_hour,created_at,ends_at FROM {tables.Reservations} LIMIT 0"),
                 new($"SELECT reservation_id,sent_at FROM {tables.Reminders} LIMIT 0")
             ], ct);
         }
