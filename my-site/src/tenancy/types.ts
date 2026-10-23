@@ -70,6 +70,7 @@ export interface PublicOpeningHours {
 
 export interface PublicTenantConfig {
   bookingEnabled?: boolean;
+  reservationDurationMinutes?: number;
   organizationId: string;
   businessType: BusinessType;
   locale: string;

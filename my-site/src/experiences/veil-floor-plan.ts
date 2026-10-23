@@ -1,22 +1,36 @@
 import { veilAreas, type VeilArea, type VeilTable } from './veil-floor-plan-data';
 import { veilHallDiagram } from './veil-floor-plan-diagram';
 import './veil-floor-plan.css';
+import type { TableAvailability } from '../api';
 
 interface Selection { area: VeilArea; table: VeilTable }
+export interface VeilBookingSelection { tableId: string; section: string }
+export interface VeilFloorPlanController {
+  setAvailability(tables: TableAvailability[]): void;
+  clearSelection(): void;
+  getSelection(): VeilBookingSelection | null;
+}
+interface PickerOptions {
+  bookingEnabled?: boolean;
+  durationMinutes?: number;
+  beforeOpen?: () => Promise<boolean>;
+  onSelect?: (selection: VeilBookingSelection | null) => void;
+}
 
 function tableKind(table: VeilTable): string {
   return table.shape === 'round' ? 'Малый круглый' : table.shape === 'rectangular' ? 'Большой' : '';
 }
 
 function tableLabel(area: VeilArea, table: VeilTable): string {
-  return `${area.label}, ${tableKind(table).toLowerCase()} столик №${table.number}`.replace('  ', ' ');
+  return area.id === 'vip' ? `VIP, комната №${table.number} целиком`
+    : `${area.label}, ${tableKind(table).toLowerCase()} столик №${table.number}`.replace('  ', ' ');
 }
 
-/** Local table selection while inventory and booking rules await confirmation. */
-export function initVeilFloorPlan(): void {
+/** Venue artwork with API-backed availability, or local selection in preview mode. */
+export function initVeilFloorPlan(options: PickerOptions = {}): VeilFloorPlanController | null {
   const opener = document.querySelector<HTMLButtonElement>('#openTablePicker');
   const oldOverlay = document.getElementById('tableModalOverlay');
-  if (!opener || !oldOverlay || document.getElementById('veilTableDialog')) return;
+  if (!opener || !oldOverlay || document.getElementById('veilTableDialog')) return null;
 
   // The shared restaurant module must not fetch TheTochka's inventory here.
   opener.dataset.floorPlan = 'veil';
@@ -91,6 +105,40 @@ export function initVeilFloorPlan(): void {
   let draft: Selection | null = null;
   let zoom = 1;
   let previousOverflow = '';
+  let availability = new Map<number, TableAvailability>();
+  let didConfirm = false;
+
+  const selectionValue = (): VeilBookingSelection | null => confirmed ? {
+    tableId: String(confirmed.table.number),
+    section: confirmed.area.id === 'vip' ? `VIP №${confirmed.table.number}, комната целиком` : 'Общий зал',
+  } : null;
+  const selectable = (table: VeilTable): boolean => !options.bookingEnabled
+    || (availability.get(table.number)?.seats ?? 0) > 0
+      && ['free', 'limited'].includes(availability.get(table.number)?.status ?? '');
+
+  if (options.bookingEnabled) {
+    dialog.querySelector('#veilPickerNotice')!.textContent = `Бронь на ${options.durationMinutes ?? 60} мин. VIP-комната бронируется целиком. Занятые места недоступны для выбора.`;
+  }
+
+  function updateAvailability(): void {
+    dialog.querySelectorAll<HTMLButtonElement>('[data-table]').forEach((button) => {
+      const table = activeArea.tables.find((table) => table.id === button.dataset.table);
+      button.disabled = !table || !selectable(table);
+      button.title = button.disabled ? 'Недоступно на выбранное время' : '';
+    });
+  }
+
+  function clearSelection(): void {
+    confirmed = null;
+    draft = null;
+    availability.clear();
+    const badge = document.getElementById('selectedTableBadge');
+    if (badge) { badge.textContent = ''; badge.hidden = true; }
+    const placeholder = document.querySelector<HTMLElement>('.table-picker-placeholder');
+    if (placeholder) placeholder.hidden = false;
+    updateAvailability();
+    updateSelection();
+  }
 
   function resizeMap(): void {
     const fitWidth = Math.min(viewport.clientWidth - 32, (viewport.clientHeight - 32) * activeArea.width / activeArea.height);
@@ -111,11 +159,12 @@ export function initVeilFloorPlan(): void {
     dialog.querySelectorAll<HTMLButtonElement>('[data-table]').forEach((button) => {
       button.setAttribute('aria-pressed', String(button.dataset.table === draft?.table.id));
     });
-    dialog.querySelector('[data-selection-title]')!.textContent = draft ? `Столик №${draft.table.number}` : 'Столик пока не выбран';
+    dialog.querySelector('[data-selection-title]')!.textContent = draft
+      ? draft.area.id === 'vip' ? `VIP-комната №${draft.table.number}` : `Столик №${draft.table.number}` : 'Столик пока не выбран';
     dialog.querySelector('[data-selection-detail]')!.textContent = draft
-      ? [draft.area.label, tableKind(draft.table), draft.table.capacity === null ? 'Вместимость уточняется' : `До ${draft.table.capacity} гостей`].filter(Boolean).join(' · ')
+      ? [draft.area.label, draft.area.id === 'vip' ? 'Комната целиком' : tableKind(draft.table), draft.table.capacity === null ? 'Вместимость уточняется' : `До ${draft.table.capacity} гостей`].filter(Boolean).join(' · ')
       : 'Выберите зону и удобное место';
-    confirm.disabled = !draft;
+    confirm.disabled = !draft || !selectable(draft.table);
   }
 
   function revealTable(id: string): void {
@@ -162,6 +211,7 @@ export function initVeilFloorPlan(): void {
         aria-label="${tableLabel(area, table)}">${table.number}</button>`).join('');
     resizeMap();
     viewport.scrollTo(0, 0);
+    updateAvailability();
     updateSelection();
   }
 
@@ -174,7 +224,14 @@ export function initVeilFloorPlan(): void {
       map.offsetTop + centerY * map.offsetHeight - viewport.clientHeight / 2);
   }
 
-  opener.addEventListener('click', () => {
+  opener.addEventListener('click', async () => {
+    if (options.beforeOpen) {
+      opener.disabled = true;
+      opener.setAttribute('aria-busy', 'true');
+      try { if (!await options.beforeOpen()) return; }
+      finally { opener.disabled = false; opener.removeAttribute('aria-busy'); }
+    }
+    didConfirm = false;
     draft = confirmed;
     previousOverflow = document.documentElement.style.overflow;
     document.documentElement.style.overflow = 'hidden';
@@ -188,6 +245,7 @@ export function initVeilFloorPlan(): void {
   dialog.addEventListener('close', () => {
     document.documentElement.style.overflow = previousOverflow;
     opener.focus({ preventScroll: true });
+    if (didConfirm) options.onSelect?.(selectionValue());
   });
   dialog.addEventListener('click', (event) => {
     if (event.target !== dialog) return;
@@ -214,7 +272,7 @@ export function initVeilFloorPlan(): void {
     container.addEventListener('click', (event) => {
       const button = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-table]');
       const table = activeArea.tables.find((item) => item.id === button?.dataset.table);
-      if (!table) return;
+      if (!table || !selectable(table)) return;
       draft = { area: activeArea, table };
       updateSelection();
       if (container === grid) revealTable(table.id);
@@ -222,12 +280,14 @@ export function initVeilFloorPlan(): void {
   }
 
   confirm.addEventListener('click', () => {
-    if (!draft) return;
+    if (!draft || !selectable(draft.table)) return;
     confirmed = draft;
+    didConfirm = true;
     const badge = document.getElementById('selectedTableBadge');
     const placeholder = document.querySelector<HTMLElement>('.table-picker-placeholder');
     if (badge) {
-      badge.textContent = `${confirmed.area.label} · Столик №${confirmed.table.number}`;
+      badge.textContent = confirmed.area.id === 'vip' ? `VIP · Комната №${confirmed.table.number} целиком`
+        : `${confirmed.area.label} · Столик №${confirmed.table.number}`;
       badge.hidden = false;
     }
     if (placeholder) placeholder.hidden = true;
@@ -260,6 +320,24 @@ export function initVeilFloorPlan(): void {
     viewport.classList.remove('is-dragging');
   });
   new ResizeObserver(() => { if (dialog.open) resizeMap(); }).observe(viewport);
+  return {
+    clearSelection,
+    getSelection: selectionValue,
+    setAvailability(tables) {
+      availability = new Map(tables.map((table) => [table.id, table]));
+      for (const area of veilAreas) for (const table of area.tables) {
+        const current = availability.get(table.number);
+        if (current && current.seats > 0) table.capacity = current.seats;
+      }
+      if (confirmed && !selectable(confirmed.table)) {
+        confirmed = null;
+        draft = null;
+        options.onSelect?.(null);
+      }
+      updateAvailability();
+      updateSelection();
+    },
+  };
 }
 
 export function showVeilFloorPlanPreview(): void {

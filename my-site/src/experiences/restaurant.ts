@@ -9,6 +9,7 @@ import {
   type TableAvailability,
 } from '../api';
 import type { PublicTenantConfig } from '../tenancy/types';
+import type { VeilFloorPlanController } from './veil-floor-plan';
 import { renderOpeningHours } from '../tenancy/opening-hours';
 import { reportError, showError } from '../ui/error-notification';
 import {
@@ -20,12 +21,32 @@ import {
 
 // Imported only after the restaurant page and tenant configuration are ready.
 let restaurantBookingEnabled = false;
+let restaurantConfig: PublicTenantConfig | null = null;
+let veilPicker: VeilFloorPlanController | null = null;
+let tableStatusRequestId = 0;
 export async function initRestaurantExperience(config: PublicTenantConfig): Promise<void> {
+  restaurantConfig = config;
   restaurantBookingEnabled = config.bookingEnabled !== false;
   if (config.features.showRating) void loadRating();
   const veilPlan = config.organizationId === 'secret-veil'
     ? await import('./veil-floor-plan') : null;
-  veilPlan?.initVeilFloorPlan();
+  veilPicker = veilPlan?.initVeilFloorPlan({
+    bookingEnabled: restaurantBookingEnabled,
+    durationMinutes: config.reservationDurationMinutes,
+    beforeOpen: restaurantBookingEnabled ? () => refreshTableStatuses() : undefined,
+    onSelect(selection) {
+      if (continueToNameBtn) continueToNameBtn.disabled = !selection;
+      if (selection && restaurantBookingEnabled) continueToNameBtn?.focus();
+      if (!selection) {
+        if (selectedTableBadge) selectedTableBadge.hidden = true;
+        if (tablePlaceholder) tablePlaceholder.hidden = false;
+      }
+    },
+  }) ?? null;
+  if (!config.features.showReminderOption) {
+    const hint = document.querySelector('#phoneStep .field-hint');
+    if (hint) hint.textContent = 'Укажите номер для связи по бронированию';
+  }
   renderOpeningHours(config);
   if (config.bookingEnabled === false) {
     document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('#reservationForm input, #reservationForm button, #reservationForm select').forEach((control) => { control.disabled = true; });
@@ -408,6 +429,8 @@ phoneInput?.addEventListener('beforeinput', (e) => {
 let selectedTable: HTMLButtonElement | null = null;
 
 function clearSelectedTable() {
+  ++tableStatusRequestId;
+  veilPicker?.clearSelection();
   selectedTable?.classList.remove('selected');
   selectedTable = null;
 
@@ -503,15 +526,19 @@ function showLimitedTimePopup(marker: HTMLButtonElement, gapHours: number) {
 const tableMarkers = document.querySelectorAll<HTMLButtonElement>('.table-marker');
 
 async function refreshTableStatuses() {
+  const requestId = ++tableStatusRequestId;
+  const scheduledAt = (document.getElementById('datetime') as HTMLInputElement | null)?.value;
+  if (veilPicker && !scheduledAt) return false;
   let tables: TableAvailability[];
     try {
-      const datetimeValue = (document.getElementById('datetime') as HTMLInputElement | null)?.value;
-      tables = await getTables(datetimeValue || undefined);
+      tables = await getTables(scheduledAt || undefined);
+      if (requestId !== tableStatusRequestId || scheduledAt !== datetimeInput?.value) return false;
     } catch (err) {
       reportError(err, 'Не удалось проверить столики. Попробуйте ещё раз.');
       return false;
     }
 
+  if (veilPicker) { veilPicker.setAvailability(tables); return true; }
   const byId = new Map(tables.map((t) => [String(t.id), t]));
 
   tableMarkers.forEach((marker) => {
@@ -767,7 +794,6 @@ async function submitReservation(payload: ReservationPayload) {
       successModalOverlay.hidden = false;
     }
 
-    refreshTableStatuses();
     resetReservationFormUi();
   } catch (error) {
     if (error instanceof ApiError && error.status === 409 && error.code === 'EXISTING_RESERVATION' && error.existing) {
@@ -785,6 +811,11 @@ async function submitReservation(payload: ReservationPayload) {
     }
 
     setReservationStatus('');
+    if (veilPicker && error instanceof ApiError && error.code === 'TABLE_TAKEN') {
+      await refreshTableStatuses();
+      clearSelectedTable();
+      showBookingStep(tableStep);
+    }
     reportError(error, 'Не удалось отправить бронь. Попробуйте ещё раз.');
   } finally {
     setFormBusy(false);
@@ -806,9 +837,9 @@ reservationForm?.addEventListener('submit', async (e) => {
     customerName: String(formData.get('name') ?? '').trim(),
     customerPhone: toE164Digits(String(formData.get('phone') ?? '')),
     scheduledAt: String(formData.get('datetime') ?? '').trim(),
-    tablesId: selectedTable?.dataset.id ?? '',
-    remindBeforeHour: true,
-    section: getActiveFloorSection(),
+    tablesId: veilPicker?.getSelection()?.tableId ?? selectedTable?.dataset.id ?? '',
+    remindBeforeHour: restaurantConfig?.features.showReminderOption ?? true,
+    section: veilPicker?.getSelection()?.section ?? getActiveFloorSection(),
   };
   if (!payload.customerName || !payload.customerPhone || !payload.scheduledAt || !payload.tablesId) {
     setReservationStatus('Пожалуйста, заполните имя, телефон, время и выберите столик.', 'error');
@@ -990,7 +1021,7 @@ continueToTableBtn?.addEventListener('click', async () => {
 });
 
 continueToNameBtn?.addEventListener('click', () => {
-  if (!selectedTable) return;
+  if (!selectedTable && !veilPicker?.getSelection()) return;
   const resumeAtPhone = Boolean(nameInput?.value.trim() && phoneInput?.value.trim());
   showBookingStep(resumeAtPhone ? phoneStep : nameStep);
   (resumeAtPhone ? phoneInput : nameInput)?.focus();

@@ -92,6 +92,7 @@
 .veil-table-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .veil-table-grid button { min-height: 44px; border: 1px solid #f4dfc433; border-radius: 8px; color: var(--text); background: #f4dfc405; font-size: 14px; cursor: pointer; }
 .veil-table-grid button[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--bg); }
+.veil-map-table:disabled, .veil-table-grid button:disabled { opacity: .4; cursor: not-allowed; }
 .veil-capacity-note, .veil-image-error { margin-top: 18px; color: var(--muted); font-size: 12px; line-height: 1.6; }
 .veil-picker-footer { display: grid; grid-template-columns: 1fr auto; gap: 14px 24px; padding: 16px 24px; }
 .veil-selection { display: flex; flex-direction: column; justify-content: center; gap: 5px; }
