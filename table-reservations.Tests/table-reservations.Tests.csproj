@@ -25,6 +25,7 @@
     <ProjectReference Include="..\table-reservations\table-reservations.csproj" />
     <None Include="..\table-reservations\appsettings.json" Link="Fixtures\tenant-settings.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\database\secret-veil.sql" Link="Fixtures\secret-veil.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\database\secret-veil-tables.sql" Link="Fixtures\secret-veil-tables.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
