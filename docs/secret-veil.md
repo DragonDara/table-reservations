@@ -17,13 +17,27 @@ Open `http://secret-veil.localhost:5173/` with the API running on port 5183.
 Turso and integration settings in ignored local settings or environment variables.
 
 `Organizations.Items[2].BookingEnabled` is false while the venue's inventory,
-hours, and storage setup are pending. Booking endpoints return 503 and reminder
+booking rules, and storage setup are pending. Booking endpoints return 503 and reminder
 processing skips the venue. Public branding and the rating endpoint remain
 available. Do not enable bookings until its Turso data is isolated from the
 existing restaurant; the current database maps one tenant per business type.
 
 The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
 does not start a paid scraping job or require an Apify token.
+
+## Opening hours
+
+`Organizations.Items[2].OpeningHours` in `appsettings.json` stores the confirmed
+weekly schedule in local Atyrau time: Monday–Thursday and Sunday 12:00–02:00,
+Friday–Saturday 12:00–03:00. Each entry belongs to the day the venue opens;
+closing is on the following calendar day. The public config exposes these
+hours even while bookings are disabled, and the existing reservation section
+shows them grouped by matching consecutive weekdays.
+
+Opening hours are separate from `BookingTime`, which still controls reservation
+start slots and currently supports one daily window. Confirm reservation cutoff,
+visit duration, and VIP rules, then add weekday-aware booking validation before
+enabling bookings for The Veil. The opening-hours display does not generate slots.
 
 ## Current indoor floor plan
 

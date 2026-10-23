@@ -118,7 +118,7 @@ html[data-organization='secret-veil'] {
 [data-organization='secret-veil'] .reservation {
   background: linear-gradient(#0b0908e8, #0b0908f5), url('/tenants/secret-veil/curtains.jpeg') center / cover;
 }
-[data-organization='secret-veil'][data-booking-enabled='false'] .reservation-hours {
+[data-organization='secret-veil'][data-booking-enabled='false'] .reservation-hours:not(.weekly-opening-hours) {
   display: none;
 }
 [data-organization='secret-veil'] :is(.field input, .field select, .date-option, .time-option, .table-picker) {

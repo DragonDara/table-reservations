@@ -9,6 +9,7 @@ import {
   type TableAvailability,
 } from '../api';
 import type { PublicTenantConfig } from '../tenancy/types';
+import { renderOpeningHours } from '../tenancy/opening-hours';
 import { reportError, showError } from '../ui/error-notification';
 import {
   formatKazakhstanPhone,
@@ -25,6 +26,7 @@ export async function initRestaurantExperience(config: PublicTenantConfig): Prom
   const veilPlan = config.organizationId === 'secret-veil'
     ? await import('./veil-floor-plan') : null;
   veilPlan?.initVeilFloorPlan();
+  renderOpeningHours(config);
   if (config.bookingEnabled === false) {
     document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('#reservationForm input, #reservationForm button, #reservationForm select').forEach((control) => { control.disabled = true; });
     veilPlan?.showVeilFloorPlanPreview();
