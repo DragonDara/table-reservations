@@ -70,8 +70,11 @@ the existing `Обычный` table type. Inserts use the default `available` st
 repeating the script adds missing rows without overwriting existing inventory
 or reservations. These are maximum guest counts, not required party sizes.
 
-VIP entries 28/29 remain preview-only until their capacities and whole-room
-booking rules are confirmed. Balcony and terrace remain out of season.
+The same script also inserts the smaller VIP room 28 for up to 6 guests and
+larger VIP room 29 for up to 8, both with type `VIP`. Whole-room booking rules
+still need confirmation. Select all INSERT statements together in the Turso
+SQL Console; it handles the transaction automatically, without explicit BEGIN
+or COMMIT statements. Balcony and terrace remain out of season.
 Room/shape coordinates remain in the frontend floor-plan data.
 
 The shared `telegram_groups` and `notification_deliveries` tables already scope
@@ -90,7 +93,7 @@ do not require their tables to exist yet. Normal startup does not create them,
 and the existing `--migrate` command still handles the legacy shared schema.
 No new database URL or token is needed. Keep the existing credentials private.
 
-After executing both scripts, this query should return 25 hall tables:
+After executing both scripts, this query should return 25 hall tables and 2 VIP entries:
 
 ```sql
 SELECT id, type, capacity, status, created_at, updated_at
@@ -153,8 +156,9 @@ VIP plans, a table-number grid, zoom controls, and local
 selection confirmation. The BRON header and shared page sections remain intact.
 
 The preview currently has 27 selectable entries: 25 hall tables and 2 VIP
-entries. Hall capacities are confirmed at 4 or 6 guests; VIP capacities remain
-null. Availability is unknown; no table/slot/reservation API is called by the
+entries. Hall capacities are confirmed at 4 or 6 guests; the smaller VIP room
+28 accommodates up to 6, and the larger room 29 up to 8. Availability is
+unknown; no table/slot/reservation API is called by the
 preview. Selection is
 kept only in the current page, and does not create a reservation. Its internal
 IDs include the area (for example `hall-1` and `vip-28`); these still need
@@ -163,5 +167,5 @@ mapping to isolated Turso inventory before bookings can be enabled.
 The retained VIP drawing is in `my-site/public/tenants/secret-veil/floor-plans/`.
 Marker positions, landmark labels, and provisional table metadata are in
 `my-site/src/experiences/veil-floor-plan-data.ts`; the hall artwork is generated
-by `veil-floor-plan-diagram.ts`. Confirm VIP capacities and booking rules before
+by `veil-floor-plan-diagram.ts`. Confirm VIP booking rules before
 connecting real bookings.

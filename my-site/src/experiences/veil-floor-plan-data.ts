@@ -37,14 +37,14 @@ function area(
   width: number,
   height: number,
   minMapWidth: number,
-  positions: [number, number, number][],
+  positions: [number, number, number, number][],
 ): VeilArea {
   return {
     id, label, width, height, minMapWidth,
     image: `/tenants/secret-veil/floor-plans/${id}.png`,
     description: 'Перемещайте схему, чтобы рассмотреть столики',
-    tables: positions.map(([number, x, y]) => ({
-      id: `${id}-${number}`, number, x, y, capacity: null,
+    tables: positions.map(([number, x, y, capacity]) => ({
+      id: `${id}-${number}`, number, x, y, capacity,
     })),
   };
 }
@@ -116,6 +116,6 @@ export const veilAreas: VeilArea[] = [
     ],
   },
   area('vip', 'VIP', 1900, 920, 440, [
-    [28, 35.961, 35.217], [29, 79.013, 72.527],
+    [28, 35.961, 35.217, 6], [29, 79.013, 72.527, 8],
   ]),
 ];
