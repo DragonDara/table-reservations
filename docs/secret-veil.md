@@ -16,11 +16,11 @@ Open `http://secret-veil.localhost:5173/` with the API running on port 5183.
 `/secret-veil/` also selects the tenant on shared local hosts. Keep the private
 Turso and integration settings in ignored local settings or environment variables.
 
-`Organizations.Items[2].BookingEnabled` stays false until release. Booking
-endpoints return 503 and the page shows its local picker preview. The isolated
-Turso inventory, booking rules, and API-backed picker integration are ready
-for review. Set this flag to true when releasing the feature branch.
-`NotificationsEnabled` remains false independently of that flag: booking
+`Organizations.Items[2].BookingEnabled` is true. The page opens the normal
+reservation flow with live availability from the isolated Turso inventory.
+Restart the API after changing tenant settings because its organization registry
+is constructed at startup, then reload the page to fetch the updated public config.
+`NotificationsEnabled` remains false independently of booking activation: booking
 confirmation delivery and reminder processing are disabled until the later
 notification rollout. The phone hint does not promise notifications.
 
@@ -32,9 +32,8 @@ does not start a paid scraping job or require an Apify token.
 `Organizations.Items[2].OpeningHours` in `appsettings.json` stores the confirmed
 weekly schedule in local Atyrau time: Monday–Thursday and Sunday 12:00–02:00,
 Friday–Saturday 12:00–03:00. Each entry belongs to the day the venue opens;
-closing is on the following calendar day. The public config exposes these
-hours even while bookings are disabled, and the existing reservation section
-shows them grouped by matching consecutive weekdays.
+closing is on the following calendar day. These hours configure booking
+validation; The Veil page does not display a work-schedule block.
 
 Opening hours are separate from `BookingTime`, which controls reservation start
 slots. Server validation resolves the weekly opening/closing times for the
@@ -116,8 +115,9 @@ FROM secret_veil_tables
 ORDER BY id;
 ```
 
-Creating the tables alone does not open bookings. `BookingEnabled` stays false
-until release; the page continues using its local floor-plan preview meanwhile.
+The configured `BookingEnabled = true` opens the reservation flow once the
+updated API is running. If explicitly disabled later, the page falls back to
+local floor-plan preview.
 
 ## Current indoor floor plan
 

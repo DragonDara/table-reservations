@@ -9,7 +9,7 @@ namespace table_reservations.Tests;
 public class OpeningHoursTests
 {
     [Fact]
-    public void ConfiguredVeilSchedulePublishesOvernightHoursWithoutEnablingBookings()
+    public void DisabledVeilSchedulePublishesOvernightHoursWithoutBookingSlots()
     {
         var configuration = new ConfigurationBuilder()
             .AddJsonFile(Path.Combine(AppContext.BaseDirectory, "Fixtures", "tenant-settings.json"))
@@ -17,6 +17,7 @@ public class OpeningHoursTests
         var options = configuration.GetSection(OrganizationsOptions.SectionName).Get<OrganizationsOptions>()!;
         var registry = new OrganizationRegistry(Options.Create(options));
         Assert.True(registry.TryGetById("secret-veil", out var veil));
+        veil.BookingEnabled = false;
         var config = PublicTenantConfigResponse.FromOrganization(veil);
 
         Assert.False(config.BookingEnabled);

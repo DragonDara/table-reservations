@@ -85,15 +85,15 @@ public class SecretVeilBookingRulesTests
     public void PublicBookingConfigPublishesOneHourAndMidnightWhileOtherTenantsRetainDefaults()
     {
         var org = Organization();
-        org.BookingEnabled = true;
         var config = PublicTenantConfigResponse.FromOrganization(org);
+        Assert.True(config.BookingEnabled);
         Assert.Equal(60, config.ReservationDurationMinutes);
         Assert.Equal("12:00", config.BookingTime.AvailableTimeSlots[0]);
         Assert.Equal("00:00", config.BookingTime.AvailableTimeSlots[^1]);
         Assert.DoesNotContain("01:00", config.BookingTime.AvailableTimeSlots);
         Assert.Equal(180, new OrganizationOptions().ReservationDurationMinutes);
         Assert.False(org.NotificationsEnabled);
-        Assert.False(Organization().BookingEnabled);
+        Assert.True(Organization().BookingEnabled);
     }
 
     [Fact]

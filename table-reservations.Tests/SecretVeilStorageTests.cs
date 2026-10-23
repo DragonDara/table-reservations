@@ -47,7 +47,8 @@ public class SecretVeilStorageTests
         Assert.Equal(new("secret_veil_tables", "secret_veil_table_reservations", "secret_veil_reservation_reminders"),
             RestaurantStorageTables.Resolve(org, new TursoOptions()));
         var publicConfig = PublicTenantConfigResponse.FromOrganization(org);
-        Assert.False(publicConfig.BookingEnabled);
+        Assert.True(publicConfig.BookingEnabled);
+        Assert.Equal(13, publicConfig.BookingTime.AvailableTimeSlots.Length);
         Assert.DoesNotContain("RestaurantStorage", JsonSerializer.Serialize(publicConfig));
         Assert.DoesNotContain("secret_veil_", JsonSerializer.Serialize(publicConfig));
     }

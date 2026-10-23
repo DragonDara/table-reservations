@@ -10,7 +10,6 @@ import {
 } from '../api';
 import type { PublicTenantConfig } from '../tenancy/types';
 import type { VeilFloorPlanController } from './veil-floor-plan';
-import { renderOpeningHours } from '../tenancy/opening-hours';
 import { reportError, showError } from '../ui/error-notification';
 import {
   formatKazakhstanPhone,
@@ -47,7 +46,7 @@ export async function initRestaurantExperience(config: PublicTenantConfig): Prom
     const hint = document.querySelector('#phoneStep .field-hint');
     if (hint) hint.textContent = 'Укажите номер для связи по бронированию';
   }
-  renderOpeningHours(config);
+  if (veilPlan) document.getElementById('reservationHours')?.remove();
   if (config.bookingEnabled === false) {
     document.querySelectorAll<HTMLInputElement | HTMLButtonElement | HTMLSelectElement>('#reservationForm input, #reservationForm button, #reservationForm select').forEach((control) => { control.disabled = true; });
     veilPlan?.showVeilFloorPlanPreview();
