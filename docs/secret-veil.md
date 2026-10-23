@@ -20,7 +20,7 @@ Turso and integration settings in ignored local settings or environment variable
 booking rules, and storage setup are pending. Booking endpoints return 503 and reminder
 processing skips the venue. Public branding and the rating endpoint remain
 available. Do not enable bookings until its Turso data is isolated from the
-existing restaurant; the current database maps one tenant per business type.
+existing restaurant and the reservation rules and picker integration are ready.
 
 The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
 does not start a paid scraping job or require an Apify token.
@@ -38,6 +38,51 @@ Opening hours are separate from `BookingTime`, which still controls reservation
 start slots and currently supports one daily window. Confirm reservation cutoff,
 visit duration, and VIP rules, then add weekday-aware booking validation before
 enabling bookings for The Veil. The opening-hours display does not generate slots.
+
+## Turso tables
+
+Secret Veil shares the existing Turso connection but uses separate physical
+tables, configured by `Organizations.Items[2].RestaurantStorage.TablePrefix`:
+
+| Purpose | Table |
+| --- | --- |
+| Table inventory | `secret_veil_tables` |
+| Reservations | `secret_veil_table_reservations` |
+| Reminder receipts | `secret_veil_reservation_reminders` |
+
+Run the complete [`database/secret-veil.sql`](../database/secret-veil.sql) script
+manually in the existing shared Turso database. It creates these three tables,
+foreign keys, lookup indexes, and 27 inactive inventory rows. It does not touch
+the existing restaurant or carwash tables. Repeating it preserves capacities,
+activation states, and reservations, and inserts only missing inventory rows.
+The separate VIP entries 28/29 remain provisional until the venue confirms
+whether each room is booked as a whole. Balcony and terrace are not seeded.
+
+All capacities start as SQL `NULL`. The schema prevents activating a table until
+it has a positive integer capacity. Once capacities and the VIP rules are
+confirmed, fill the inventory and mark the confirmed entries `available`.
+Unknown entries remain `inactive` and are omitted by the booking repository.
+Reminder preference defaults to off; this script does not enable notifications.
+
+The backend routes inventory, availability, reservation lists, inserts,
+replacement cancellations, and reminder receipts to this namespace. It does
+not fall back to TheTochka when the Veil tables are missing. Startup validates
+the additional schema once that tenant's bookings are enabled; disabled tenants
+do not require their tables to exist yet. Normal startup does not create them,
+and the existing `--migrate` command still handles the legacy shared schema.
+No new database URL or token is needed. Keep the existing credentials private.
+
+After executing the script, inspect the initial inventory:
+
+```sql
+SELECT id, type, area, shape, capacity, status
+FROM secret_veil_tables
+ORDER BY id;
+```
+
+Creating the tables alone does not open bookings. `BookingEnabled` stays false
+until capacities, weekday-aware booking rules, and the frontend API integration
+are complete. The page continues using its local floor-plan preview meanwhile.
 
 ## Current indoor floor plan
 
