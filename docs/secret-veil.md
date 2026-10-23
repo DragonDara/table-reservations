@@ -16,11 +16,13 @@ Open `http://secret-veil.localhost:5173/` with the API running on port 5183.
 `/secret-veil/` also selects the tenant on shared local hosts. Keep the private
 Turso and integration settings in ignored local settings or environment variables.
 
-`Organizations.Items[2].BookingEnabled` is false while the venue's inventory,
-booking rules, and storage setup are pending. Booking endpoints return 503 and reminder
-processing skips the venue. Public branding and the rating endpoint remain
-available. Do not enable bookings until its Turso data is isolated from the
-existing restaurant and the reservation rules and picker integration are ready.
+`Organizations.Items[2].BookingEnabled` stays false until release. Booking
+endpoints return 503 and the page shows its local picker preview. The isolated
+Turso inventory, booking rules, and API-backed picker integration are ready
+for review. Set this flag to true when releasing the feature branch.
+`NotificationsEnabled` remains false independently of that flag: booking
+confirmation delivery and reminder processing are disabled until the later
+notification rollout. The phone hint does not promise notifications.
 
 The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
 does not start a paid scraping job or require an Apify token.
@@ -34,10 +36,23 @@ closing is on the following calendar day. The public config exposes these
 hours even while bookings are disabled, and the existing reservation section
 shows them grouped by matching consecutive weekdays.
 
-Opening hours are separate from `BookingTime`, which still controls reservation
-start slots and currently supports one daily window. Confirm reservation cutoff,
-visit duration, and VIP rules, then add weekday-aware booking validation before
-enabling bookings for The Veil. The opening-hours display does not generate slots.
+Opening hours are separate from `BookingTime`, which controls reservation start
+slots. Server validation resolves the weekly opening/closing times for the
+selected opening day. Missing weekdays in an explicit weekly schedule are closed.
+
+`ReservationDurationMinutes = 60` applies to both hall tables and VIP rooms.
+Starts are hourly from 12:00 through **00:00 inclusive**;
+`BookingTime.ReservationDeadline = "00:00"` and
+`ReservationDeadlineInclusive = true` make midnight the last start. Midnight
+belongs to the following calendar day of the selected evening; that visit ends
+at 01:00. Each complete visit must fit before the venue closes. The existing
+seven-opening-day horizon and five-minute lead time still apply.
+
+New Veil bookings store their UTC `ends_at`, so later duration changes do not
+alter existing reservations. The existing restaurant retains its three-hour
+default and existing booking behavior. VIP 28/29 each represent an entire room:
+one booking makes that room unavailable for the complete one-hour interval,
+independently of the room's maximum guest count.
 
 ## Turso tables
 
@@ -71,8 +86,8 @@ repeating the script adds missing rows without overwriting existing inventory
 or reservations. These are maximum guest counts, not required party sizes.
 
 The same script also inserts the smaller VIP room 28 for up to 6 guests and
-larger VIP room 29 for up to 8, both with type `VIP`. Whole-room booking rules
-still need confirmation. Select all INSERT statements together in the Turso
+larger VIP room 29 for up to 8, both with type `VIP`. Each is booked as a whole
+room. Select all INSERT statements together in the Turso
 SQL Console; it handles the transaction automatically, without explicit BEGIN
 or COMMIT statements. Balcony and terrace remain out of season.
 Room/shape coordinates remain in the frontend floor-plan data.
@@ -102,8 +117,7 @@ ORDER BY id;
 ```
 
 Creating the tables alone does not open bookings. `BookingEnabled` stays false
-until capacities, weekday-aware booking rules, and the frontend API integration
-are complete. The page continues using its local floor-plan preview meanwhile.
+until release; the page continues using its local floor-plan preview meanwhile.
 
 ## Current indoor floor plan
 
@@ -145,10 +159,10 @@ sizes in the fitted view.
 
 The balcony and terrace are separate spaces but are out of season and omitted
 from the current picker. They must not contribute selectable tables or counts.
-The VIP illustration and its existing UI table IDs 28 and 29 are retained;
-whether each VIP room is booked as a whole still needs confirmation.
+The VIP illustration and its existing UI table IDs 28 and 29 are retained.
+Each VIP entry books the entire room.
 
-## Table picker preview
+## Table picker and preview
 
 With bookings disabled, the existing reservation section opens The Veil's own
 table picker instead of the hardcoded TheTochka map. It includes the hall and
@@ -161,11 +175,19 @@ entries. Hall capacities are confirmed at 4 or 6 guests; the smaller VIP room
 unknown; no table/slot/reservation API is called by the
 preview. Selection is
 kept only in the current page, and does not create a reservation. Its internal
-IDs include the area (for example `hall-1` and `vip-28`); these still need
-mapping to isolated Turso inventory before bookings can be enabled.
+IDs include the area (for example `hall-1` and `vip-28`). When bookings are
+enabled, selections map to numeric Turso IDs 1–25 and 28/29. The shared wizard
+loads available starts from `/api/Tables/slots`, then table status/capacity
+from `/api/Tables?scheduledAt=...`. Opening the picker refreshes availability;
+missing or occupied inventory cannot be selected. The server checks conflicts
+again inside the booking transaction. A room taken during submission returns
+the guest to table selection without discarding their contact details.
+Existing-reservation replacement continues using the shared overwrite dialog.
+The chosen numeric ID, actual calendar timestamp, and hall/whole-room section
+are submitted through the normal reservation API.
 
 The retained VIP drawing is in `my-site/public/tenants/secret-veil/floor-plans/`.
 Marker positions, landmark labels, and provisional table metadata are in
 `my-site/src/experiences/veil-floor-plan-data.ts`; the hall artwork is generated
-by `veil-floor-plan-diagram.ts`. Confirm VIP booking rules before
-connecting real bookings.
+by `veil-floor-plan-diagram.ts`. The artwork and shared page structure are
+preserved when live bookings are enabled.
