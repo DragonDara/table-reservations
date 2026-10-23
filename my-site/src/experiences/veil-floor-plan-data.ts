@@ -27,8 +27,22 @@ export interface VeilArea {
   width: number;
   height: number;
   minMapWidth: number;
+  /** Clockwise display rotation; source drawing coordinates stay unchanged. */
+  rotation?: 90;
   tables: VeilTable[];
   landmarks?: VeilLandmark[];
+}
+
+export function veilMapSize(area: VeilArea): { width: number; height: number } {
+  return area.rotation === 90 ? { width: area.height, height: area.width }
+    : { width: area.width, height: area.height };
+}
+
+/** Rotate hit targets and labels with the artwork, keeping their text upright. */
+export function veilMapBox(area: VeilArea, box: Pick<VeilTable, 'x' | 'y' | 'width' | 'height'>) {
+  return area.rotation === 90
+    ? { x: 100 - box.y, y: box.x, width: box.height, height: box.width }
+    : box;
 }
 
 function area(
@@ -97,8 +111,8 @@ const hallPositions: [number, number, number, number, number][] = [
 // table identities remain unchanged until the venue confirms room booking rules.
 export const veilAreas: VeilArea[] = [
   {
-    id: 'hall', label: 'Зал', width: HALL_WIDTH, height: HALL_HEIGHT, minMapWidth: 420,
-    description: 'Вход — внизу слева. Лестница к VIP на 2-й этаж — вверху справа.',
+    id: 'hall', label: 'Зал', width: HALL_WIDTH, height: HALL_HEIGHT, minMapWidth: 420, rotation: 90,
+    description: 'Вход — вверху слева. Лестница к VIP на 2-й этаж — внизу справа.',
     tables: hallPositions.map(([number, x, y, width, height]) => {
       const round = number >= 12 && number <= 23;
       return {

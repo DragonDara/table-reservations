@@ -72,6 +72,7 @@
 .veil-map[data-rendering='diagram'] .veil-map-landmark > span { max-width: 100%; min-width: 0; padding: 2px 3px; border-radius: 3px; background: #171614eb; line-height: 1.4; }
 .veil-map[data-rendering='diagram'] .veil-landmark-entrance { color: var(--veil-sand); }
 .veil-map[data-rendering='diagram'] .veil-landmark-stairs > span { position: absolute; top: calc(100% + 6px); right: 0; width: var(--veil-plan-caption-width, 104px); max-width: none; padding: 0; background: transparent; text-align: right; font-size: var(--veil-plan-caption-size, 10px); line-height: 1.4; }
+.veil-map[data-rotation='90'] .veil-landmark-stairs > span { top: auto; bottom: calc(100% + 6px); }
 .veil-map-table { position: absolute; transform: translate(-50%, -50%); display: grid; place-items: center; width: 34px; height: 34px; border: 1px solid var(--veil-sand); border-radius: 8px; color: var(--veil-sand); background: #211b16; box-shadow: 0 2px 8px #0005; font-size: 12px; font-weight: 500; cursor: pointer; }
 .veil-map-table[data-shape='round'] { width: max(32px, var(--veil-table-width)); height: max(32px, var(--veil-table-height)); border-radius: 50%; }
 .veil-map-table[data-shape='rectangular'] { width: max(44px, var(--veil-table-width)); height: max(44px, var(--veil-table-height)); border-radius: 6px; }
