@@ -142,7 +142,10 @@ export function initVeilFloorPlan(options: PickerOptions = {}): VeilFloorPlanCon
 
   function resizeMap(): void {
     const fitWidth = Math.min(viewport.clientWidth - 32, (viewport.clientHeight - 32) * activeArea.width / activeArea.height);
-    const width = Math.max(activeArea.minMapWidth, fitWidth) * zoom;
+    // A smaller mobile overview reveals more of the room; hall tap targets
+    // keep their 44px CSS minimum and zoom still allows a closer look.
+    const minWidth = window.matchMedia('(max-width: 760px)').matches ? 320 : activeArea.minMapWidth;
+    const width = Math.max(minWidth, fitWidth) * zoom;
     map.style.width = `${width}px`;
     map.style.setProperty('--veil-plan-number-size', `${Math.max(13, Math.min(20, width * .022))}px`);
     map.style.setProperty('--veil-plan-annotation-size', `${Math.max(11, Math.min(16, width * .018))}px`);
