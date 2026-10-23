@@ -52,6 +52,9 @@ namespace table_reservations.Configuration
         /// <summary>Weekly venue hours in local venue time, separate from reservation start rules.</summary>
         public List<OpeningHoursOptions> OpeningHours { get; set; } = new();
 
+        /// <summary>Explicit table namespace for an additional restaurant in the shared database.</summary>
+        public RestaurantStorageOptions? RestaurantStorage { get; set; }
+
         /// <summary>Tenant-specific WhatsApp delivery settings.</summary>
         public WhatsAppOptions WhatsApp { get; set; } = new();
 
@@ -69,6 +72,15 @@ namespace table_reservations.Configuration
         /// credentials) must never be placed in this section.
         /// </summary>
         public FrontendOptions Frontend { get; set; } = new();
+    }
+
+    public sealed class RestaurantStorageOptions
+    {
+        public string TablePrefix { get; set; } = string.Empty;
+
+        public static bool IsValidPrefix(string? prefix) => prefix is not null
+            && System.Text.RegularExpressions.Regex.IsMatch(prefix, @"\A[a-z][a-z0-9_]{0,39}_\z")
+            && !prefix.StartsWith("sqlite_", StringComparison.Ordinal);
     }
 
     public sealed class OpeningHoursOptions

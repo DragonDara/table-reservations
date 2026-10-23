@@ -2,7 +2,7 @@ namespace table_reservations.Configuration
 {
     /// <summary>
     /// Connection settings for the shared Turso (libSQL) database that backs all
-    /// organizations. This schema maps one lounge and one carwash to separate tables.
+    /// organizations. Restaurants can use separate configured table namespaces.
     /// </summary>
     public sealed class TursoOptions
     {

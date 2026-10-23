@@ -40,6 +40,11 @@ namespace table_reservations.Services.Tenancy
 
             foreach (var org in items)
             {
+                if (org.RestaurantStorage is { } storage
+                    && (org.BusinessType != Models.Tenancy.BusinessType.Restaurant
+                        || !RestaurantStorageOptions.IsValidPrefix(storage.TablePrefix)))
+                    throw new InvalidOperationException($"Invalid restaurant table prefix for organization '{org.Id}'. Use a lowercase SQL identifier ending in underscore.");
+
                 org.OpeningHours ??= new();
                 if (org.OpeningHours.GroupBy(hours => hours.Day).Any(days => days.Count() > 1)
                     || org.OpeningHours.Any(hours => !Enum.IsDefined(hours.Day)
@@ -63,6 +68,11 @@ namespace table_reservations.Services.Tenancy
                         ex);
                 }
             }
+
+            if (items.Where(o => o.RestaurantStorage is not null)
+                .GroupBy(o => o.RestaurantStorage!.TablePrefix, StringComparer.OrdinalIgnoreCase)
+                .Any(group => group.Count() > 1))
+                throw new InvalidOperationException("Restaurant table prefixes must be unique for each organization.");
 
             if (items.Where(o => !string.IsNullOrEmpty(o.Telegram.ConnectionCode))
                 .GroupBy(o => o.Telegram.ConnectionCode, StringComparer.Ordinal)

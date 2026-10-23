@@ -5,7 +5,7 @@ namespace table_reservations.Data;
 
 /// <summary>Startup validates only. Run explicitly with --migrate for additive schema changes.</summary>
 public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseInitializer> logger,
-    IOptions<TelegramOptions>? telegram = null)
+    IOptions<TelegramOptions>? telegram = null, IOptions<OrganizationsOptions>? organizations = null)
 {
     public async Task InitializeAsync(CancellationToken ct = default)
     {
@@ -20,6 +20,16 @@ public sealed class DatabaseInitializer(ITursoClient client, ILogger<DatabaseIni
             new("SELECT service_id,vehicle_category_id,price_minor,duration_minutes FROM carwash_service_prices LIMIT 0"),
             new("SELECT package_service_id,included_service_id FROM carwash_package_items LIMIT 0")
         ], ct);
+        foreach (var organization in organizations?.Value.Items ?? [])
+        {
+            if (!organization.BookingEnabled || organization.RestaurantStorage is null) continue;
+            var tables = RestaurantStorageTables.FromPrefix(organization.RestaurantStorage.TablePrefix);
+            await client.QueryBatchAsync([
+                new($"SELECT id,type,capacity,status FROM {tables.Tables} LIMIT 0"),
+                new($"SELECT id,table_id,customer_name,customer_phone,reserved_at,status,remind_before_hour FROM {tables.Reservations} LIMIT 0"),
+                new($"SELECT reservation_id,sent_at FROM {tables.Reminders} LIMIT 0")
+            ], ct);
+        }
         if (telegram?.Value.IsConfigured == true)
             await client.QueryBatchAsync([
                 new("SELECT organization_id,chat_id,title FROM telegram_groups LIMIT 0"),
