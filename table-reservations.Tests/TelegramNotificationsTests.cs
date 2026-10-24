@@ -161,6 +161,38 @@ public class TelegramNotificationsTests
         Assert.Equal(0, bot.AdminChecks); Assert.Empty(bot.Messages);
     }
 
+    [Theory]
+    [InlineData(null, StatusCodes.Status401Unauthorized)]
+    [InlineData("forged", StatusCodes.Status401Unauthorized)]
+    [InlineData(Secret, StatusCodes.Status200OK)]
+    public async Task SharedHostWebhookReachesControllerAndStillRequiresSecret(string? suppliedSecret, int expectedStatus)
+    {
+        var registry = new OrganizationRegistry(Options.Create(new OrganizationsOptions { Items = [Organization()] }));
+        var context = new DefaultHttpContext();
+        context.Request.Host = new HostString("bron.cafe");
+        context.Request.Path = "/api/integrations/telegram/webhook";
+        context.Request.Method = "POST";
+        if (suppliedSecret is not null) context.Request.Headers["X-Telegram-Bot-Api-Secret-Token"] = suppliedSecret;
+        context.Response.Body = new MemoryStream();
+        var bot = new Bot();
+        var controller = new TelegramWebhookController(Settings(), registry, null!, bot) {
+            ControllerContext = new ControllerContext { HttpContext = context }
+        };
+        var reachedController = false;
+        var middleware = new table_reservations.Middleware.TenantResolutionMiddleware(async http => {
+            reachedController = true;
+            var result = await controller.Receive(new TelegramUpdate(), default);
+            http.Response.StatusCode = Assert.IsAssignableFrom<StatusCodeResult>(result).StatusCode;
+        }, NullLogger<table_reservations.Middleware.TenantResolutionMiddleware>.Instance, Options.Create(new TenantRoutingOptions()));
+
+        await middleware.InvokeAsync(context, registry, new TenantContext());
+
+        Assert.True(reachedController);
+        Assert.Equal(expectedStatus, context.Response.StatusCode);
+        Assert.Equal(0, bot.AdminChecks);
+        Assert.Empty(bot.Messages);
+    }
+
     [Fact]
     public async Task AdministratorCanReuseConfiguredCodeToReconnectAndMoveGroup()
     {

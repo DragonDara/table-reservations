@@ -44,6 +44,15 @@ namespace table_reservations.Middleware
 
         public async Task InvokeAsync(HttpContext context, OrganizationRegistry registry, TenantContext tenant)
         {
+            // Telegram uses one shared callback for all tenants. The controller
+            // authenticates its webhook secret and /connect resolves the tenant by code.
+            if (context.Request.Path.Value?.TrimEnd('/').Equals(
+                "/api/integrations/telegram/webhook", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                await _next(context);
+                return;
+            }
+
             var resolution = ResolveOrganization(
                 context,
                 registry,
