@@ -20,9 +20,8 @@ Turso and integration settings in ignored local settings or environment variable
 reservation flow with live availability from the isolated Turso inventory.
 Restart the API after changing tenant settings because its organization registry
 is constructed at startup, then reload the page to fetch the updated public config.
-`NotificationsEnabled` remains false independently of booking activation: booking
-confirmation delivery and reminder processing are disabled until the later
-notification rollout. The phone hint does not promise notifications.
+`NotificationsEnabled` is true: configured Telegram and WhatsApp integrations
+can deliver booking confirmations. Reminder preference remains hidden in the UI.
 
 The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
 does not start a paid scraping job or require an Apify token.
@@ -62,9 +61,10 @@ account after restarting/deploying the backend with that code. One group belongs
 to one tenant. Connecting another group for The Veil moves its subscription.
 See [Telegram setup](telegram-notifications.md) for the full connection flow.
 
-Once the destination and WhatsApp credentials are ready, enable delivery with
-`Organizations__Items__2__NotificationsEnabled=true` and restart the backend.
-This enables booking confirmations for both integrations; it does not enable
+`NotificationsEnabled` is already true in the tracked tenant settings; no
+DigitalOcean override is required unless the environment sets it to false.
+Restart the backend after configuring destinations and credentials. This enables
+booking confirmations for configured integrations; it does not enable
 hourly reminders in the UI. `Frontend.Features.ShowReminderOption` remains false,
 so keep that unchanged unless reminders are also requested. Check delivery using
 an agreed test recipient and booking: the API returns `whatsAppSent`,
