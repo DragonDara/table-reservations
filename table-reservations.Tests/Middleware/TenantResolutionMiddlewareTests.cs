@@ -72,6 +72,40 @@ public class TenantResolutionMiddlewareTests
         Assert.False(tenant.IsResolved);
     }
 
+    [Theory]
+    [InlineData("bron.cafe", "/api/integrations/telegram/webhook")]
+    [InlineData("bron.cafe", "/api/integrations/telegram/webhook/")]
+    [InlineData("the-tochka-bot-clzgj.ondigitalocean.app", "/API/integrations/telegram/webhook")]
+    [InlineData("ghost.bron.cafe", "/api/integrations/telegram/webhook")]
+    public async Task TelegramWebhook_PassesThroughWithoutTenant(string host, string path)
+    {
+        var (middleware, nextCalled) = BuildMiddleware();
+        var context = ApiContext(host);
+        context.Request.Path = path;
+        context.Request.Method = "POST";
+        var tenant = new TenantContext();
+
+        await middleware.InvokeAsync(context, BuildRegistry(), tenant);
+
+        Assert.True(nextCalled[0]);
+        Assert.False(tenant.IsResolved);
+    }
+
+    [Theory]
+    [InlineData("/api/integrations/telegram/webhook/reservations")]
+    [InlineData("/api/integrations/telegram/webhooks")]
+    public async Task TelegramWebhookPrefix_DoesNotBypassOtherApiPaths(string path)
+    {
+        var (middleware, nextCalled) = BuildMiddleware();
+        var context = ApiContext("bron.cafe");
+        context.Request.Path = path;
+
+        await middleware.InvokeAsync(context, BuildRegistry(), new TenantContext());
+
+        Assert.Equal(StatusCodes.Status400BadRequest, context.Response.StatusCode);
+        Assert.False(nextCalled[0]);
+    }
+
     [Fact]
     public async Task ApiRequest_UnknownSubdomain_Returns404()
     {

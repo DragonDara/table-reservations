@@ -92,7 +92,7 @@ public class SecretVeilBookingRulesTests
         Assert.Equal("00:00", config.BookingTime.AvailableTimeSlots[^1]);
         Assert.DoesNotContain("01:00", config.BookingTime.AvailableTimeSlots);
         Assert.Equal(180, new OrganizationOptions().ReservationDurationMinutes);
-        Assert.False(org.NotificationsEnabled);
+        Assert.True(org.NotificationsEnabled);
         Assert.True(Organization().BookingEnabled);
     }
 
@@ -112,7 +112,7 @@ public class SecretVeilBookingRulesTests
         var rows = (await db.QueryAsync("SELECT reserved_at,ends_at,remind_before_hour FROM secret_veil_table_reservations ORDER BY reserved_at")).Rows;
         Assert.Equal(2, rows.Count);
         Assert.All(rows, row => Assert.Equal(TimeSpan.FromHours(1), BookingRules.Read(row.GetString("ends_at")) - BookingRules.Read(row.GetString("reserved_at"))));
-        Assert.All(rows, row => Assert.False(row.GetBoolean("remind_before_hour")));
+        Assert.All(rows, row => Assert.True(row.GetBoolean("remind_before_hour")));
     }
 
     [Fact]
@@ -155,26 +155,31 @@ public class SecretVeilBookingRulesTests
         Assert.Single(results, success => success);
     }
 
-    [Fact]
-    public async Task ControllerCommitsBookingWithoutCallingNotificationsBeforeRelease()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task ControllerCommitsBookingAndHonorsTenantNotificationSwitch(bool enabled)
     {
         using var db = await DatabaseWithInventory();
         var org = Organization();
-        var notifier = new RejectNotifications();
+        org.NotificationsEnabled = enabled;
+        var notifier = new Notifications();
         var controller = new ReservationsController(Repository(db, org), notifier, Tenant(org),
             new BusinessTypeStrategyResolver([new RestaurantStrategy()]), NullLogger<ReservationsController>.Instance);
         var result = Assert.IsType<OkObjectResult>(await controller.CreateReservation(Request(28, Start), default));
-        Assert.False(notifier.Called);
-        Assert.Contains("\"whatsAppSent\":false", JsonSerializer.Serialize(result.Value));
-        Assert.Single((await db.QueryAsync("SELECT id FROM secret_veil_table_reservations")).Rows);
+        Assert.Equal(enabled, notifier.Called);
+        using var response = JsonDocument.Parse(JsonSerializer.Serialize(result.Value));
+        Assert.Equal(enabled, response.RootElement.GetProperty("whatsAppSent").GetBoolean());
+        var row = Assert.Single((await db.QueryAsync("SELECT remind_before_hour FROM secret_veil_table_reservations")).Rows);
+        Assert.Equal(enabled, row.GetBoolean("remind_before_hour"));
     }
 
-    private sealed class RejectNotifications : IReservationNotificationService
+    private sealed class Notifications : IReservationNotificationService
     {
         public bool Called { get; private set; }
         public Task<ReservationNotificationResult> SendReservationNotificationsAsync(ReservationInfo reservation, DateTime dateTime, string label, CancellationToken ct)
-        { Called = true; throw new InvalidOperationException("Notifications must stay disabled."); }
+        { Called = true; return Task.FromResult(new ReservationNotificationResult(true, true, true)); }
         public Task<bool> SendReminderAsync(string reservationId, ReservationInfo reservation, DateTime dateTime, CancellationToken ct)
-        { Called = true; throw new InvalidOperationException("Notifications must stay disabled."); }
+        { Called = true; return Task.FromResult(true); }
     }
 }
