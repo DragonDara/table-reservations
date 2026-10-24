@@ -20,12 +20,56 @@ Turso and integration settings in ignored local settings or environment variable
 reservation flow with live availability from the isolated Turso inventory.
 Restart the API after changing tenant settings because its organization registry
 is constructed at startup, then reload the page to fetch the updated public config.
-`NotificationsEnabled` remains false independently of booking activation: booking
-confirmation delivery and reminder processing are disabled until the later
-notification rollout. The phone hint does not promise notifications.
+`NotificationsEnabled` is true: configured Telegram and WhatsApp integrations
+can deliver booking confirmations. Reminder preference remains hidden in the UI.
 
 The 2GIS score and review count are a saved snapshot. `Rating.Mode = Snapshot`
 does not start a paid scraping job or require an Apify token.
+
+## Notification setup
+
+The existing BRON Telegram bot can serve The Veil as another tenant. No separate
+bot or webhook is needed. The current `/connect` flow supports staff groups and
+supergroups; broadcast channels do not support this flow. Keep the shared bot's
+existing production webhook: starting a local server must not register a new
+webhook for that same bot.
+
+The Veil is currently `Organizations.Items[2]`. Confirm that index still contains
+`Id = secret-veil` before applying environment settings. Configure the following
+on the backend in DigitalOcean, or under that tenant in ignored local settings:
+
+```text
+Organizations__Items__2__Telegram__ConnectionCode=<unique private connection code>
+Organizations__Items__2__WhatsApp__ApiUrl=<Green API apiUrl>
+Organizations__Items__2__WhatsApp__IdInstance=<Green API idInstance>
+Organizations__Items__2__WhatsApp__ApiTokenInstance=<Green API apiTokenInstance>
+Organizations__Items__2__WhatsApp__AdminPhone=<confirmed admin recipient>
+```
+
+Use the chosen sender's Green API instance. An existing BRON sender can be used
+by supplying its credentials explicitly for The Veil; another tenant's settings
+are not inherited. A separate venue sender needs its own authorized instance.
+The public `wa.me` contact link is not a notification connection or sender.
+Store the API token and connection code as backend secrets, never as frontend
+`VITE_` variables or in tracked settings. The development example includes a
+third tenant entry; merge it into an existing private file instead of replacing
+the other tenants' credentials.
+
+For a staff group, add `@reservremindbot`, make it an administrator, and send
+`/connect@reservremindbot <connection code>` from a group administrator's personal
+account after restarting/deploying the backend with that code. One group belongs
+to one tenant. Connecting another group for The Veil moves its subscription.
+See [Telegram setup](telegram-notifications.md) for the full connection flow.
+
+`NotificationsEnabled` is already true in the tracked tenant settings; no
+DigitalOcean override is required unless the environment sets it to false.
+Restart the backend after configuring destinations and credentials. This enables
+booking confirmations for configured integrations; it does not enable
+hourly reminders in the UI. `Frontend.Features.ShowReminderOption` remains false,
+so keep that unchanged unless reminders are also requested. Check delivery using
+an agreed test recipient and booking: the API returns `whatsAppSent`,
+`adminWhatsAppSent`, and `telegramSent`. A delivery failure does not cancel the
+saved booking.
 
 ## Opening hours
 
